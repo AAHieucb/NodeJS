@@ -1,0 +1,156 @@
+Bảo mật đăng nhập:
+
+
+
+#***Cơ chế bảo mật tài khoản mật khẩu:
+Nếu ta dùng các thứ như firebase đăng nhập bằng google thì là 1 cách nhưng mật khẩu k nằm trong database mà chỉ là 1 dịch vụ của google, chỉ cần tuân thủ đúng quy định thì bảo mật của nó rất tốt. Ta chỉ xét tài khoản mật khẩu được lưu như thông tin của người dùng trong database.
+
+-> Hacker có thể tấn công bằng rất nhiều kiểu, database injection để lấy tài khoản mật khẩu từ database, XSS để gửi request độc hại tới server, lừa người dùng paste cái gì vào browser của họ để lấy cookies hay localStorage, tấn công phía client server hay database để lấy dữ liệu từ 1 trong 3 cái đó,... Ta k rõ có những kiểu tấn công nào khác nhưng khả năng là dùng cookies và localStorage k an toàn với data nhạy cảm. Có 2 kiểu tấn công XSS và CSRF có thể lấy localStorage và data từ server. 
+Thông thường ta dùng bảo mật SSL(để tránh giả mạo trang web giống nội dung), chống XSS, và Database Injection, rate limit chặn DDoS là tối thiểu rồi. Còn các kiểu tấn công và cách bảo mật khác k thể biết hết được.
+Nhiều bài báo viết là localStorage k lưu thông tin nhạy cảm nhưng thực tế họ vẫn lưu đầy ra và tấn công được cx kp dễ. Chỉ cần dùng thêm vài cơ chế bảo mật là được
+
+-> 2 cơ chế login của các trang web tự động đăng nhập:
+Để tự động đăng nhập thì phía client phải lưu 1 cái gì đó mà đã lưu ở phía client thì luôn có nguy cơ bị lộ. Với các trang web mỗi lần vào hay tắt browser đều bắt đăng nhập lại thì k nói làm gì, ta chỉ cần dùng sessionStorage or session cookie để lưu tạm thời thì k sợ hack. Nhưng với các trang web tự động đăng nhập thì là vấn đề khác.
+
+--> Với facebook họ dùng cơ chế Oauth với các cơ chế bảo mật riêng để client đăng nhập và nó lưu trạng thái đăng nhập vĩnh viễn trên 1 máy luôn mà k sợ bị hack. Cụ thể OAuth nó cho phép app truy cập thông tin mà chả cần đưa password vẫn xác thực được => ta k xét TH này luôn
+
+Ta sẽ xét TH web cỡ trung bình, VD web bán hàng hay codeforce cho phép lưu mật khẩu trong 1 tháng r bắt đăng nhập lại chẳng hạn:
+C1 cookies: client đăng nhập lần đầu tiên sẽ gửi tới server, server check xong gửi lại cho client 1 đoạn mã sig xác thực và đoạn mã này được lưu trong cookies của trình duyệt client. Mỗi lần client làm gì thì gửi request lên server kèm theo sig để xác thực là đúng là họ gửi. Để cái sig đó trong cookies thì k an toàn và họ dùng tool http-only để bảo mật cookies. Nó chỉ cho phép gửi đoạn mã cookies được chọn cho cái server đã gửi đến cái cookies đó và đoạn cookies này k thể truy cập bằng JS. VD cái techfi ta thử lấy cookies bằng JS sẽ thấy mất trường sig và khi gửi request lên server thì có trường sig để xác thực. Cách bảo mật này khá tốt. Ta dùng thêm SSL và HTTP Flag kèm để bảo mật.
+C2 jsonwebtoken: 
+client đăng nhập thì jsonwebtoken gửi lại 1 đoạn token được hash từ cái mật khẩu cho client lưu vào localStorage. Mỗi lần client làm gì thì gửi kèm cái token đó để xác thực thông tin đúng là họ. jsonwebtoken sẽ tạo ra 1 hash từ mật khẩu kèm với 1 SCRETE_KEY được lưu trong file .env kbh được public ở server. Hash đó được lưu trong db và phân quyền tk chỉ cho phép truy cập bởi 1 số địa chỉ ip xác định. Khi người dùng thao tác, server nhận token dùng SECRETE_KEY để tạo ngược lại password để check trong database nếu tồn tại thì mới cho thao tác tiếp. 
+
+Nếu hacker có được tài khoản và password do người dùng để lộ. Nó tự vào bằng web luôn đăng nhập vào lấy token là xong. 
+Nếu hacker chỉ hack được localStorage để lấy được token, nó sẽ nhét cái đó vào request và tự tạo gửi đi để lấy thông tin về user.
+Tức là việc lộ token cũng y như lộ tài khoản mật khẩu v, do đó họ cho mỗi token 1 cái expired date để sau 1 khoảng tg hacker có hack cũng k dùng được nx. Kiểu sau 1 tháng yêu cầu người dùng đăng nhập lại chẳng hạn thì sẽ sinh token mới có gắn với timestamp hiện tại(để cho token bị khác đi). Chính vì cái expired date này mà các trang web tự tin lưu data vào localStorage.
+
+-> Tuy nhiên để tăng bảo mật họ dùng 2 loại token là refresh token và access token. Họ cho accesstoken đi cùng mọi request tạm thời của user và chỉ tồn tại 10-15p còn refresh token có expired date dài hơn. Sau môi khoảng thời gian thì accesstoken quá hạn và phải dùng refresh token truyền vào để lấy tiếp accesstoken. Cả 2 token đều được lưu trong localStorage nên điều này chỉ tăng bảo mật ở chỗ: access_token được truyền đi liên tục với mỗi action của user, để tránh lộ token quá trình truyền thì chỉ là accesstoken, trong khi refresh token chỉ cần truyền khi user lấy access_token thì sẽ bảo mật an toàn hơn cho refresh token. Nếu lộ refresh token cx như lộ mật khẩu v nhưng chỉ trong k expired time. Các hệ thống chú trọng hơn về bảo mật sẽ dùng thêm các biện pháp bảo vệ token này.
+Nếu database bị injection thì khả năng là nó delete database luôn chứ k chỉ là lộ mật khẩu. Tuy nhiên để an toàn hơn nếu mật khẩu bị lộ từ database, họ có thể hash mật khẩu trước r mới lưu vào database. Code của việc hash này được thực hiện trong server(chả cần secretkey gì vì k có nhu cầu tạo ngược lại). Hacker k thể xem code trong server được nên điều này là an toàn, thành ra mỗi lần check gì liên quan đến password trong database phải hash nó để so sánh. Nếu database lộ password ra thì toàn mã hash k thể lấy được mật khẩu thực tế và cx k thể hash ngược lại được
+
+Vc lưu vào redux state cũng là 1 kiểu lưu session mà restart là mất hết, thật ra session thì chả lo người dùng bị lộ mà sợ chính người dùng hack từ phía frontend thì đúng hơn. 
+
+-> Ví dụ quá trình verify mất nhiều tg có thể ứng dụng jwt ở các bước sau để chỉ cần verify lâu 1 lần
+VD trong trava ký message profile leaderboard: Người dùng ký bằng ví sẽ sinh ra 1 signature kèm nonce, mỗi lần ký là có 1 signature khác nhau. Gửi signature đó tới server để server check rồi dùng jwt mã hóa ra jwtToken và sinh cả refreshToken cho nó lưu vào local storage.
+K cần lưu signature vào localStorage vì chả cần dùng mà lưu thì cũng chả sao vì mỗi lần ký sinh cái khác thì lần ký sau sinh sig mới gửi tới server sẽ làm stale các cái jwtToken refreshToken cũ
+
+
+
+# Dùng jwt:
+Thư viện giúp sign, verify message
+
+-> Dùng passport + passport-jwt kết hợp: sẽ dùng jwt như 1 strategy làm đơn giản code hơn
+
+
+
+# Dùng Passport:
+Dùng passport: mỗi request đến 1 url dùng passport thì ta viết code cho nó check đúng sai hiển thị lỗi hay thành công
+
+Quy trình: require và initialize nó, viết use cho passport, dùng authenticate trong url
+
+-> Dùng passport-jwt: strategy thay thế cho jwt verify
+
+-> Dùng passport-local: strategy xác thực username password
+--> Dùng passport session
+
+
+
+#***Global storage ở FE 
+-> localStorage k an toàn
+Web dùng code JS bên thứ 3 VD có link đến bootstrap, jQuery, script tới "https://awesomejslibrary.com/minified.js",... Trong TH 1 thư viện bên thứ 3 bị hack và script minified.js bị đổi, nó có thể loop mọi data trong localStorage và gửi qua API để thu thập => hiếm xảy ra và thường được cảnh báo rất nhanh
+
+-> Cookie an toàn hơn nhưng k đáng kể
+httpOnly cookie flag làm browser k đọc được cookie bằng JS mà chỉ có thể send qua lại với server.
+cookie lib cài SameSite=strict cookie flag và secure=true => giảm thiểu CSRF
+Cookie có thể đọc - ghi trực tiếp bởi server mà k cần có sự tác động của JS từ client. Có thể đặt expiration time. Giới hạn cookie chỉ dùng trong các subdomain path nhất định. 
+=> Lưu ý vc dùng HttpOnly và SameSite Strict vẫn là k đủ để chống XSS tự động, vẫn phải filter các thứ.
+=> Trong CSR, việc dùng cookie không đem lại nhiều lợi ích trong khi các frontend React hay Angular tự chống XSS rất tốt. Do đó CSR nên dùng localStorage, SSR nên dùng cookie, trừ khi có yêu cầu đặc biệt gì khác.
+
+-> Indexed DB
+Với các data kp string mà kiểu float, int, nên lưu ở phía client trong IndexedDB là 1 NoSQL DB. Nó như 1 db hoàn chỉnh ở phía client browser
+Bộ nhớ k giới hạn 5MB như localStorage, dùng khi cần lưu 1 lượng data lớn và global trong code. Lưu được file, blobs. High performance với indexed, hỗ trợ transactions.
+Thường 1 app chỉ tạo 1 db dù ta có thể tạo bnh db cũng đươc. Cũng phải tạo connection, tạo object, lưu và chờ như db bth.
+Nên dùng dạng async để tránh đang query db thì client browser bị blocking hay gì đó sẽ ảnh hưởng tới giao diện
+=> Chỉ dùng khi có nhu cầu lưu như localStorage nhưng lại muốn bộ nhớ lớn hơn 5MB
+
+
+
+#***Hiểu giao tiếp token giữa client và browser
+-> Pb:
+Session storage là 1 bộ nhớ trên browser chỉ tồn tại trong 1 phiên làm việc mở browser, nó không liên quan gì tới vấn đề về xác thực
+Mỗi request giữa browser và server có 1 connection id là 1 TCP connection. Nhiều lúc 1 connection gọi nhiều API để tối ưu việc tạo và đóng connection.
+Session là pp truyền tin trong 1 phiên làm việc, nó không phải bộ nhớ là chỉ là pp. Để truyền tin trong 1 session, cách dùng nhiều nhất và có lẽ duy nhất là cookie. 
+
+-> Cookie:
+Session cookie có thời gian ngắn và hiệu lực trong 1 phiên làm việc, nó bị xóa khi người dùng logout or hết hạn.
+Persistent cookie có thời gian lưu lâu dài.
+
+HTTP là 1 giao thức k trạng thái. Mỗi request thì server k thể xác định được nó có phải từ cùng 1 người hay không vì nó k có state lưu giá trị đó. Cookie ra đời đã giải quyết vấn đề k trạng thái của HTTP:
+- Setup cookie middleware trong nodejs sẽ giúp lưu data dùng lại trong phạm vi 1 session. Thông tin về session được lưu ở cookie của client và bộ nhớ của server, do middleware này tự lưu. Hoặc mục đích chỉ đơn giản là truyền tin client server chứ k cần lưu mỗi session state lại vẫn ok
+- Nếu không dùng session cookie, cũng là k dùng pp truyền tin session. Thì mỗi request sẽ độc lập nhau, như cái cách ta vẫn dùng
+
+=> ref tới "Dùng Express Session"
+
+-> Token
+Client ----password-----------> Server
+       <----accesstoken-------
+       --request+accesstoken--> 
+access token sinh từ {userid,role,timestamp,expiration} + key là secret
+Server dùng secret key decode accesstoken ra và ss timestamp để check đã quá hạn chưa. Check role có thỏa mãn, check userid có tồn tại trong DB không. Decode mà ra k tồn tại cũng là sai
+
+-> SSO
+Đăng nhập 1 hệ thống, gửi token để truy cập được tất cả hệ thống con.
+Nếu ta thấy hệ thống domain X mở rộng thêm 1 ứng dụng mới domain Y sao cho những ai đăng nhập X đều có thể đăng nhập Y thì dùng SSO. Tuy nhiên trình duyệt luôn tuân theo same origin policy. Tức domainX k thể truy cập cookie của domainY để tự động đăng nhập. Buộc phải thêm 1 central domain xử lý xác thực.
+
+User vào bất cứ domain nào, nó đều redirect đến 1 authentication server để check thông tin đăng nhập:
+Đã đăng nhập -> redirect về trang trước
+Chưa đăng nhập -> phải đăng nhập -> lưu lại nếu là sessionid, không thì thôi -> gửi lại cho client lưu và redirect về trang trước -> session id có thể dùng để truy cập bất cứ app con nào trong phạm vi 1 session.
+
+SSO có thể mở rộng cung ra ngoài OAuth2 để xác thực cho các app khác dùng data của mình. VD như OpenID Connect, Facebook Connect, SAML, Microsoft Account,...
+Có thể kết hợp nhiều giải pháp bằng framework AuthO cực mạnh giúp triển khai OAuth
+
+-> OAuth 2.0:
+Đơn giản hơn OAuth 1.0, chỉ dùng SSL/TLS còn v1 dùng nhiều chứng chỉ khác
+Custom thêm tính năng là ứng dụng đích có thể lấy thông tin người dùng trong ứng dụng central. VD game lấy thông tin danh sách bạn bè trên facebook để kết nối chẳng hạn
+
+Client access Game, đăng nhập qua facebook
+Chuyển hướng đến máy chủ xác thực facebook và login, cho phép Game dùng thông tin người dùng
+Máy chủ xác thực của facebook chuyển hướng về url của Game (url này do người làm game đăng ký vào máy chủ xác thực của facebook), trả kèm id game + mật khẩu game + tham số mã
+Người dùng trải nghiệm game bth
+Game chạy nền bằng cách dùng id game + mật khẩu game + tham số mã để đăng nhập facebook dưới quyền người dùng
+Máy chủ facebook trả về accesstoken
+Game dùng accesstoken truy cập thông tin người dùng do facebook cung cấp
+
+Facebook: Resource server
+Máy chủ xác thực của facebook: Authorization server
+Game là ứng dụng khách: Client App
+Người dùng là chủ sở hữu tài nguyên: Resource Owner
+
+
+
+# Dùng Express session
+Thực tế sessionid có thể lưu ở:
+cookie là phổ biến nhất
+mem cache có thể sử dụng thêm các cache module mới như redis, memcached, 
+database (ít dùng)
+
+-> Dùng package express-session là 1 middleware trong expressjs. Setup đơn giản, dùng và xóa session đi thoải mái
+
+Lưu trên cookie thì dùng option:
+cookie: {maxAge: 60000}
+Ở đây trong cookie nó chỉ lưu duy nhất connect.sid chứa mọi thông tin của cookie. Nhưng nó được mã hóa nên k nhìn thấy chứ thực tế, frontend gửi, server vẫn lấy ra bth
+
+=> Tuy nhiên dùng bản mặc định gây rò rỉ bộ nhớ trên bản production, có thể dùng package khác là cookie-session.
+Nên hiểu là frontend thì luôn dùng cookie rồi nhưng server cũng phải lưu để khi client request sẽ check cái sessionid có thỏa mãn không. Mặc định ta dùng thì nó lưu trên MemoryStore và bị leak. Ta có thể setup lưu trong các database riêng cho an toàn
+
+Để fix, ta k được lưu session trong cookie nữa mà phải lưu trong các database khác bằng cách thêm option store:
+- VD redis:
+store: new RedisStore(),
+- VD mongo: cài package connect-mongo
+store: new MongoStore ({ 
+    url: 'mongodb: // localhost: 27017 / test-app', // URL MONGODB CỦA BẠN 
+    ttl: 14 * 24 * 60 * 60, 
+    autoRemove: 'native' 
+}),
+ttl là thời gian hết hạn 1 session
+=> Đăng nhập vào mongo atlas sẽ thấy session được lưu ở đó
+
+
