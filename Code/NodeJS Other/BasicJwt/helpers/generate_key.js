@@ -1,6 +1,6 @@
 const crypto = require("crypto");
 
-// Sinh key random 
+// Dùng crypto sinh key random 
 const key1 = crypto.randomBytes(32).toString("hex");
 const key2 = crypto.randomBytes(32).toString("hex");
 

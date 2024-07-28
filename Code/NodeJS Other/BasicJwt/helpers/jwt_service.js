@@ -27,7 +27,6 @@ const verifyAccessToken = (req, res, next) => {
   const token = bearerToken[1];
   JWT.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, payload) => {
     if(err){
-      // Có list các loại error trong docs
       if(err.name == "JsonWebTokenError"){
         return next(createError.Unauthorized());
       }
@@ -38,8 +37,8 @@ const verifyAccessToken = (req, res, next) => {
   })
 }
 
+// Dùng jsonwebtoken
 const signRefreshToken = async (userId) => {
-  // // Dùng hàm sync
   // const payload = {userId};
   // const secret = process.env.REFRESH_TOKEN_SECRET;
   // const options = {
@@ -82,7 +81,6 @@ const signRefreshToken = async (userId) => {
 };
 
 const verifyRefreshToken = async (refreshToken) => {
-  // // Dùng hàm sync
   // var decoded = JWT.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET); // Error nó tự throw
   // const res = await client.get(decoded.userId);
   // if(res == null){

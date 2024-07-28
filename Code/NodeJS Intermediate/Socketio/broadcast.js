@@ -6,10 +6,8 @@ app.get("/", function (req, res) {
     res.sendFile(__dirname + "/views/broadcast.html");
 });
 
-// Cơ chế 1 client gửi cho server, server gửi cho các clients
-// Mỗi 1 client mới xuất hiện là 1 socket client mới đc tạo ra. socket trong function dưới và socket trong file html
-// của client là 1 và mỗi client có 1 cái. Nó như là 1 eventEmitter bth và hàm emit sẽ chỉ có mình nó nhận được
-// nhưng có 1 điều đặc biệt tất cả client bắt mọi sự kiện từ server. Socket của server là io
+// Mỗi 1 client mới xuất hiện là 1 socket client mới đc tạo ra. Socket trong function dưới là của 1 client, như là 1 eventEmitter bth và hàm emit sẽ chỉ có mình nó nhận được
+// Nhưng đb là tất cả socket client bắt mọi sự kiện từ socket server. Socket của server là io
 var clients = 0;
 io.on("connection", function (socket) {
     clients++;
@@ -19,9 +17,7 @@ io.on("connection", function (socket) {
     socket.broadcast.emit("new noti", { // Gửi cho tất cả client khác trừ người gửi
         msg: "Một người vừa mới tham gia ! "
     });
-    socket.on("disconnect", function () { // Signal có sẵn là disconnect, thực hiện hàm này sau đó disconnect
-        // Ta cho socket của chính client bắt sự kiện khi chinish nó disconnect thì nó sẽ gửi tới mọi socket khác trước
-        // đã r mới tắt
+    socket.on("disconnect", function () { // Signal có sẵn là disconnect, thao tác trước khi tắt
         clients--;
         socket.broadcast.emit("new noti", {
             msg: "Một người vừa mới rời đi! "

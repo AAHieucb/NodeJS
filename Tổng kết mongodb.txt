@@ -1,0 +1,138 @@
+# Basic
+1 Cloud Server có nhiều Cluster, 1 cluster có nhiều database bên trong, 1 database bên trong có nhiều collections tên khác nhau, mỗi collection có nhiều documents bên trong. 
+Còn model hay schema trong code là tùy vào thư viện như mongoose sử dụng để định nghĩa ra cấu trúc của 1 collection.
+Mongodb lưu dữ liệu dạng BSON, tương tự JSON nhưng mạnh hơn.
+
+URL docs: https://mongoosejs.com/docs/
+URL tut: https://stackjava.com/huong-dan-mongodb-code-vi-du-java-mongodb
+
+-> Cài đặt
+- Cloud mongodb server: Chọn tạo shared cluster. Sau khi tạo cần vào deployment để connect trong 1 cluster -> vào network access mục security cột bên trái, thêm IP address máy của ta hoặc (0.0.0.0 để accept mọi IP) và chọn connect qua driver sẽ lấy được connection string
+- Cài local docker
+Có lệnh backup db vào file
+
+Tạo replica: update 1 db sẽ tự update các db còn lại
+docker network create mongo-replica-network => muốn chạy nhiều instance tương tác với nhau, phải tạo 1 mạng
+docker run -d -p 27017:27017 --name mongo1 --net mongo-replica-network mongo --replSet "rs0"
+docker run -d -p 27018:27017 --name mongo2 --net mongo-replica-network mongo --replSet "rs0"
+docker run -d -p 27019:27017 --name mongo3 --net mongo-replica-network mongo --replSet "rs0"
+docker exec -it mongo1 bash
+mongosh => vào bash của mongo1
+rs.initiate()
+rs.add("mongo2:27017")
+rs.add("mongo3:27017") => thì mongo1 là primary db, mongo2 và mongo3 là secondary db trong replica set
+docker exec -it mongo2 bash
+db.getMongo().setReadPref('secondary') => Mặc định mongodb chỉ cho đọc từ primary node trong 1 replica set vì nó đảm bảo read và write sẽ luôn đồng bộ. Ta phải set lệnh này thì secondary db có thể read, nhưng sẽ có delay giữa write và read. Ở đây chỉ có primary mới được write
+
+- Tải mongo compass
+Khi tải compass về sẽ tự tải mongodb server và nó được thêm vào services trong administrator tools. Ta có thể tắt service này đi trong control panel. 
+Compass có thể connect vào service cổng 27017 để dùng. Nó chỉ là 1 ứng dụng quản lý db bằng giao diện (như SSMS).
+
+
+
+# Dùng mongoose
+Object Data Modeling (ODM) là kỹ thuật ánh xạ dữ liệu từ db vào các đối tượng trong mã code. Mongoose là 1 ODM cho mongodb.
+Dùng kèm express-mongo-sanitize: package dùng cho express khi dùng mongodb có thể xử lý input tránh Injection
+
+Thêm static function cho schema 
+Thêm các hàm cho 1 instance của schema
+Thêm custom query helper cho schema. Vd: Schema.query.byName. Trong mongoose cũng có sẵn các query helper cho các query phức tạp.
+
+Dùng aggregation để query get với đk vô cùng phức tạp.
+Dùng populate để query liên kết bảng.
+Dùng watch để bắt sự thay đổi của data trong 1 collection
+Dùng cursor duyệt qua từng document trong 1 collection
+Dùng virtual tạo ra 1 thuộc tính ảo cho schema mà k cần lưu trong db, vd 1 trường được tạo ra từ các trường khác.
+Dùng validate để check trước giá trị các trường hiện tại có đúng hay không mà chưa cần update thực sự lên db.
+Dùng pre/port middleware cho schema để xử lý trước và sau khi thực hiện các thao tác. Mỗi thao tác thực chất cũng chạy lần lượt qua các middleware nếu đinh nghĩa. 
+
+-> Hàng loạt transaction: findOneAndUpdate, findByIdAndDelete, findOneAndReplace, findOneAndRemove
+
+VD: Khi 1 người gọi hàm db.collection.updateMany() chẳng hạn thì nó chỉnh sửa nhiều document nhưng vc sửa đổi từng doc vẫn là atomic dù operation as a whole thì k atomic.
+
+VD: findAndModify là hàm atomic, tức nó sẽ lock document mà truy vấn này tìm thấy để đảm bảo k có truy vấn khác sửa đổi.
+Giả sử tạo ra 1 database với: db.myCollection.insertMany( [
+  { _id: 0, a: 1, b: 1 },
+  { _id: 1, a: 1, b: 1 }
+] )
+=> Sau đó ta chạy song song 2 cái queries giống nhau, mỗi query sẽ như dưới:
+db.myCollection.findAndModify( {
+  query: { a: 1 },
+  update: { $inc: { b: 1 }, $set: { a: 2 } }
+} )
+Query 1 tìm thấy _id 0 sẽ lock lại và xử lý. Query 2 k chờ cái lock đó mà thực hiện tiếp sẽ tìm và xử lý với _id 1. Query 1 hoàn thành xử lý _id 0 sẽ mở lock. Query 2 hoàn thành cái _id 1 thì check _id 0 vẫn thoả mãn thì thực hiện, k thoả mãn nữa thì thôi.
+
+
+
+# Các option cho Schema
+level1: new Schema({
+  level2: new Schema({
+    test: String
+  })
+})
+name: mongoose.Schema.Types.String,
+date: {
+  type: Date,
+  default: Date.now,
+  min: ['2025-12-09', "Ngày bị nhỏ quá rồi"],
+  max: '2019-19-02'
+},
+age: { type: Number, min: 18, max: 65 },
+array: [],
+dateArray: [Date],
+docArr: [{name: String}],
+singleNested: new Schema({ name: String }),
+nested: {
+  age: Number
+  first: { 
+    type: String, 
+    lowercase: true, 
+    uppercase: false, 
+    trim:true, 
+    minlength: 2, 
+    match: "Hello", 
+    required: function() { this.age > 0 } 
+  }
+},
+mapOfString: { type: Map, of: String },
+details: {
+  first: String,
+  type: {
+    type: String
+  }
+},
+data: {
+  type: Number,
+  get: v => Math.round(v),
+  set: v => Math.round(v),
+  alias: "d"
+  index: true,
+  unique: true,
+  sparse: false,
+  enum: [1, 2],
+  validate: () => Promise.resolve("OK"); => là validate bất đồng bộ
+},
+phone: {
+  type: String,
+  validate: {
+    validator: function(v) { return /\d{3}-\d{3}-\d{4}/.test(v); },
+    message: props => "not a number"
+  },
+  select: false
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
+}
+var schema1 = new Schema({
+  author: { type: Schema.Types.ObjectId, ref: "Person5" } => ref đến model "Person5" cột _id
+});
+var commentSchema = new Schema({
+  body: {type: String},
+  on: {type: ObjectId, required: true, refPath: "onModel"},
+  onModel: {type: String, enum: ["BlogPost", "Product"]} => bảng này ref tới 1 trong 2 bảng BlogPost và Product thông qua cột _id
+});
+=> khi gọi .populate("on") thì nó chạy vào thấy refPath và nhảy vào trường onModel. Trong đây nó sẽ check trường onModel là gì và lấy type: ObjectId là ref "on" với _id của bảng đó, trùng thì lấy
+VD: Dùng ModelName.updateOne({ _id: doc._id }, { $set: { name: 'foo' } }) tương đương với ModelName.findOne tìm ra doc và gán trực tiếp doc.name = "foo" rồi doc.save();
+
+-> mongoose-autopopulate là plugin hỗ trợ thêm 1 số tùy chọn SchemaType 
+
+

@@ -1,5 +1,4 @@
 // # Dùng redis
-
 const redis = require("redis");
 
 (async () => {
@@ -56,11 +55,9 @@ const redis = require("redis");
     // await subscriber.subscribe('dogs', (message) => { // channel dogs
     //     console.log(message);
     // }) // Đương nhiên có hàm unsubscribe
-    client.publish('dogs', 'Roger'); // k lưu vào redis mà chỉ các subscriber nhận được. Nó cho phép 2 người lạ trò 
-    // chuyện được với nhau như socket, tương tự 1 trình chuyển tiếp tin nhắn
+    client.publish('dogs', 'Roger'); // k lưu vào redis mà chỉ các subscriber nhận được. Nó cho phép 2 người lạ trò chuyện được với nhau như socket.
 
-    // Chức năng chính của redis là nó làm cache tăng tốc request gần như tức thời. Nếu dữ liệu k có cache mới truy vấn 
-    // vào database r lại cập nhập vào cache.
+    // Chức năng chính của redis là nó làm cache tăng tốc request gần như tức thời. Nếu dữ liệu k có cache mới truy vấn vào database r lại cập nhập vào cache.
 
     client.quit();
 })();

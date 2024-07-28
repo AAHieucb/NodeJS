@@ -1,32 +1,6 @@
-// # Các package backend NodeJS thường dùng
-
-// Dùng node-persist => bản cũ v2 dùng toàn sync
-var storage = require('node-persist');
-
-// Khởi tạo: storage.initSync(<>); // or storage.init(<>).then(<function>);
-// Phải có gọi hàm init đầu tiên là hàm khởi tạo load các key trong ổ cứng. Có sync sẽ đồng bộ, k có sync sẽ bất đồng bộ
-storage.initSync({
-    dir : "eraseFolder/nodepersist",
-    ttl : false
-});
-// dir là đường dẫn lưu, ta đang dùng relative từ vị trí hiện tại.
-// ttl là time to live, quá tg này sẽ tự bị xóa. Nếu đặt false sẽ tồn tại vĩnh viễn
-// Tùy khởi tạo sync hay k thì các hàm còn lại của node-persist cx phải dùng tương tự sync hay k như v.
-
-// Set giá trị : truyền vào dạng json string sẽ tự lưu dạng json
-storage.setItemSync('student', JSON.stringify({name : "Nguyen Van Cuong", age : 26})); // or setItem + async await
-
-// Get giá trị
-var object = storage.getItemSync('student'); // or getItem => ra mảng nếu có nhiều phần tử, 0 phần tử thì undefined
-console.log(object);
-
-// Xóa data 
-storage.removeItemSync('student'); // or removeItem, clear
-
 // Dùng yargs
 var yargs = require('yargs');
-// var yargs = require('yargs').demand("name"); // Dùng demand là bắt buộc có args trường nào. Khi ta dùng nó không trong
-// 1 action nào thì buộc phải có args này mọi lúc. VD ở đây thì --name là 1 args buộc có
+// var yargs = require('yargs').demand("name"); // Dùng demand là bắt buộc có args trường nào. VD ở đây thì --name là 1 args buộc có
 var argv = yargs.argv;
 var otherArg = yargs.argv._;
 console.log(argv);
@@ -39,7 +13,6 @@ console.log(otherArg);
 
 // Check 1 thuộc tính có tồn tại hay k bằng typeof yargs.argv.<key>== "undefined"
 
-// Ta có thể cấu hình cho các đối số truyền vào với các option. Có quá nhiều options ta chỉ học cái hay dùng.
 // Hàm command của yargs dùng để thiết lập các đối số truyền vào tùy khi gặp action nào.
 var testCommand = yargs.command('get', '1 is action name,2 is description,3 is function to setup args passed in',
     (yargs)=>{
@@ -66,7 +39,7 @@ console.log(testCommand.argv); // Lấy từ biến lưu giá trị trả về c
 // console.log("HELP: ", testCommand.help());
 console.log("ARGV: ", testCommand.help().argv);
 
-// Trong Ct, nên phân chia 1 biến yargs lưu 1 cụm các câu lệnh riêng, độc lập k đè nhau. Tên từng biến yargs khác nhau.
+
 
 // Dùng node-persist / Dùng yargs 
 // Ứng dụng
@@ -181,8 +154,9 @@ if(appArgv._[0] == "list"){ // in ra là biết
 }else if(appArgv._[0] == "edit"){
     editStudent(appArgv.id, appArgv.name);
 }
-// Nó kiểu chia ra ý. VD: node FirstBasic.js delete --id=<> thì dùng nhiều action kết hợp, xong mỗi action có nhiều 
-// args trong 1 câu lệnh và tùy ý chỉnh sửa action và args có bắt buộc hay k thoải mái
+// Nó kiểu chia ra ý. VD: node FirstBasic.js delete --id=<> thì dùng nhiều action kết hợp, xong mỗi action có nhiều args trong 1 câu lệnh tuỳ ý chỉnh sửa
+
+
 
 // Dùng crypto-js
 var crypto = require("crypto-js");
@@ -193,43 +167,33 @@ var bytes = crypto.AES.decrypt(message, "1801");
 console.log("Decrypted: ", bytes);
 console.log("Decrypted String: ", bytes.toString(crypto.enc.Utf8));
 // encrypt và decrypt nó trả ra object to vl nhưng ta có thể convert nó về string cơ bản nv
-// Hàm toString kia là của riêng thư viện crypto-js chứ kp của js thuần: encrypt xong dùng toString của
 // CryptoJS.lib.CipherParams nhận vào 1 formatter, còn decrypt xong dùng của CryptoJS.lib.WordArray nhận 1 encoder
 // crypto.enc.Utf8 trả ra encoder UTF-8
 // Thư viện này còn vô số cách mã hóa khác chưa dùng tới
 
-// # Basic / Dùng biến global trong nodejs
-// console.log("Global: ", global);
-console.log(__dirname);
-console.log(__filename);
-
-// # Các package có sẵn trong NodeJS
 
 // Dùng buffer
 var buf1 = Buffer.from("This is a test", "hex"); // Sai kiểu encode, k hiện
 console.log(buf1);
 buf1 = Buffer.from("This is a test", "UTF-8"); // Hợp lệ text thì phải là utf-8 
-// => dữ liệu này sẽ được lưu trong buffer dưới dạng mảng các số nguyên(encode ký tự sang số unicode rồi)
-const buf2 = Buffer.from('7468697320697320612074c3a97374', 'hex'); // đối số 2 ý bảo là 1 đc encode theo hex rồi
+// => Dữ liệu này sẽ được lưu trong buffer dưới dạng mảng các số nguyên(encode ký tự sang số unicode rồi)
+const buf2 = Buffer.from('7468697320697320612074c3a97374', 'hex'); // Đối số 2 ý bảo là 1 đc encode theo hex rồi
 console.log(buf2);
 console.log(buf1);
 
-// alloc giúp khai báo bao nhiêu ô nhớ, chỉ là 1 cách khai báo khác giúp giải quyết vấn đề cho buffer lưu 1000 
-// phần tử a thì k thể gõ hết 1000 ký tự đc
+// alloc giúp khai báo bao nhiêu ô nhớ
 const buf3 = Buffer.alloc(11,'aGVsbG8gd29ybGQ=','base64'); 
 // 2 là fill default cái gì(string/buffer/integer), 3 chỉ đối số 2 đã là kiểu encoded base64. 3 default là utf8.
-// Giống allocUnsafe(<size>) tạo buffer có kích thước size và các giá trị theo địa chỉ của nó, còn alloc(<size>)
-// gán tất cả là default toàn 0 => nên dùng full alloc
+// Giống allocUnsafe(<size>) tạo buffer có kích thước size và các giá trị theo địa chỉ của nó, còn alloc(<size>) gán tất cả là default toàn 0 => nên dùng full alloc
 console.log(buf3);
 
 const buf4 = Buffer.from([100, 50, 100, 200, 255]); 
-// Array từ 0-255 biểu diễn ký tự vì buffer lưu ký tự, k lưu kiểu bth có thể coi dữ liệu sau khi vào buffer là 1 
-// dạng encode thành số k thể đọc bth đc, thât ra cũng chỉ là nó biểu diễn dữ liệu dạng số theo bảng Unicode thôi
+// Array từ 0-255 biểu diễn ký tự vì buffer lưu ký tự, k lưu kiểu bth có thể coi dữ liệu sau khi vào buffer là 1 dạng encode thành số k thể đọc bth đc
 console.log(buf4);
 console.log(buf4.toString()); // Các số trong mảng chuyển thành ký tự theo thứ tự r in ra
 const buf5 = Buffer.alloc(11); // Sau đó nếu dùng nhiều hơn alloc sẽ lỗi 
-var size = buf5.write("Test", 0, 4, "utf-8"); // 2 mặc định là 0, 3 mặc định là size of buffer, 4 default là 
-// utf-8, tức ghi vào buffer cái gì từ vị trí nào và bao nhiêu phần tử được ghi
+var size = buf5.write("Test", 0, 4, "utf-8"); 
+// 2 mặc định là 0, 3 mặc định là size of buffer, 4 default là utf-8, tức ghi vào buffer cái gì từ vị trí nào và bao nhiêu phần tử được ghi
 buf5.write("Hello", 2, 2);
 console.log(size + " " + buf5);
 console.log(buf5.toString("utf-8", 2, 4)); // Chỉ lấy phần tử từ 2 đến 4
@@ -244,11 +208,7 @@ console.log(buf9);
 arr[2] = 100; // Sửa array ảnh hưởng đến buffer của nó
 console.log(arr.buffer);
 // Tương tự cũng có các kiểu Uint32Array, Float32Array, Float64Array nhưng ít dùng
-// from thì buộc khai báo từ 1 cái khác(chuỗi ký tự or 1 buffer khác, mảng số), lấy từ index nào, 3 là bao nhiêu ptu
-
-const json = buf1.toJSON(buf1); // khi cần lấy dữ liệu dạng json -> lấy type or data
-// lấy từ buffer ra json in ra khó hiểu chả biết mẹ gì => chả bh dùng
-console.log(json);
+// from thì buộc khai báo từ 1 cái khác(chuỗi ký tự or 1 buffer khác, mảng số), 2 là lấy từ index nào, 3 là bao nhiêu ptu
 
 // Các operator của buffer
 var buf6 = Buffer.from("hello "); // Sẽ tự khai báo buffer kích thước fit nội dung, cx chỉ là 1 cách khởi tạo TT thôi
@@ -270,28 +230,14 @@ console.log(buf6.indexOf("1")); // Chú ý nó chỉ chơi với string, write d
 console.log(Buffer.isBuffer(buf6));
 console.log(Buffer.isEncoding(buf6)); // Có hỗ trợ kiểu encoding của buffer này thì là true
 
-// # Event loop của NodeJS / Dùng setImmediate
+
+
+// # Event loop của NodeJS
 var immediateID = setImmediate(() => console.log("Set immediate"));
 clearImmediate(immediateID);
 // Hàm của setImmediate sẽ chạy ngay, nhưng gần như song song với bên dưới gặp clear nên dừng luôn vì nó async
 
-// # Các package có sẵn trong NodeJS
-// Dùng fs
-// fs là 1 module có sẵn trong nodejs kp install giúp ta thao tác với file: readFileSync(), readFile(), writeFile(),
-// writeFileSync(). Khi ta thao tác với file tức là dữ liệu nhị phân, k thể dùng js bth mà phải dùng kiểu Buffer.
-const fs = require('fs');
 
-// Dùng blocking
-const filedata = fs.readFileSync('./test.txt'); // filedata là kiểu buffer
-console.log("Filedata: " + filedata.toString());
-
-// Dùng asynchronous
-const callbackReadFile = function (err, filedata) { // Callback func của readFile có err, data
-    if (err) return console.error(err);   
-    console.log(filedata.toString());   
-}
-fs.readFile('test.txt', callbackReadFile);
-console.log('Kết thúc chương trình');
 
 // Dùng events
 const events = require('events');
@@ -311,43 +257,14 @@ eventEmitter.on('data_received', function(){
 });  
 eventEmitter.emit('connection');
 // Ngoài ra: once giải quyết chỉ muốn gọi 1 lần khi sự kiện xảy ra sau đó bị loại bỏ khỏi list hàm của event.
-// removeListener, removeAllListeners(<event>), setMaxListeners(n) số lượng listener > 10 sẽ cảnh báo. Giúp khắc phục 
-// lỗi memory leak khi 1 sự kiện lại làm quá nhiều thứ -> đặt là 0 nếu muốn vô hạn
+// removeListener, removeAllListeners(<event>)
+// setMaxListeners(n) số lượng listener > 10 sẽ cảnh báo. Giúp khắc phục lỗi memory leak khi 1 sự kiện lại làm quá nhiều thứ -> đặt là 0 nếu muốn vô hạn
 // listeners(event) trả ra mảng các listener
-// Hàm emit(<event>,[args]) thì có nhiều listener cùng lắng nghe 1 event thì sẽ thực hiện lần lượt với [args] truyền 
-// vào. Nó tự căn chỉnh nếu listener thiếu args thì bỏ các args truyền vào thừa đi. Tất cả các args đó sẽ truyền lần 
-// lượt vào từng listener
+// Hàm emit(<event>,[args]) có nhiều listener cùng lắng nghe 1 event thì sẽ thực hiện lần lượt với [args] truyền vào. Nó tự căn chỉnh nếu listener thiếu args thì bỏ các args truyền vào thừa đi. Tất cả các args đó sẽ truyền lần lượt vào từng listener
 
 const streamFile = require("fs");
 var eventFile = streamFile.createReadStream("./test.txt");
 eventFile.on('open', function() {
     console.log('File opened!');
 });
-// createReadStream tạo ra 1 luồng read, luồng ở đây cũng chính là 1 biến event emitter. Ở đây nó nó thực hiện luôn
-// callback của sự kiện open vì nó ngầm emit sự kiện open khi gọi createReadStream đọc file r
-// Phần intermediate sẽ giải quyết hết stream
-
-// Dùng util
-var util = require('util');
-var testInheritEvent = require("events");
-var Students = function(name) {
-    this.name = name;
-}
-util.inherits(Students, testInheritEvent.EventEmitter); // Hàm cho constructor của Students kế thừa constructor của
-// EventEmitter. Hàm này giúp ta biến 1 class bất kỳ ta tạo ra cx có thể phát sự kiện nhờ kế thừa các thuộc tính 
-// class khác => deprecated rồi, phiên bản mới thay bằng dùng extends vd ở phần training
-
-var txt = 'Congratulate %s on his %dth birthday!';
-var result = util.format(txt, 'Linus', 6);
-console.log(result);
-
-var max = new Students('max');
-max.on('scored', function(marks) {
-    console.log(max.name + ' scores '+ marks+ ' marks');
-})
-max.emit('scored', 95);
-var tom = new Students('tom');
-tom.on('scored', function(marks) {
-    console.log(tom.name + ' scores '+ marks+ ' marks');
-})
-tom.emit('scored', 60);
+// createReadStream tạo ra 1 luồng read, luồng ở đây cũng chính là 1 biến event emitter. Ở đây nó nó thực hiện luôn callback của sự kiện open vì nó ngầm emit sự kiện open khi gọi createReadStream đọc file r

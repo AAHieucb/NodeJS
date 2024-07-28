@@ -25,7 +25,7 @@ db.once('open', async function() {
         'name.last': 'Ghost',
         age: { $gt: 17, $lt: 66 },
         likes: { $in: ['vaporizing', 'talking'] } // Trường like mang giá trị là 1 giá trị nào đó trong mảng
-    }).limit(10).sort({ occupation: -1 }) // sort giảm dần occupation
+    }).limit(10).sort({ occupation: -1 }) // Sort giảm dần occupation
     .select({ name: 1, occupation: 1 }).exec(function(err, data) {
         if(err) console.log(err);
         console.log(data);
@@ -45,8 +45,7 @@ db.once('open', async function() {
     // Tạo Model từ Schema và thao tác với model thay đổi documents
     const q = Person.updateMany({'name.last': "Ghost"}, {'name.last': "Ghos"});
     await q.then(() => console.log('Update 2')); // Khi dùng then thì mới thực hiện
-    // Chỉ được thực hiện 1 lần. Nếu q.then 2 lần là sai. Nó k cho lưu query vào biến mà gọi liên tiếp, ta có thể tạo 
-    // static function để lưu query xong gọi lúc nào cx được
+    // Chỉ được thực hiện 1 lần. Nếu q.then 2 lần là sai. Nó k cho lưu query vào biến mà gọi liên tiếp, có thể tạo static function để lưu query xong gọi lúc nào cx được
 
     // Thao tác với cursor, aggregation, populate
     // Ta cần thao tác event với 1 list các document thỏa mãn điều kiện gì đó thì dùng cursor
@@ -58,8 +57,6 @@ db.once('open', async function() {
         console.log("Gọi xong"); // Được gọi khi đã hoàn tất
     });
 
-    // Versus Aggregation: tính năng này có thể làm những thứ như query. Chỉ dùng nó khi thực sự cần thiết vì kết quả trả 
-    // ra là POJOs(plain old js object), kp là 1 mongoose documents => nch là k dùng
     const docs = await Person.aggregate([{ $match: { 'name.last': 'Ghos' } }]);
     console.log(docs[0] instanceof mongoose.Document); // false
     console.log(docs);
@@ -67,7 +64,7 @@ db.once('open', async function() {
     // Aggregate cx k tự cast kiểu dữ liệu như gọi query bth
     const doc = await Person.findOne();
     const idString = doc._id.toString();
-    const queryRes = await Person.findOne({ _id: idString }); // ok vì tự cast string sang ObjectId của MongoDB
+    const queryRes = await Person.findOne({ _id: idString }); // Ok vì tự cast string sang ObjectId của MongoDB
     const aggRes = await Person.aggregate([{ $match: { _id: idString } }]); // K tự cast nên k tìm thấy id ra mảng rỗng
     console.log(queryRes);
     console.log(aggRes);
@@ -114,20 +111,8 @@ db.once('open', async function() {
             console.log(error.errors['email'].message);
     });
 
-
-    // // Middleware ở phiên bản v5 cho phép return về 1 promise thay cho việc dùng next
-    // userSchema.pre('save', function() {
-    //     return doStuff().then(() => doMoreStuff()); // Ở đây phải tạo ra hàm bất đồng bộ từ trước
-    // });
-    // // Or, in Node.js >= 7.6.0 cho phép k cần return luôn
-    // userSchema.pre('save', async function() {
-    //     await doStuff();
-    //     await doMoreStuff();
-    // });
-
     // Dùng middleware
     // Thông thường 1 middleware bị lỗi sẽ kéo theo các middleware sau bị dừng lại
-    // hàm callback or return promise. Ta có thể tái hiện điều đó
     userSchema.pre('save', function(next) {
         const err = new Error('something went wrong');
         // Gọi next() mà truyền vào một tham số err 
@@ -178,9 +163,7 @@ db.once('open', async function() {
             next();
         }
     });
-    // Tại sao ta nói là middleware lỗi sẽ k gọi các middleware sau mà ta lại gọi next(error) cho nó ? Là vì khi truyền
-    // error vào next thì nó sẽ tìm middleware chuyên bắt lỗi để xử lý và cuối cùng chạy ra ngoài kết thúc luôn. Do đó
-    // cái callback của hook thg xử lý thêm error, bỏ qua các middleware bth
+    // Tại sao ta nói là middleware lỗi sẽ k gọi các middleware sau mà ta lại gọi next(error) cho nó? Là vì khi truyền error vào next thì nó sẽ tìm middleware chuyên bắt lỗi để xử lý và cuối cùng chạy ra ngoài kết thúc luôn. Do đó cái callback của hook thg xử lý thêm error, bỏ qua các middleware bth
 
     // Có nhiều middleware phải tách riêng ra như ở dưới document gọi remove hay khi query gọi remove sẽ khác nhau
     // document middleware
@@ -201,7 +184,4 @@ db.once('open', async function() {
             console.log("Result :", result) 
         }
     });
-    // Từ model ta có thể remove document trong nó như này or bản thân document remove con của nó thì gọi vào
-    // document middleware hay query middleware tương ứng. Tuy nhiên hàm remove của model đã bị deprecated và h thay
-    // bằng bộ: deleteOne, deleteMany, bulkWrite rồi
 }); 

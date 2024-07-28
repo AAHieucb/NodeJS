@@ -1,4 +1,4 @@
-// NodeJS version mới
+// Dùng test runner của node v18
 const test = require("node:test");
 
 async function test1(){

@@ -9,7 +9,7 @@ app.get("/", function (req, res) {
 // Tức bình thường io ta dùng là namespace mặc định "/"
 var freetuts = io.of("/freetuts"); // Khởi tạo namespace tên "/freetuts"
 
-freetuts.on("connection", function (socket) { // Có người kết nối vào namespace đó
+freetuts.on("connection", function (socket) {
     console.log("Một người vừa kết nối.");
     socket.on("join room", function (data) {
         socket.join("freetutsRoom"); // Hàm join(tên phòng) sẽ join vào 1 phòng
@@ -17,7 +17,7 @@ freetuts.on("connection", function (socket) { // Có người kết nối vào n
         // Trả lại thông báo cho người vào phòng
         socket.emit("notification", "Bạn đã tham gia vào phòng");
 
-        // Trả lại thông báocho tất cả người còn lại trong phòng
+        // Trả lại thông báo cho tất cả người còn lại trong phòng
         freetuts.to("freetutsRoom").emit("notification", "Một người đã vào phòng.");
         // Trong 1 room thì lệnh emit chỉ có tác dụng với người đó còn gửi đến cả room thì dùng <namespace>.to(tên room).emit(...)
     });

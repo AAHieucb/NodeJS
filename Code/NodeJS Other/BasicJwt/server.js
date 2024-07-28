@@ -1,4 +1,4 @@
-// Dùng package module-alias
+// Dùng module-alias
 
 require('module-alias/register')
 const express = require("express");
@@ -26,7 +26,6 @@ app.use((req, res, next) => {
 })
 // Bắt mọi lỗi khác
 app.use((err, req, res, next) => {
-  // Này là ta nghĩ lấy error từ createError http-errors là kiểu throw {status, message}, nếu biến err k có message thì sẽ tự mất vì hàm res.json sẽ tự bỏ qua các field undefined
   res.json({
     status: err.status || 500,
     message: err.message

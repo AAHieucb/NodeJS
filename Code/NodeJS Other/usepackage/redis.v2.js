@@ -28,9 +28,7 @@ app.get('/order', async (req,res) => {
             time
         })
     }
-    // Bh thì cái redis lưu số lượng request của khách chứ k còn là số lượng thực tế bán được nx. Ta cũng có thể
-    // dùng như database lưu số lượng thực tế bán được bằng cách check slBan lớn hơn slTonKho thì set là số lượng đã
-    // bán chỉ là số lượng tồn kho thôi trong database thực tế ok mà, trong redis như nào kệ nó
+    // Bh thì cái redis lưu số lượng request của khách chứ k còn là số lượng thực tế bán được nx. Ta cũng có thể dùng như database lưu số lượng thực tế bán được bằng cách check slBan lớn hơn slTonKho thì set là số lượng đã bán chỉ là số lượng tồn kho thôi trong database thực tế ok mà, trong redis như nào kệ nó
 
     console.log("Hooray!! So luong request hien tai la: " + slBan);
     // Đảm bảo kết quả chỉ có 10 người nhận được thông báo này, số còn lại toàn hiện hết hàng. Có thể chạy với ab test thử

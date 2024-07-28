@@ -1,4 +1,4 @@
-// # Tổng kết module JS / # Dùng promise
+// Dùng promise
 
 // 2 kiểu khởi tạo promise
 // C1:
@@ -18,8 +18,7 @@ var testPromise2 = (age) => {
         else reject();
     })
 }
-// C1 sẽ thực hiện luôn hàm Promise(vì phải lấy giá trị cuối dùng gán vào biến), C2 phổ biến hơn khi nào gọi hàm
-// thì mới quyết định resolve hay reject.
+// C1 sẽ thực hiện luôn hàm Promise(vì phải lấy giá trị cuối dùng gán vào biến), C2 phổ biến hơn khi nào gọi hàm thì mới quyết định resolve hay reject.
 
 function checkIsAdult(age) {
     return new Promise((resolve, reject) => {

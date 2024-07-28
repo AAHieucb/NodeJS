@@ -29,15 +29,10 @@ db.once('open', async function() {
     Staff.find({ name: 'Hello' }).where('age').gt(1).exec(function(err,data) {
         console.log("Hello " + data);
     });
-    // Khi tất cả các query độc lập nhau thì ta sẽ dùng callback function với đối số 2 or hàm exec như trên nhưng nếu muốn query sau thực hiện 
-    // sau khi query trước thực hiện thì phải await. VD ở trên ta muốn thêm vào 1 data mới sau đó mới find thì phải dùng await sẽ chuẩn
-    // Ta có thể query trực tiếp như này or tạo ra static function cho schema mà dùng. Nếu find k có tham số thì mặc định lấy tất cả và thêm vào 
-    // các hàm static có sẵn như where, gt để lọc or tự định nghĩa hàm static riêng
 
     console.log(await Staff.find({ name: 'Hello', age: { $gte: 9 } }));
     await Staff.find({ name: /hello/i }, null, { skip: 10 }).exec();
     // Có exec ở cuối hay k cũng được. 2 là chỉ định field return ra, ở đây là tất cả. 3 là các option
-    // VD với 2: query.select('age name'); or query.select(['age', 'name']); => éo được, k dùng kiểu này
     const data = await Staff.findById("626ceba14e7bc4c037cef4be");
     console.log(data);
     // Staff.deleteOne({ name: 'Hello' }, function (err) {
@@ -45,7 +40,7 @@ db.once('open', async function() {
     // }); // Tương tự có delete, deleteById
     Staff.updateOne({ name: 'Hell' }, { name: 'T-90' }, function(err, res) {
         if (err) throw err;
-        // console.log(res); // trả về thông tin sau khi update như có bao nhiêu cái được update,...
+        // console.log(res); // Trả về thông tin sau khi update như có bao nhiêu cái được update,...
     });
 
     // Thao tác với ChangeStream subcribe sự kiện
@@ -94,8 +89,6 @@ db.once('open', async function() {
         children: [new Schema({ name: 'string' })]
     });
 
-    // Trong mongoose6 thì cái child là subdocument có property name nhưng trong mongo5 sẽ cần option typePojoToMixed 
-    // là true mới được, ta k cần qt bản v5. 
     // => type: { name: String } chỉ là single nested, coi bỏ type đi => Dù sao cx k nên dùng như này dễ nhầm
     var parentSchema = new Schema(
         {

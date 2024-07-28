@@ -1,4 +1,4 @@
-// Dùng google api convert text to speech
+// Google API convert text to speech
 
 const gTTS = require('gtts');
 

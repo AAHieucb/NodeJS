@@ -1,0 +1,180 @@
+Redis
+Data Redis lưu trong main memory, kp ổ đĩa, nên có thể xử lý hàng triệu yêu cầu mỗi giây. Ta vẫn config để lưu vào ổ đĩa lâu dài được.
+Vói data k cần lưu lâu dài, có thể bỏ qua database và chỉ lưu vào redis, vd bảng xếp hàng game realtime. Nếu data thường đổi hoặc chỉ query rất ít thì k nên lưu vào redis
+
+
+
+# Basic
+-> Redis hỗ trợ Pub/Sub giúp tạo các phòng chat hiệu suất cao, bình luận thời gian thực. 
+Redis hỗ trợ sẵn atomic như: set, setnx là atomic, incrBy và decrBy cũng là atomic.
+(key, value, expiretime)
+
+-> Cài đặt: 
+- Có cloud redis
+- Cài với docker: docker pull redis -> docker run --name myredis -p 6379:6379 -d redis => dùng redis client bình thường tại công 6379
+
+-> Dùng cache tốn thêm bộ nhớ, nên đảm bảo luôn luôn có expire time cho data.
+
+-> Cài package với npm: 
+redis hoặc ioredis => để tương tác với redis rất mạnh dùng cho server
+redis-cli -> mở để thao tác với cmd: rdcli (phải chờ 1 lát)
+redis-commander => giúp quản lý redis bằng gui, luôn luôn nên dùng
+
+
+
+# Dùng redis-cli
+-> Mọi command trong redis-cli đều có dạng code tương ứng:
+ping => nhận lại PONG tức connection ok
+KEYS * => nhận lại tất cả các key trong redis hiện tại
+
+PSUBSCRIBE o* => lắng nghe mọi thông điệp gửi tới channel có tên thỏa mãn pattern o* là bắt đầu bằng ký tự o
+SUBSCRIBE redisChat => tạo và lắng nghe thông điệp gửi đến channel tên là redisChat
+PUBLISH redisChat "This is a message" => gửi thông điệp tới channel redis tên là redisChat
+
+Dùng string:
+getrange mykey 0 -1 => lấy tòan bộ ký tự của key tên là mykey
+getrange mykey 0 3 => lấy ký tự từ 0 đến 3 của key tên là mykey (getrange mykey <start> <end>)
+SET "kavin" 123 
+GET "kavin" => sẽ trả lại 123 cho ta, k có trả ra null
+set foo bar ex 20 => sau 20s sẽ hết hạn và tự bị xóa khỏi redis
+mset key1 value1 key2 value2 => set multiple key-value
+mget key1 key2 => lấy multiple key
+strlen key1 => lấy length của 1 key
+incr/decr key1 => tăng giá trị key1 lên 1, chỉ được nếu key1 là 1 số int
+incrby/decrby key1 10 
+SETEX <key> <timeout> "<value>" => set kèm timeout
+SETNX <key> "<value>" => key k tồn tại thì set là value, nếu key tồn tại r thì thôi, tức là Set if Not eXist
+DEL <key>
+
+expire mykey 10 => set expire time cho 1 key có sẵn tên là mykey hết hạn sau 10s
+ttl mykey => hiện expire time của mykey
+
+Dùng mảng:
+lpush players Ronadol => thêm 1 phần tử Ronadol vào mảng players, push sẽ lên đầu mảng
+lpushx movies abc => push phần tử tên là abc vào mảng movies nếu key movies tồn tại, nếu key movies k tồn tại thì k push
+lrange players 0 -1 => lấy toàn bộ phần tử trong mảng players
+rpush players Hello => push phần tử Hello vào cuối của mảng players
+llen players => lấy length của array
+lpop players => xóa phần tử đầu tiên trong mảng và trả về phần tử đó
+rpop players => xóa phần tử cuối cùng của players 
+lset players 0 Lingrad => thay thế phần tử đầu tiên số 0 của mảng thành Lingrad
+linsert players after Lingrad Martial => insert phần tử mới tên là Martial vào sau phần tử có giá trị là Lingrad trong mảng players, trả về số lượng phần tử mảng
+linsert players before Martial Greenwood => tương tự nhưng chèn vào trước phần tử nào
+lindex players 2 => lấy cụ thể 1 phần tử thứ 2 trong mảng (chú ý redis xếp mảng từ 1)
+sort players ALPHA => hiển thị mảng sort theo bảng chữ cái
+sort players desc ALPHA => ngược bảng chữ cái
+
+Dùng set:
+sadd mykey myvalue1 myvalue2 myvalue3 => thêm 3 phần tử vào set
+smembers mykey => hiển thị set
+scard mykey => lấy số lượng phần tử set (card là cardinality)
+sismember mykey value1 => check phần tử value1 có trong tập mykey hay không
+sdiff mykey mykey2 => hiển thị phần tử tập mykey có mà mykey2 không có (phải đúng thứ tự)
+sdiffstore newset mykey mykey2 => lưu phần tử tập mykey có mà mykey2 không có vào 1 set mới tên là newset
+sinter mykey mykey2 => các phần tử chung của 2 set
+sinterstore newsetinter mykey mykey2 => lưu các phần tử chung 2 set và 1 set mới tên là newsetinter
+sunion mykey mykey2 => show union 2 set
+sunionstore newsetunion mykey mykey2 => lưu union 2 set vào 1 set mới tên là newsetunion
+
+Dùng hash set. VD cần lưu vào redis xem 1 user mua sản phẩm nào với số lượng bao nhiêu:
+hset cart:user-001 product:p-001 1 => lưu vào cặp [product:p-001, 1] vào bảng hash set tại key search là cart:user-001. Trong hệ thống thực tế, họ thường lưu kiểu cart:<userid> hay product:<productid> như v, ta chỉ id vào cache còn sau đó query vào DB lấy data chi tiết sau. K nên lưu các thông tin hay đổi như name hay giá cả vì lưu xong nó giảm giá phát thì dữ liệu cache bị sai
+hgetall cart:user-001 => lấy mọi [field,val] của key search cart:user-001 (hay lấy mọi sản phẩm của user này)
+hincrby cart:user-001 product:p-001 => tăng val thêm 3, nếu muốn giảm thì dùng hincrby với số âm là được
+hmset cart:user-002 product:iPhone13 4 product:iPhone14 1 => add multi params
+hlen cart:user-002 => lấy length (lấy tổng loại mặt hàng của user)
+hdel cart:user-002 product:iPhone14 => xóa 1 field của key search nào
+
+Ứng dụng: trong shopee hay tiki, muốn thêm 1 sản phẩm vào giỏ hàng phải yêu cầu đăng nhập. Trong amazon, ta có thể thêm vào mà k yêu cầu đăng nhập, sau khi đăng nhập hay đk tài khoản mới, dữ liệu giỏ hàng đó sẽ tự đồng bộ, làm v thì số lượng request rất lớn và để đạt tốc độ tức thì như amazon, họ dùng mô hình như bên trên. Khi người dùng đặt giỏ hàng thì 1 id ảo được sinh ra, frontend lưu ngay vào cookie or storage, còn backend lưu vào cache or cookies or storage. Server có thể lưu vào DB nhưng tốc độ sẽ bị chậm hơn, lưu vào redis là tốt nhất vì các tính năng getall, tăng giảm số lượng có sẵn các hàm atomic r. Sau khi đăng nhập thì lưu data từ cache vào database thực là xong. 
+
+
+
+# 3 sự số cache
+-> Cache avalanche: nhiều data hết hạn cùng lúc đẩy toàn bộ truy cập vào db
+Có thể làm kiểu cho data trong cache expires vô hạn, như vậy sẽ có rất nhiều data. Nên vào buổi đêm ít người dùng th ta update cache trong background và xoá các data ít truy cập đi. Có thể viết 1 tool check số lần truy cập cache để biết data nào ít truy cập thì xóa khỏi cache.
+
+2) Cache breakdown: hot data hết hạn đẩy toàn bộ request vào db. Vd fix cụ thể bằng mutex:
+const getData = async get(key) => {
+    String value = redis.get(key);
+    if (value == null) { 
+        if (redis.setnx(key_mutex, 1, 3 * 60) == 1) { // Nếu key chưa tồn tại thì set cho nó, lưu max 3 phút thôi
+            value = db.get(key); // lay từ db
+            redis.set(key, value, expiretime); // set cache
+            redis.del(key_mutex); // xoa mutex di
+        } else {  // Lúc này có nghĩa là các luồng khác cùng lúc đã tải db và đặt lại vào bộ nhớ đệm, lúc này bạn hãy thử lấy lại giá trị trong cache
+            sleep(50);
+            get(key);  // gọi recursive lại
+        }
+    } else {
+        return value;
+    }
+}
+=> 1000 user cùng vào thì người sớm nhất chạy setnx sẽ block tất cả các người khác ở ngoài. Người 1 set xong và chạy xuống if, 999 người còn lại chạy vào else. Người 1 sẽ lấy db và update dữ liệu, 999 người còn lại chờ 50ms lúc đó người 1 đã xong r thì 999 người đó get được dữ liệu. Có người if (redis.setnx()) đúng lúc vừa del xong cũng chả sao
+
+3) Cache penetration: tạo nhiều request mà redis k có để vào hết db.
+Request tới nếu k có trong cache thì gán null luôn -> xong request databse -> database k có thì thôi -> database có thì update cache giá trị đó thế vào giá trị null ban đầu
+
+
+
+# Tự hủy đơn hàng nếu chưa thanh toán quá N phút
+Dùng redis keyspace notification: https://redis.io/docs/latest/develop/use/keyspace-notifications/
+Keyspace notification cho phép client subscribe vào channel để nhận các event đặc biệt của redis. Có event như: khi 1 data hết hạn, hay khi 1 key mới được set.
+Set expires time cho đơn hàng và subscribe sự kiện hết hạn thì thực hiện tuỳ ý.
+
+-> Thao tác cli: 
+- Mode này mặc định bị disable, phải bật lên với: rdcli config set notify-keyspace-events Ex => thì E là 1 key event, x là bắt sự kiện khi expire
+- Mở 1 terminal bắt sự kiện expire với: psubscribe __keyevent@0__:expired
+- Mở 1 terminal khác chạy: set orderId:123 123 EX 5 => để set 1 giá trị expire sau 5s, khi đó terminal đầu tiên sẽ bắt được
+
+-> Thao tác với code:
+pSubscribe giúp lắng nghe theo 1 pattern. VD: client.psubscribe('user:*');
+subscribe giúp lắng nghe 1 channel cụ thể nào. VD: client.subscribe('user:123');
+
+
+
+# Kho còn 1 nhưng có nhiều users mua cùng lúc
+Tương tự khi usser refresh trang liên tục để bắt mã giảm giá, tối ưu tốc độ thì nên dùng mongodb hoặc redis.
+
+-> User refresh trang liên tục hoặc dùng tool auto lấy phiếu giảm giả. Nếu ta dùng mongoDB thông thường thì:
+isGiamGia = async( req, res) => {
+    const {userId} = req.body;
+    const record = await phieuGiamGia.findOne({
+        userId
+    });
+    if(userId){
+        return res.json({isGet: true})
+    }
+    const creRecord = await phieuGiamGia.create({userId})
+    return res.json({
+        isGet: creRecord ? true : false
+    })
+}
+=> Check chưa có mã thì cho mã. Sai vì có TH 1 người 2 phiếu giảm giá khi gửi 2 request gần như tức thời, request 2 chạy qua findOne khi request 1 chưa kịp gọi create.
+
+Fix ez cho thành atomic:
+const isGiamGia = async({userId}) => {
+    const record = await phieuGiamGia.findOneAndUpdate({
+        userId
+    },{
+        $setOnInsert: {
+            userId,
+        },
+    }, {
+        new: false,
+        upsert: true,
+    });
+    if (!record) {
+        this.isGiamGia();
+    }
+}
+
+Dùng redis là tối ưu:
+const isGiamGia = async({userId}) => {
+  const result = await this.redis.setNX(userId, 'true');
+  if (result === 1) {
+    // set được r, cho phép mua
+  }
+}
+=> setnx là 1 atom của redis nghĩa là nếu userId k có giá trị thì set là true, có rồi thì k làm gì cả
+
+
+

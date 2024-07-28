@@ -1,4 +1,4 @@
-// # Mô hình tự hủy đơn hàng nếu chưa thanh toán quá N phút
+// Tự hủy đơn hàng nếu chưa thanh toán quá N phút
 
 const express = require('express');
 const app = express();

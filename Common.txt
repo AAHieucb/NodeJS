@@ -1,0 +1,146 @@
+# Header khác
+Connection: 'keep-alive' => k đóng TCP connection mà tái sử dụng cho nhiều request sau. Kết hợp với header keep-alive dưới
+'keep-alive': 'timeout=5, max=100' => nếu k có yêu cầu nào mới trong 5s sẽ đóng connection, connection này chỉ xử lý max 100 request là đóng
+
+
+
+# Bảo mật SSO và OAuth2
+-> SSO: Đăng nhập 1 hệ thống, gửi token để truy cập được tất cả hệ thống con.
+Nếu ta thấy hệ thống domain X mở rộng thêm 1 ứng dụng mới domain Y sao cho những ai đăng nhập X đều có thể đăng nhập Y thì dùng SSO. Tuy nhiên trình duyệt luôn tuân theo same origin policy. Tức domainX k thể truy cập cookie của domainY để tự động đăng nhập. Buộc phải thêm 1 central domain xử lý xác thực.
+
+User vào bất cứ domain nào, nó đều redirect đến 1 authentication server để check thông tin đăng nhập:
+Đã đăng nhập -> redirect về trang trước
+Chưa đăng nhập -> phải đăng nhập -> lưu lại nếu là sessionid, không thì thôi -> gửi lại cho client lưu và redirect về trang trước -> session id có thể dùng để truy cập bất cứ app con nào trong phạm vi 1 session.
+
+SSO có thể kết hợp OAuth2 để xác thực cho các app khác dùng data của mình. VD như OpenID Connect, Facebook Connect, SAML, Microsoft Account.
+
+-> OAuth 2.0: đơn giản hơn OAuth 1.0
+Custom thêm tính năng là ứng dụng bên ngoài có thể lấy thông tin người dùng trong ứng dụng gốc. VD game lấy thông tin danh sách bạn bè trên facebook để kết nối chẳng hạn. Cụ thể OAuth nó cho phép app truy cập thông tin mà chả cần đưa password vẫn xác thực được
+
+VD: Client access Game, đăng nhập qua facebook
+Chuyển hướng đến máy chủ xác thực facebook và login, cho phép Game dùng thông tin người dùng
+Máy chủ xác thực của facebook chuyển hướng về url của Game (url này do người làm game đăng ký vào máy chủ xác thực của facebook), trả kèm id game + mật khẩu game + tham số mã
+Người dùng trải nghiệm game bth
+Game chạy nền bằng cách dùng id game + mật khẩu game + tham số mã để đăng nhập facebook dưới quyền người dùng
+Máy chủ facebook trả về accesstoken
+Game dùng accesstoken truy cập thông tin người dùng do facebook cung cấp
+
+
+
+# Bảo mật server thông dụng
+-> Self sign: là trang web sẽ dùng SSL với chứng chỉ tự ký, chưa đăng ký với CA. 
+Có thể dùng Let's script để có SSL free trong vài tháng. 
+Dùng openssl để có key và cert tự ký: openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 => Sinh key và cert có hạn 365 ngày
+
+-> Strict-Transport-Security:
+Vd: res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains'); => Chỉ dùng HTTPS với các domain chỉ định trong vòng 31536000s tiếp theo. includeSubDomains là mọi domain con đều dùng HTTPS
+Cần set lớn hơn thời hạn 1 năm (31,536,000 giây). Khi đã set thì phía server không thể xóa được thông tin setting đã được lưu 1 lần trên trình duyệt nên cần check kỹ rằng server k cần HTTP response mới dùng. 
+
+VD: res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload'); => Option preload cho phép bạn yêu cầu trang web của mình được bao gồm trong danh sách preload HSTS của trình duyệt. Với list này, trình duyệt sẽ biết để chỉ sử dụng HTTPS cho trang web đó, ngay cả khi đó là lần đầu tiên người dùng truy cập trang web.
+Cũng có thể xử lý khi request người dùng là http thì tự redirect tới https thay vì để browser báo lỗi
+
+-> X-Frame-Options: Cho biết liệu 1 trang web khác có được nhúng trang web của ta để hiển thị trong <frame> <iframe> <object> hay không. 
+VD: res.setHeader("X-Frame-Options", "DENY");
+res.setHeader("X-Frame-Options", "SAMEORIGIN");
+res.setHeader("X-Frame-Options", "ALLOW-FROM https://example.com/");
+Nếu người dùng truy cập 1 website độc hại và 1 iframe nhúng web khác vô hình được cài sẵn. Thông tin của người dùng ở web đó có thể bị gửi tới server của hacker. Còn khi dùng 1 API với X-Frame-Options DENY, api này k thể được gọi từ 1 iframe
+
+-> X-Content-Type-Options: nosniff => Kiểu lấy data từ server về và check đúng type response mới cho dùng ấy. 
+Mặc định trình duyệt đọc các loại MIME chỉ định trong tiêu đề và nếu header này trống thì sẽ tự hiển thị theo cách phù hợp nhất. VD: website cho phép người dùng tải lên 1 ảnh và xác nhận phân mở rộng là jpg và png nhưng tệp này lại chứa mã html độc hại. Nếu k đi kèm type thì như đã nói, trình duyệt tự động xác định type là html và thực thi là toang
+Để tăng bảo mật, ta nên set nosniff thì browser sẽ k tự xác định mà xử lý type theo đúng header X-Content-Type
+Người dùng gửi .exe trình duyệt -> server nhận lưu vào db -> người dùng request get lại -> server gửi lại type là png -> trình duyệt đọc exe như png nên k exec nên k sao
+
+-> X-XSS-Protection: "1; mode=block" => Header kích hoạt bộ lọc XSS tích hợp trong các trình duyệt hiện đại. 
+Nó có 4 chế độ là 0(bộ lọc XSS vô hiệu hóa), 1(kích hoạt và bảo vệ trang nếu phát hiện tấn công), 1;modeblock(kích hoạt và ngăn chặn hiển thị trang nếu phát hiện tấn công), 1;report="https://<url>" (kích hoạt và báo cáo vi phạm vào url nào khi phát hiện tấn công) => có thể kết hợp 1;mode-block;report="<url>"
+Nó dùng trong header của response, không phải request. Nếu server bị XSS, header này k ngăn được mà sẽ bảo vệ người dùng cuối cùng đang sử dụng trình duyệt. Nếu trình duyệt hỗ trợ header này, nó sẽ chặn thực thi XSS trên trình duyệt của ngừoi dùng sau khi lấy data về từ server.
+=> X-XSS-Protection đã bị lỗi thời và không còn được sử dụng rộng rãi nữa, vì các trình duyệt hiện đại đã có các biện pháp bảo vệ XSS mạnh mẽ hơn như CSP.
+
+-> Content-Security-Policy(CSP): 1 header hiện đại thay thế rất nhiều header cũ như X-Frame-Options, X-XSS-Protection là 2 cấu hình không được bật theo mặc định. Nó chặn hàng loạt cuộc tấn công bao bằng cách kiểm soát các nguồn tài nguyên mà trang web có thể tải và chạy.
+VD: Chặn XSS bằng cách cản việc thực thi inline script. VD: Content-Security-Policy: script-src 'self' 'unsafe-inline' 'unsafe-eval'; sẽ cản hàm eval và cản inline script, nhưng vẫn cho thực hiện script cùng origin.
+URL: https://csp-evaluator.withgoogle.com/ => web test website có CSP an toàn không
+
+CSP có thể được add từ backend hoặc frontend với thẻ meta trong tag header: <meta http-equiv="Content-Security-Policy" content="default-src 'self'">
+Package helmet của nodejs tự động hỗ trợ cả CSP. Có thể setup thủ công trong server như nginx ez vì chỉ cần thêm header là được. 
+VD1: Content-Security-Policy: script-src 'self' https://viblo.asia => Mã JS ở trang của ta và trang viblo.asia có thể tải và chạy trong web của ta. Bất kỳ script nào không đến từ 2 nguồn đó sẽ bị chặn k cho thực thi.
+=> Header này vẫn chưa hoàn hảo, nó cản Reflected XSS và DOM-based XSS nhưng chưa cản được Stored XSS vì XSS kiểu này đến từ server của ta. Do đó vẫn cần kết hợp X-XSS-Protection kích hoạt 1 bộ lọc.
+
+-> CSRF (Cross site request forgery) là 1 vector đánh lừa trình duyệt thực hiện hành động không mong muốn trong ứng dụng người dùng đã đăng nhập.
+VD: B là 1 người muốn phá hủy 1 dự án mà A đang làm. B đăng tải 1 bài lên diễn đàn www.webapp.com nhưng kèm theo 1 đoạn code kiểu: <img height="0" width="0" src="http://www.webapp.com/project/1/destroy">. A vào đăng nhập vào diễn đàn như thường lệ và xem bài viết của B. Khi đó, browser của A đã cố gắng load ảnh nhưng thực tế lại gửi câu lệnh destroy vào địa chỉ này để xóa project có id là 1. Access token hợp lệ vì người dùng đã đăng nhập. Chú ý là request có thể đến từ cùng trang web hoặc từ 1 trang web khác.
+VD biến thể tinh vi hơn: hacker dùng 1 url rất mượt mà kiếu: <img height="0" width="0" src="http://www.ahackersite.com/abc.jpg"/> => xong cấu hình lại máy chủ: Redirect 302/abc.jpg http://www.webapp.com/project/1/destroy"/> thì người dùng k thể phát hiện ra được. Vấn đề này là phía người làm web cần phải xử lý.
+
+--> Chặn bằng CRSF token trong form ẩn:
+Trong mỗi phiên làm việc sinh ra duy nhất 1 crsftoken và FE cho vào form ẩn để gửi kèm. VD action gửi tiền:
+<form action="http://bank.com/transfer.do" method="post">
+  <input name="amount" value="100000"/>
+  <input type="hidden" name="csrf_token" value="{{csrf_token}}">
+  <button type="submit">Submit</button>
+</form>
+Khi thực hiện action, server check có csrftoken hợp lệ mới cho thực hiện là được. Hacker k biết giá trị trường này sẽ k thể CSRF được.
+
+--> Chặn bằng SameSite option của cookie
+SameSite là attribute của cookie quyết định việc gửi cookie cho cross site, ta cần đảm bảo request chỉ đến từ web của ta. Có 3 giá trị:
+Strict: ngăn hoàn toàn việc gửi cookie trong mọi cross-site. Vd A đăng nhập rồi, xong vào website ở 1 link khác sẽ báo là chưa đăng nhập vì cookie k được gửi kèm
+Lax: Tương tự nhưng vẫn gửi được cross-site với request GET, request POST sẽ bị chặn => mặc định 
+None
+=> Vượt qua Lax bằng cách pop up website và thực hiện. Khi ta thấy duyệt 1 site mà pop up lên 1 site khác và thông tin cá nhân bị đổi là hiểu vấn đề.
+
+--> Double Submit Cookie:
+Người dùng vào thì gửi 1 random val lưu vào cookie (tạo mới random) -> các form trong web sẽ có hidden field gắn giá trị random đó (k fix cứng) -> thực hiện request thì server check random val trong cookie với trong hidden field giống nhau là được.
+WebA call tới API webB thì nên nhớ dù gửi lại có cookie của webB thì vẫn k đọc được cookie đó là gì nên k thêm đúng trường như frontend chuẩn được
+
+-> X-Permitted-Cross-Domain-Policies: none => Các header dùng cho cross domain request sẽ bị cấm. Tức là trình duyệt sẽ không thực hiện bất kỳ loại truy cập nào từ các tên miền khác, ngay cả khi chính sách cross-domain policy khác được thiết lập. Điều này cũng ảnh hưởng đến tính tương thích web của ta với các web khác.
+
+-> X-Download-Options: noopen => thiết lập này đi kèm với Content-Disposition: attachment khi người dùng download file về sẽ thiết lập là k mở file luôn.
+
+-> Referrer-Policy: same-origin => Header này xác định thông tin về nguồn gốc của yêu cầu (referer) sẽ chỉ được bao gồm nếu trang gửi và trang nhận cùng 1 origin. Tức nó ngăn chặn việc tiết lộ thông tin về nguồn gốc của yêu cầu khi trang web gửi yêu cầu đến các tên miền khác.
+
+-> Dùng thư viện chống XSS: validator, xss, express-validator, xss-filter, DOMPurify. Bản chất nó sẽ validate regexp email, sanitize string, convert sang html entities.
+
+
+
+# Server-Side Request Forgery (SSRF)
+Hacker khiến server gọi các request tới chính nó.
+VD: Server có url http://localhost/admin cho người dùng input 1 url ảnh để nó fetch về. Hacker input luôn http://localhost/admin/delete, server lấy url về và thử fetch thì lại gọi hàm của chính nó. Do server tự gọi chính nó nên request thành công. 
+Tức hacker có thể khiến server gọi API thực hiện hành động gì tuỳ ý nó, hoặc khiến server gọi vào API khác mà nó có quyền để lấy data nhạy cảm về. Cuối cùng trả ra FE hiển thị dưới dạng ảnh nhưng thực chất là hiển thị thông tin nhạy cảm cho hacker.
+
+
+
+# Tool test
+-> Jest: viết test case bằng JS để test cho FE. Nó tìm file test nằm trong thư mục __test__ or file có đuôi là .test.js
+
+-> MounteBank: cung API có sẵn dạng ngân hàng => thà dùng json-server
+
+-> Apache benchmark (ab): gửi nhiều request đồng thời tới 1 server để test performance => cài phức tạp, thay thế bằng autocannon
+
+-> Autocannon: autocannon -c <> -p <> -d <> <url> 
+-c là số lượng connection đồng thời, mặc định là 10 user cùng lúc
+-p là đóng gói, bnh gói requests thì mặc định là 1
+-d là số giây nó phản hồi lại, mặc định là 10
+VD: autocannon http://localhost:5000/ thì sẽ check 1 gói 10 user chạy cùng lúc trong 10 giây thì mỗi giây có bnh request xử lý được thành công
+
+Với server bth test sẽ thấy nó cho average 900 request trong 1s, tức 9k request trong 10s với máy 4 threads. Khi xử lý mã hóa tốc độ nó giảm 10 lần
+
+
+
+# Dùng PM2
+Tool chạy nhiều instance của server, performance tăng tuỳ vào số cores trong máy. VD có thể chạy 4 cluster server độc lập: pm2 start <file.js> -i 4
+Tuỳ ý kiểm soát từng process, giám sát resource (monit), tự động reload khi đổi như nodemon (--watch), xem log.
+pm2 deploy production setup / pm2 deploy staging setup => lần đầu chạy nó sẽ pull code từ git về và setup, các lần sau chỉ cần: pm2 deploy production/staging update
+Có thể dùng file ecosystem.config.js để thiết lập cấu hình cho pm2 stable 
+
+Khi chạy, nó tạo ra 1 process master lắng nghe ở cổng mà ta xác định trong file server. 
+Ta có thể tuỳ chỉnh. VD: NODE_PORT=3002 pm2 start -i 1 app.js => rồi trong file app.js lấy với process.env.NODE_PORT (thực chất là cung 1 biến env). Sau đó VD ta chạy 2 instance thì nó sinh ra 2 worker process để xử lý, nhưng thực ra chỉ có process master lắng nghe ở 1 cổng. 
+
+Khi máy có nhiều CPU cores, PM2 sẽ tự tối ưu hóa bằng cách chạy mỗi process trên 1 core để tối ưu. Khi đó, PM2 tự dùng round robin để phân bố request cho các instance khác nhau. Còn nếu máy chỉ có 1 cores, việc chạy nhiều instance sẽ k có ích gì vì dùng chung core đó.
+Khi server crash, pm2 sẽ auto restart nó, nên khi deploy sẽ kbh bị sập vì lỗi lạ.
+
+-> option --no-daemon: 
+Daemon là 1 loại chương trình trên các hệ điều hành like-unix hoạt động ẩn trong background. Các tiến trình daemon thg kết thúc bằng d như inetd, httpd, sshd, ipd. Các tiến trình daemon không thể bị gián đoạn và chỉ hoạt động khi có đầu vào, tách ra khỏi quá trình cha mẹ và thiết bị đầu cuối.
+Nhiều tiến trình khi chạy phải thêm --no-daemon như câu lệnh pm2 start. VD khi dùng với docker thì nên có vì nếu chạy "pm2 start index.json" thì docker dừng luôn vì nó tưởng tiến trình đã kết thúc, chạy phát là dừng do nó ở trạng thái daemon và k có đầu vào nên k hoạt động.
+
+
+
+# Other
+-> Google API convert text to speech
+
+

@@ -5,7 +5,6 @@ const winston = require('winston');
 var httpMocks = require('node-mocks-http');
 const request = require('supertest');
 
-// # Các package backend NodeJS thường dùng
 // Dùng faker
 console.log(faker.internet.email().toLowerCase());
 console.log(faker.name.findName());
@@ -57,8 +56,6 @@ var requestMock  = httpMocks.createRequest({
 });
 var response = httpMocks.createResponse();
 checkMiddleware(requestMock, response, () => {});
-// console.log(response); // Tự fake hết tất cả các trường
-
 
 app.get('/user', function(req, res) {
     res.status(200).json({ name: 'john' });
@@ -68,9 +65,8 @@ request(app)
 .get('/user')
 .expect('Content-Type', /json/)
 .expect('Content-Length', '15')
-.expect(200) // VD 201 sẽ báo lỗi
+.expect(200) // VD 201 sẽ fail test
 .end(function(err, res) {
-    // console.log(res);
     if (err) throw err;
 })
 

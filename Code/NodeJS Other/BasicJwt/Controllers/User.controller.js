@@ -9,7 +9,7 @@ module.exports = {
     try{
       const { email, password } = req.body;
   
-      // K nên check thô như này
+      // K nên check thô như này mà nên dùng Joi
       // if(!email || !password){
       //   throw createError.BadRequest();
       // }

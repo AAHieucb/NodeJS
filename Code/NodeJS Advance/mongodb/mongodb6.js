@@ -24,8 +24,7 @@ db.once('open', async function() {
         title: String,
         fans: [{ type: Schema.Types.ObjectId, ref: 'Person5' }]
     });
-    // Các type ObjectId, Number, String, và Buffer đều sử dụng được options ref. Nhưng nên sử dụng ObjectID ngoại
-    // trư trường hợp đặc biệt
+    // Các type ObjectId, Number, String, và Buffer đều sử dụng được options ref. Nhưng nên sử dụng ObjectID ngoại trư trường hợp đặc biệt
     const Story = mongoose.model('Story', storySchema);
     const Person5 = mongoose.model('Person5', personSchema);
     const author = new Person5({
@@ -47,12 +46,10 @@ db.once('open', async function() {
     // } catch(err) {
     //     console.log(err);
     // }
-    // Select ra tương tự join trong SQL
     try{
         const data = await Story.findOne({ title: 'Truyện Kiều' }).populate('author');
         // populate có thể chỉnh lấy các trường gì. VD: .populate('author', 'name'); thì cả author chỉ lấy ra name
-        // ta cũng có thể populate với nhiều path: await Story.find(...).populate('fans').populate('author');
-        // or thêm conditional: 
+        // ta cũng có thể populate với nhiều path: await Story.find(...).populate('fans').populate('author'); or thêm conditional: 
         const data2 = await Story.findOne()
         .populate({
             path: 'author',
@@ -78,9 +75,7 @@ db.once('open', async function() {
     }); // Lấy mọi story có fans là 1 mảng 2 phần tử
     // VD sự khác biệt: story1 chứa 10 fan, story2 chứa 4 fan
     // Dùng option limit 2 thì in ra story1 chứa 2 fan, story2 chứa 0 fan
-    // Dùng perDocumentLimit 2 thì in ra story1 chứa 2 fans, story2 chứa 2 fan
-    // Là vì nó đang tìm trong model Story các document story, bên trong từng doc lại có từng docs khác nên
-    // perDocumentLimit sẽ bảo trong mỗi docs Story có bao nhiêu fans, chỉ dùng với mảng
+    // Dùng perDocumentLimit 2 thì in ra story1 chứa 2 fans, story2 chứa 2 fan là vì nó đang tìm trong model Story các document story, bên trong từng doc lại có từng docs khác nên perDocumentLimit sẽ bảo trong mỗi docs Story có bao nhiêu fans, chỉ dùng với mảng
 
     // populate lồng nhau
     var userSchema = new Schema({
@@ -127,10 +122,8 @@ db.once('open', async function() {
     }
     // Éo lấy được 1 phát json luôn mà phải gọi như này. Chú ý findOne trả ra 1 biến, find trả ra 1 mảng
 
-    // Tái hiện: Ta có 1 model comment sẽ có content và nó nó có 2 type: BlogPost tức comment này dùng cho BlogPost thì
-    // ta phải in thông tin của BlogPost có comment đó, or comment này dùng cho Product thì in thông tin của Product
-    // Cả BlogPost và Product đều là 2 bảng riêng. refPath giúp ta liên kết 1 bảng với nhiểu bảng, nó trỏ đến 1 
-    // attributes khác của schema này, trong attribute đó là 1 enum chứa tên các model liên kết với
+    // Tái hiện: Ta có 1 model comment sẽ có content và nó nó có 2 type: BlogPost tức comment này dùng cho BlogPost thì ta phải in thông tin của BlogPost có comment đó, or comment này dùng cho Product thì in thông tin của Product
+    // Cả BlogPost và Product đều là 2 bảng riêng. refPath giúp ta liên kết 1 bảng với nhiểu bảng, nó trỏ đến 1 attributes khác của schema này, trong attribute đó là 1 enum chứa tên các model liên kết với
     const commentSchema = new Schema({
         body: { type: String, required: true },
         on: {
@@ -165,17 +158,13 @@ db.once('open', async function() {
 
 
     // populate ta thg dùng trong middleware. VD để mỗi khi find thì tự populate như nào mà k cần phải viết lại mỗi lần
-    // Chú ý là middleware thì là schema gọi trước khi tạo model nhé. Middleware này cho lên trên thì Commend.find() k cần
-    // gọi populate nx
+    // Chú ý là middleware thì là schema gọi trước khi tạo model nhé. Middleware này cho lên trên thì Commend.find() k cần gọi populate nx
     commentSchema.pre('find', function() {
         this.populate('on');
     });
     
-    // Ở v5 populate họ dùng await doc.populate('path1').populate('path2').execPopulate(); thì v6 sửa thành 
-    // await doc.populate(['path1', 'path2']); Bản chất populate thực ra là họ tạo thêm query mới bên trong
-    // VD ở đây ta find xong thì populate cũng ra kết quả tương tự vc chỉ định populate trước khi find. Nhét cái này
-    // lên trước khi tạo model thì cx cho kết quả tương tự
-    commentSchema.post('find', async function(docs) { // post, lúc này tìm được r nên nhận vào docs
+    // Bản chất populate thực ra là họ tạo thêm query mới bên trong. VD ở đây ta find xong thì populate cũng ra kết quả tương tự vc chỉ định populate trước khi find. Nhét cái này lên trước khi tạo model thì cx cho kết quả tương tự
+    commentSchema.post('find', async function(docs) { 
         for (let doc of docs) {
             // populate từng doc có thể thao tác chi tiết từng doc làm gì
             await doc.populate('on');
@@ -184,17 +173,13 @@ db.once('open', async function() {
 
     commentSchema.post('save', function(doc, next) {
         doc.populate('on').then(function() { // Có thể populate từng doc or cả cục docs nhận được ra 1 mảng
-            next(); // Có thể in ra ở đây
+            next();
         });
     });
 
-    // populate trường khác id, điều này là k thể vì đã populate buộc phải vào trường là id của document khác và nó 
-    // duy nhất và immutable. Ta có thể ghi đè id thành 1 kiểu khác bằng cách dùng _id: String chẳng hạn or groups
-    // nhiều trường với _id: {<object các trường>} thì khi khai báo phải tự thêm id or dùng 1 hàm increment ok
-    // Mặc định nó là type ObjectId được tự sinh trong database. Khi ref populate nó sẽ tự cast sang type của _id 
-    // và nếu k cast được như VD dưới từ String sang ObjectId thì nó sẽ báo lỗi k populate được
-    // Lưu ý ta k thể gom 1 tập hợp trường có sẵn thành id mà phải khai báo bth tức có thể xảy ra TH trùng 1 trường
-    // bên ngoài xong lại muốn trường đó có trong id nên lại nhét vào _id
+    // populate trường khác id, điều này là k thể vì đã populate buộc phải vào trường là id của document khác và nó duy nhất và immutable. Ta có thể ghi đè id thành 1 kiểu khác bằng cách dùng _id: String chẳng hạn or groups nhiều trường với _id: {<object các trường>} thì khi khai báo phải tự thêm id or dùng 1 hàm increment ok
+    // Mặc định nó là type ObjectId được tự sinh trong database. Khi ref populate nó sẽ tự cast sang type của _id và nếu k cast được như VD dưới từ String sang ObjectId thì nó sẽ báo lỗi k populate được
+    // Lưu ý ta k thể gom 1 tập hợp trường có sẵn thành id mà phải khai báo bth tức có thể xảy ra TH trùng 1 trường bên ngoài xong lại muốn trường đó có trong id nên lại nhét vào _id
     const refSchema = new Schema({
         name: String,
         nickname: String,
@@ -216,15 +201,11 @@ db.once('open', async function() {
     // const data = await FirstModel.find().populate("testRef"); // error
     // console.log(data);
 
-    // !!!
     /* 
         Virtual populate: Tình huống là model author và post và 1 author có thể có nhiều post. 
         Theo Principle of Least Cardinality thì trong quy tắc one-to-many, ta k nên để one lưu many mà để many lưu one
-        VD author có 10k post với dữ liệu tầm 12kb thì mỗi author ta lại lưu trong mongoDB là 1 mảng post thì chả bh dùng
-        được vì nếu thao tác bất cứ thứ gì với cái mảng đó đều có poor performance vì duyệt hết rất lâu. Do đó nên để
-        mỗi post lưu 1 author thì ok hơn
-        => Vấn đề khi đó là ta muốn lấy list các post của 1 author thì k làm được vì cái author bh có lưu cái post nx đâu.
-        Tức quan hệ vẫn có one-to-many thật nhưng lại k dùng được từ one lấy ra many. Virtual populate giải quyết
+        VD author có 10k post với dữ liệu tầm 12kb thì mỗi author ta lại lưu trong mongoDB là 1 mảng post thì chả bh dùng được vì nếu thao tác bất cứ thứ gì với cái mảng đó đều có poor performance vì duyệt hết rất lâu. Do đó nên để mỗi post lưu 1 author thì ok hơn
+        => Vấn đề khi đó là ta muốn lấy list các post của 1 author thì k làm được vì cái author bh có lưu cái post nx đâu. Tức quan hệ vẫn có one-to-many thật nhưng lại k dùng được từ one lấy ra many. Virtual populate giải quyết
     */
     const AuthorSchema2 = new Schema({
         name: String
@@ -233,8 +214,7 @@ db.once('open', async function() {
         title: String,
         author: { type: mongoose.Schema.Types.ObjectId, ref: 'Author' },
     });
-    // Virtual trước h nhét vào 1 schema để lấy gộp các trường của 1 schema trong từng document nhưng bh có thể dùng 
-    // kết hợp populate luôn
+    // Virtual trước h nhét vào 1 schema để lấy gộp các trường của 1 schema trong từng document nhưng bh có thể dùng kết hợp populate luôn
     AuthorSchema2.virtual('posts', {
         ref: 'BlogPost',
         localField: '_id',
@@ -251,8 +231,7 @@ db.once('open', async function() {
     // Nếu có count: true ở virtual sẽ chỉ lấy ra được số lượng với author2.posts
     // => findOne chính là tìm kiếm bth trong Author document đầu tiên và lấy thêm thông tin về trường post của nó trong BlogPost ok thì lấy
     // Vẫn dùng được các options khác của populate như bth
-    // Virtual k chưa toJSON hay toObject nên ta k thể res.json hay console.log nó mà phải làm như dưới mới dùng được console.log hay res.json
-    // đối với trường được tạo ra từ virtual 
+    // Virtual k chưa toJSON hay toObject nên ta k thể res.json hay console.log mà phải làm như dưới mới dùng được đối với trường được tạo ra từ virtual 
     const authorSchema3 = new Schema({ name: String }, {
         toJSON: { virtuals: true }, // So `res.json()` and other `JSON.stringify()` functions include virtuals
         toObject: { virtuals: true } // So `console.log()` and other functions that use `toObject()` include virtuals

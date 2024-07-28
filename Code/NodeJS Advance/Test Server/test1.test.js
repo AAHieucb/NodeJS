@@ -1,9 +1,7 @@
-// Dùng tool / # Dùng Jest
+// Dùng Jest
 
 // spyOn cho phép ta quản lý các hàm import từ file khác. Các VD trc các hàm từ file khác ta quản lý nó vẫn chưa tốt
-// Ví dụ muốn hàm thực hiện theo ý ta trong 5 turn r quay lại ban đầu 10 turn xong lại theo ý ta thì spyOn ms làm đc
-// Hơn nx khi ta dùng jest.mock 1 file nào đó thì module file đó thành undefined hết và buộc phải định nghĩa lại
-// giá trị trả ra của tất cả. Do đó dùng spy chỉ tác động vào 1 hàm sẽ tốt hơn.
+// Ví dụ muốn hàm thực hiện theo ý ta trong 5 turn r quay lại ban đầu 10 turn xong lại theo ý ta thì spyOn ms làm đc. Hơn nx khi ta dùng jest.mock 1 file nào đó thì module file đó thành undefined hết và buộc phải định nghĩa lại giá trị trả ra của tất cả. Do đó dùng spy chỉ tác động vào 1 hàm sẽ tốt hơn.
 var sum = require('./testFunction');
 test('use spy',() => {
     const addMock = jest.spyOn(sum, "add"); // Quản lý hàm add(chỉ hàm add)

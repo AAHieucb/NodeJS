@@ -3,13 +3,14 @@ const session = require('express-session');
 const app = express();
 const { body } = require('express-validator');
 
-// # Bảo mật đăng nhập / # Dùng Express session
+// Dùng Express session
 
 app.use(session({
   resave: true, 
   saveUninitialized: true, 
-  secret: 'somesecret', // nên lưu trong env
-  cookie: { maxAge: 6000 } // session hết hạn sau 60000 giây. Sau khoảng thời gian đó connectid k dùng được nx và phải set lại. Ở đây trong browser vẫn lưu connectid nhưng k dùng làm gì đc, lấy ra sẽ là null
+  secret: 'somesecret', // Nên lưu trong env
+  cookie: { maxAge: 6000 } 
+  // session hết hạn sau 60000 giây. Sau khoảng thời gian đó connectid k dùng được nx và phải set lại.
 }));
 // Mặc định nó dùng httponly. Có nhiều thông số khác có thể set.
 
@@ -41,7 +42,7 @@ app.get('/destroy_session', (req, res) => {
   })
 })
 
-// # 1 số phương pháp bảo mật thông dụng / Dùng thư viện chống XSS
+// Dùng express-validator chống XSS
 app.post('/testxss', body('text').escape(), (req, res) => {
   res.send("The sanitized text is: " + req.body.text);
 },);

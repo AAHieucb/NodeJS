@@ -1,0 +1,358 @@
+NodeJS xd trên nền tảng Javascript V8 Engine tốc độ cao, mã nguồn mở. Javascript engine là trình thông dịch mã js. Ngoài V8 thì cũng có các js engine khác như: SpiderMonkey(FireFox), Hermes(ReactNative), Chakra(IE), JavascriptCore(Safari),.. Engine gồm heap và stack, tải NodeJS là tải engine này về
+.NET có hiệu năng cao hơn nhưng NodeJS lại nhẹ và dễ dùng hơn
+
+
+
+# Basic
+-> Install chuẩn phiên bản: npm install package-name@version --save
+Chạy ứng dụng license có thể dùng: MIT, ISC, GPL-3.0
+
+nvm là tool quản lý phiên bản của nodejs => Để update tool nvm: ta tải lại từ github về file setup.exe và chạy là mới là được
+
+-> Trong NodeJS có biến global
+Dùng import require cần tránh circular dependencies
+Biến môi trường: NODE_ENV=production node app.js -> lấy ra với process.env.NODE_ENV
+
+-> Dùng node-express-boilerplate => tạo dự án đủ mọi thứ
+
+-> Có thể self sign tự ký cho chứng chỉ SSL
+
+
+
+# Built-in module trong nodejs
+URL tổng hợp: https://www.w3schools.com/nodejs/ref_modules.asp
+
+-> Dùng buffer:
+Chỉ dùng buffer khi cần dùng binary data từ file hay mạng, không phải chuỗi văn bản bth
+NodeJS dùng 1 buffer pool chứa các buffer k còn được sử dụng. Khi cần dùng buffer sẽ lấy từ pool ra, nếu k có mới tạo mới 1 biến buffer khác. VD 1 buffer ta sử dụng lâu dài xuyên suốt mà k muốn được quản lý bởi pool thì có thể dùng Buffer.allocUnsafeSlow(<size>); thì biến đó sẽ k ảnh hưởng bởi pool hay garbage collector gì hết
+
+-> Dùng fs: Thao tác với file
+Điều đặc biệt là nó có thể watch sự thay đổi của 1 file, điều mà database k làm được
+
+-> Dùng stream:
+Mỗi stream đều là 1 event emitter cho phép bắt sự kiện. 4 sự kiện có sẵn là data(đọc), end(hết dữ liệu để đọc), error, finish(khi hoàn thành)
+Các stream trong NodeJS đều là chuỗi or buffer. Chuyển sang chế độ object mode của stream giúp nó thao tác với các kiểu giá trị khác của JS k là dạng buffer hay chuỗi
+
+Kiểu stream giúp giải quyết vấn đề: VD cần đọc 1 dữ liệu 10GB mà server có 1GB thì nó giúp lấy từng phần của dữ liệu để đọc nên có ưu thế khi xử lý dữ liệu lớn từng chút 1. Cơ chế của nó sẽ ghi dữ liệu vào buffer và check nếu buffer đầy sẽ dừng lại, xử lý, ghi tiếp phần tiếp theo vào buffer khắc phục hiện tượng tràn buffer của kiểu đọc thông thường.
+
+-> Dùng child_process: thư viện hỗ trợ thao tác đa luồng trong nodejs
+Dùng process.send trong nodejs có thể gửi data từ process con sang process cha.
+Dùng thư viện @rauschma/stringio bổ trợ cho việc dùng child_process
+
+--> Dùng spawn: chạy 1 lệnh nào trên 1 tiến trình con và trả ra cho stdio
+--> Dùng exec: chạy lệnh nào trên 1 tiến trình con và bắt sự kiện
+--> Dùng execFile: chạy lệnh nào trên 1 tiến trình con và trả ra cho buffer
+--> Dùng fork: gọi fork 1 phát là file đó được thực hiện luôn trên 1 tiến trình riêng
+
+-> Dùng os: Chrome V8 của google là 1 js engine có thư viện libuv viết bằng C++ giúp tương tác với phần cưng và thực hiện các task nặng. Thư viện này giúp tương tác với libuv đó
+VD: Có thể tận dụng tối đa CPU cho server thông qua việc set giá trị biến môi trường process.env.UV_THREADPOOL_SIZE, có thể tăng tốc cho NodeJS đến 3 lần, nếu máy chạy server cùi chỉ có 4 thread thì đừng hy vọng
+
+
+
+# Các package backend NodeJS thường dùng
+-> Dùng node-persist: thư viện giúp tạo 1 global store tạm, tắt là mất.
+
+-> Dùng yargs: xử lý tham số từ dòng lệnh cmd. Chú ý người dùng cũng có thể gửi tới server command và server dùng lib này để xử lý data
+Dùng minimist đi kèm để parse process.argv thoải mái
+
+-> Dùng crypto-js: thư viện giúp encrypt và decrypt văn bản, mật khẩu.
+-> crypto: sinh random key
+-> Dùng bcrypt: thư viện hash. Có thể tùy chọn hash bao nhiêu vòng nhưng sẽ rất nặng
+MD5 k còn được sử dụng vì mỗi string giống nhau cho đầu ra giống nhau.
+Còn bcrypt sinh hash khác nhau với string giống nhau, nhờ dùng salt khi hash. Đb là khi verify lại k cần cái salt nữa mà vẫn check được password ban đầu là đúng với đoạn hash
+
+-> Dùng cheerio: thư viện giúp parse DOM, tạo web crawler
+
+-> Dùng chalk: package giúp style text trên console
+Dùng figlet: package in chữ khổng lồ trên console
+Dùng marked + marked-terminal: vẽ ngôn ngữ markdown lên terminal, có thể dùng kết hợp với chalk để custom style => chả bh dùng
+Dùng clear: xóa terminal
+=> Thường chỉ dùng khi cần tạo thư viện
+
+-> Dùng faker: thư viện tạo mock data cực nhanh
+-> Dùng node-mocks-http: mock http api 
+-> Dùng supertest: test nhanh http. Hoạt động với mọi test framework or test 1 mình k cùng framework nào cũng đươc
+-> Dùng ab: thư viện apache benchmark test rất mạnh
+-> Dùng colors: thư viện hàng đầu khi cần in màu console.log trong terminal cho dễ nhìn 
+
+-> Dùng rimraf: thư viện hỗ trợ xóa file và thư mục
+Trong linux và window đều có lệnh xóa file và rimraf tương thích với mọi nền tảng.
+Cũng có thể import thành biến để xóa file, folder nhưng kiểu này chỉ dùng cho dự án NodeJS bth chứ k dùng cho react. 
+
+-> Dùng mv: move file tới bất cứ đâu. 
+Mạnh hơn fs vì fs bị giới hạn bởi quyền, bản chất là nó xoá file vị trí cũ và create new file ở vị trí mới
+
+-> Dùng winston: thư viện logger mạnh nhất nodejs.
+Trong hệ thống lớn quan trọng về tốc độ, việc ghi log tốn thời gian thì thường chỉ push message vào buffer, rồi chạy 1 thread riêng lấy ra ghi.
+=> Lưu ý chỉ optimize khi có performance issue. K nên làm code phức tạp để optimize cho các thứ k cần thiết.
+
+-> Dùng module-alias: import module relative url gọn
+
+-> Dùng apollo-server và graphql: Xây 1 graphQL server
+
+
+
+# Xử lý upload file
+-> Dùng formidable: Xử lý files upload từ client
+Phức tạp, tốc độ cao, chiếm ít bộ nhớ, bị hạn chết vài tính năng
+
+-> Dùng express-formidable: thay thế cho formidable khi dùng trong express
+Nó khác với multer là k lưu lại gì vào server cả, tức k thể lưu file lại.
+
+-> Dùng multer: Cung cấp đầy đủ options và tính năng, code đơn giản.
+--> Dùng kết hợp cloudinary: Thư viện giúp lưu ảnh lên cloud
+Dùng multer-storage-cloudinary cho dễ
+FE nên gửi ảnh qua FormData, tương đương với <form action="/action_page_binary.asp" method="post" enctype="multipart/form-data"> trong html thuần.
+Bên cạnh đó ảnh ta cũng cần phải lọc request như thế nào k thể để ai cũng DDoS đăng ảnh lên server đươc => chưa làm được
+
+
+
+# Dùng ExpressJS
+-> Dùng middleware
+Hàm use của express là sử dụng 1 middleware. Khi có request thì các middleware chung kxđ rõ url dùng use mà đc ưu tiên chạy đầu tiên rồi mới đến các middleware riêng của url đó
+1 middleware có thể truyền dữ liệu vào req cho middleware tiếp theo lấy. Các middleware có sẵn đều tự gọi next(), chỉ có middleware ta tự tạo mới phải gọi next thủ công
+Route cho middleware có thể là regexp, params, string pattern thoải mái
+
+express.urlencoded({extended: true}) sẽ làm cho dữ liệu trong url mà người dùng gửi đến được lưu lại trong body của req dưới dạng key-value json
+express.json() sẽ giúp lấy được req.body để truy cập vào cặp key-value trong url
+express.static(<>) nếu cần dùng các file static
+
+--> middleware express.Router giúp chia 1 route ra thành nhiều route con
+
+--> Middleware là error handler: hàm gồm 4 tham số err, req, res, next. Bth chỉ có 3 tham số req, res, next
+
+--> Người ta thường dùng kiểu app.all("*", (req,res,next) => {<>}); là route sau cùng để xử lý lỗi khi người dùng gọi router k tồn tại
+
+-> NodeJS có thể xây API server or SSR cung ra html thông qua view engine
+--> Dùng pug: luôn dùng vì tính tái sử dụng cao
+--> Dùng ejs: cú pháp củ chuối k dùng
+
+-> Dùng express-generator: boilerplate 
+VD: npx express-generator --view=pug myapp -> dùng view engine là pug
+
+-> Dùng express-rate-limit: tránh ddos
+-> Dùng connect-timeout: sinh lỗi network nếu request lâu quá 5s
+
+
+
+# Dùng jsonwebtoken
+Tối thiểu ta phải có bảo mật SSL, chống XSS, và Database Injection, rate limit chặn DDoS. 
+access token sinh từ {userid,role,timestamp,expiration} + secret key
+
+-> Dùng passport + passport-jwt kết hợp: sẽ dùng jwt như 1 strategy làm đơn giản code hơn
+Dùng passport-local nếu xác thực tk mk tự làm
+
+-> Tự động đăng nhập thì cho FE lưu accesstoken và refreshtoken
+- Cookie: httpOnly cookie flag làm browser k đọc được cookie bằng JS. Cài cookie flag SameSite=strict và secure=true(chỉ HTTPs) để giảm thiểu CSRF
+- Indexed DB (ít dùng): là 1 NoSQL DB, dùng khi cần lưu 1 lượng data lớn và global trong code. Lưu được file, blobs. High performance với indexed, hỗ trợ transactions. Thường 1 app chỉ tạo 1 db dù ta có thể tạo bnh db cũng đươc. Cũng phải tạo connection, tạo object, lưu và chờ như db bth.
+=> SSR nên dùng cookie, CSR nên dùng localStorage vì các framework FE chống XSS rất tốt mà k cần cookie. Chỉ dùng indexed db khi muốn lưu như localStorage nhưng cần memory > 5MB
+
+-> JWT cũng dùng khi quá trình verify bằng 1 pp bên ngoài mất nhiều tg thì chỉ cho làm 1 lần rồi sau đó dùng jwt xác thực cho nhanh. 
+VD: ký message trong web3 xong rồi dùng jwt để giao tiếp.
+
+-> Dùng redis vô hiệu hoá token
+Usecase hệ thống bị hack và yêu cầu admin vô hiệu hóa 1 refresh token. Ta lưu tất cả refreshtoken vào redis và check thêm 1 bước, nếu nó k tồn tại trong redis, tức bị xoá hoặc expires thì login fail. Để vô hiệu hoá chỉ cần xoá khỏi redis.
+Có thể dùng redis lưu refreshtoken kiểu: key là user id, value là refreshtoken. Điều này đồng nghĩa refreshtoken mới được lấy thì refreshtoken cũ tự k dùng được nữa. Ta có thể làm điều tương tự với accesstoken để disable accesstoken cũ khi accesstoken mới được sinh ra với cơ chế này.
+
+
+
+# Lưu session data
+-> Lưu trong cookie: Session cookie có thời gian ngắn và hiệu lực trong 1 phiên làm việc, nó bị xóa khi người dùng logout or hết hạn. Persistent cookie có thời gian lưu lâu dài
+Server k thể xác định được các requests HTTP có phải từ cùng 1 người hay không vì HTTP là 1 giao thức k trạng thái, cookie ra đời đã giải quyết vấn đề đó. Setup cookie middleware giúp lưu data tự động truyền giữa client server trong phạm vi 1 session.
+Chú ý session storage là khái niệm chỉ có ở FE, backend k có session storage mà chỉ có cookie. 
+
+-> Lưu trong db
+Có thể dùng express-session hoặc cookie-session để lưu session data trong cookie nhưng bị lỗi memory leak. Để fix, ta k được lưu session trong cookie nữa mà phải lưu trong các database khác bằng cách thêm option store:
+- VD redis:
+store: new RedisStore(),
+- VD connect-mongo hỗ trợ lưu session data:
+store: new MongoStore ({ 
+  url: 'mongodb: // localhost: 27017 / test-app', // URL MONGODB CỦA BẠN 
+  ttl: 14 * 24 * 60 * 60, 
+  autoRemove: 'native' 
+}),
+ttl là thời gian hết hạn 1 session
+=> Đăng nhập vào mongo atlas sẽ thấy session được lưu ở đó
+
+
+
+# Dùng cors
+Same Origin Policy (SOP) tự có sẵn trên browser cản mọi truy vấn khác domain để tăng tính bảo mật cho website. Mặc định server k set gì thêm thì sẽ bị cản, gây khó khăn cho dev. Do đó setup Cross Origin Resource Sharing(CORS) ở server sẽ cho phép cụ thể url nào khác domain nhưng vẫn được phép gọi
+VD CSR truy cập vào API của 1 server từ frontend thì khi hosting frontend lên 1 domain thì server chỉ cần grant access cho domain đó.
+
+-> Bản chất cors:
+Nếu call API 1 server từ 1 domain của 1 website khác, vd vào 1 website bất kỳ mở F12 console lên gọi method GET tới 1 website khác thì origin là thứ lưu đường link của website client, đó là url trên thanh địa chỉ của website đó. Nếu ta call API từ ứng dụng hoặc đơn giản mở tên trang web trên browser bth thì origin ở đây là undefined
+
+--> Các cấp độ để cấu hình cors:
+- Nếu ta k cấu hình cors thì mặc định nó dùng SOP, ta k thể truy vấn từ mọi origin website khác nhưng lại có thể truy vấn từ origin undefined or vào trang web của nó để tự call đến chính nó. Còn vào 1 trang web lovehands mà call tới facebook thì k được.
+Developer có thể disabled security mode trên trình duyệt or dùng các extension cho phép trình duyệt tự động có các header Allow-Access-Origin với các request là được.
+- Nếu ta cấu hình cors cho phía server thì chỉ các trang web ta cho phép hoặc origin undefined mới truy cập đc vào API, cấm cả cùng domain cũng được. K cầm được origin undefined. VD: facebook dùng cách này đó, ta vẫn request nó được ở khi undefined, phải như v nó mới làm ra cái app messenger được chứ.
+- Nếu ta dùng origin là 1 function như cách bên trên cors(<object có origin là 1 function>) thì ta có thể chơi kiểu lọc origin là gì nên quản lý đc kể cả origin là undefined ta cx cấm đc tùy ý ta
+
+-> Có 2 loại request tới cors: simple request là các request k trigger cors preflight; preflighted request là các request có trigger cors preflight. 
+Preflighted request thì trước tiên sẽ gửi 1 request OPTIONS tới server cần gọi, server sẽ gửi response tương ứng lại với request này chứa các thông tin cơ bản sau đó mới gửi request thật sự ta cần, kiểu check trước ấy => k đi sâu
+
+-> Để dùng cors:
+- Tự thêm header vào là xong nếu chỉ cần mỗi access-control-allow-origin 
+- Dùng lib cros
+
+Access-Control-Allow-Origin là url nào được gọi vào server
+Access-Control-Allow-Credentials để là true thì được phép dùng cookies trong các request cors
+
+
+
+# Các package khác liên quan tới server
+-> helmet: Tự thêm các header bảo mật cần thiết vào các request
+Khi dùng thì 1s số lượng request có thể xử lý bị giảm đi vài nghìn, đánh đổi security và performance
+
+-> morgan: thư viện log lại lịch sử gỡ lỗi và các request của user
+
+-> cookie-parser: tương tác cookies
+
+-> Dùng localtunnel: như ngrok nhưng nếu dùng trong code thì nó tiện hơn nhiều
+
+-> Dùng Joi: thư viện validate type của object, email, password, not null => ref tới "Projects / BlogWeb"
+
+-> http-errors: module tạo ra error với các mã lỗi của website, dùng nó trong 1 middleware để pass nó tới error handler tiếp theo.
+
+-> Dùng http-status: thư viện thao tác với các loại status http
+
+-> Dùng validator: giúp santinize string để chống XSS. Vd giúp check có phải email hay không chẳng hạn, tập hợp các type check có sẵn
+Dùng xss-filter
+
+-> Dùng express-flash + express-session: thư viện tạo flash message cho web nodejs
+Flash message là message lưu tạm trong session hiện tại, nó là 1 dòng thông báo tạm thời và có thể truy xuất ở request tiếp theo, sau đó sẽ bị xoá. 
+Tức là lib này cung cho server lưu 1 message vào session để truy xuất ở 1 request tiếp theo rồi tự xoá. Với CSR phía client tự lo nên chắc chỉ dùng cho SSR.
+
+-> Dùng method-override:
+Form HTMl chỉ hỗ trợ GET và POST từ thời xưa, để duy trì tính tương thích thì điều này vẫn giữ nguyên. Package này giúp người dùng chỉ gửi POST và nó tự sẽ chuyển đổi sang PATCH PUT DELETE tuỳ ý để xử lý
+
+-> Dùng dotenv: Theo thống nhất khi lập trình nodejs thì file .env ko được commit lên host theo git, để trong .gitignore
+Dùng dotenv-expand: giúp tạo biến môi trường mà dựa trên biến môi trường khác
+Dùng cross-env: có thể dùng quyết định môi trường nào ngay trong command. Nó còn ghê gớm khi tự động lấy tên file chuẩn trong config
+
+-> Dùng nodemon: thay thế với node --watch => chỉ watch ở development
+Dùng concurrently: khi cần chạy song song client và server trong 1 dự án cùng lúc chỉ bằng 1 lệnh
+
+
+
+# Nén data truyền qua API
+Tốc độ sẽ nhanh hơn nhưng tăng áp lực lên CPU => nên dùng mọi lúc trừ khi CPU server yếu
+
+compression: lib nén giảm lượng dữ liệu cần truyền qua mạng với gzip.
+shrink-ray-current: dùng thuật toán brotli mới của google còn giúp nén mạnh hơn nữa.
+
+Nhiều nền tảng như Cloudflare cũng hỗ trợ nén data: 
+Client <---10KB--- Cloudflare <---100KB--- Origin server
+
+
+
+# Dùng nodemailer 
+Tạo tính năng gửi mail => refer tới "Projects / BlogWeb"
+
+Khi truy cập vào gmail để gửi thông tin đi thì gmail sẽ chặn, để nodemailer hoạt động được thì:
+- Với tài khoản bth: ta phải bật quyền truy cập của ứng dụng kém an toàn của google account trong mục bảo mật
+- Với tài khoản xác minh 2 lớp(vd qua số đt nx): bảo mật -> App Password -> Sign in password -> SelectApp -> Other -> gõ tên mật khẩu -> sinh ra 1 password mới thay thế cho password hiện có để ứng dụng có tên đó truy cập vào đc gmail của ta 
+URL: https://myaccount.google.com/security
+
+
+
+# Dùng mssql
+Connect tới SQL server => refer tới "ReactOther / Full client and server"
+
+2 cách connection: Dùng connection pool; Connect thủ công ở mỗi query.
+Chống SQL injection bằng cách validate và parameterize tham số. 
+
+-> Cách config SQL Server MSSM kết nối được với mssql nodejs (hoạt động tốt vào năm 2022):
+Để tạo tài khoản mật khẩu và sử dụng: rightClick vào server -> property -> secure -> SQL Server and Window Authentication mode vì tk mk thì phải dùng mode SQL Server.
+Vào SQL bằng window authentication(là nơi tạo ra các user) -> security -> rightclick login -> new login -> SQL Server authentication -> gõ password; server roles -> mặc định có public tức là tài khoản cho mọi người -> ta nên dùng tài khoản cho người và chỉ có 1 user tên là sa có quyền sysadmin mà thoi; User mapping: chọn các database muốn truy cập bởi user này -> check các quyền db_datawriter và db_datareader là các quyền cơ bản nhất đọc và viết với database, để 2 quyền đó hoạt động thì phải là chủ của database tức check thêm db_owner(k check sẽ lỗi); Status: grant và enabled; 
+Restart lại server này: cmd computer management -> Services and Applications -> Services -> refresh lại SQL Server Browser, agent và service;
+=> Có thể vào database với từng tài khoản r, tk đó chỉ truy cập vào được những database ta đã set mà thôi
+=> Mỗi khi xóa hay làm gì trực tiếp trên database thì phải luôn luôn restart lại database và nếu có thể thì cả trong computer management.
+
+Để dùng đc server ta cần setting lần đâu trên máy win(các lần sau k cần làm phần này nữa): computer management -> services and applications -> services -> start các thứ SQL Server Browser, SQL Server, SQL Server CEIP services; -> SQL Server Configuration Manager -> SQL Server Services-> start SQL Server Browser; -> SQL Server Network Configuration -> Protocols for SQLEXPRESS -> enabled cái TCP/IP -> IP Addresses -> active và enabled yes -> TCP Dynamic Ports blank -> TCP Port 1433
+
+
+
+# Dùng socketio
+Bắt sự kiện qua lại giữa socket client và server, broadcast event, tạo kênh và phòng, tự động kết nối lại, phát hiện ngắn kết nối => ref tới "Projects / BlogWeb"
+Cơ chế Socket.io xây dựa vào Engine.io, đầu tiên chạy long-polling để kết nối, r dùng các phương thức giao tiếp khác tốt hơn như websocket, nhưng chiếm ít tài nguyên hơn
+
+-> Polling: query liên tục xem có thay đổi không. Duration càng ngắn, càng tốn tài nguyên.
+Long-polling khắc phục nhược điểm của polling với ý tưởng: client gửi 1 request và server giữ lại request đó và sẽ response khi có 1 sự kiện tương ứng diễn ra. Nếu request client bị timeout, khi hết timeout nhưng vẫn chưa có sự kiện mong đợi nào thì server buộc trả về 1 response mà chả có dữ liệu nào, vẫn tốt hơn short-polling nhiều rồi.
+
+
+
+# Dùng json-server: để test, dữ liệu k nên quá lớn.
+Free: https://jsonplaceholder.typicode.com/posts
+
+-> json-server --watch <link đến file db.json> --port 4000 => file db thay đổi sẽ update realtime. 
+
+VD query: GET /employees/1/?_sort=firstName&amp;_order=desc
+GET /employees?_page=7&amp;_limit=20
+
+-> 2 package là json-server và lite-server
+Ta có thể dùng 1 file bth text là db và cung các hàm để nó truy cập từ ngoài, dùng tạm thời và k có tính ACID của DB bth.
+
+
+
+# Debug trong nodejs
+node --inspect index.js -> mở devtool của chrome lên sẽ thấy option nodejs (k thấy thì gõ url socket ws vào thanh search) -> click là thấy console của nodejs trong browser
+Console của browser sẽ giúp nodejs nhìn rõ chi tiết mọi object. Có thể tương tác trực tiếp in ra biến trong browser khi api chạy dừng ở breakpoint.
+File js chạy phát tắt ngay thì k thể mở được devtool. Có thể cho server lắng nghe ở 1 cổng lâu để dùng. Khi file server chạy kết thúc, nó xóa hết các biến k dùng nên ta log các biến bên ngoài ra undefined, nên phải đặt breakpoint ở trong hàm API và thực hiện call tới mới thấy mọi thứ.
+
+Bật devtool connect debugger lên, console của nó sẽ đồng bộ với terminal của nodejs.
+Click đúp vào dòng nào trong tab Source để đặt breakpoint, khi call api sẽ dừng ngay tại đó, F10 đi tiếp. Đặt "debugger;" trong code thì devtool browser cũng hiểu là dừng ở đó
+
+-> Package morgan: giúp log các request ra terminal
+
+-> Package debug: giúp log ở môi trường debug. 
+VD: const debug = require("debug")("myapp:server"); debug("This is message");
+=> Tức dùng debug với namespace có tên là myapp:server, namespace có vai trò lọc và phân loại các dòng log debug
+
+Để dùng:
+Trong linux: "start": "DEBUG=app:* node app.js" or chạy terminal trực tiếp DEBUG=app:* node app.js
+Trong window: cd vào thư mục -> set DEBUG=appmyapp:* => để cho debug trong môi trường nào rồi chạy bth. Làm như này sẽ set biến môi trường của window trong phạm vi thư mục đó
+
+
+
+# Bắt global error
+Chạy node index.js có server listen và ta gọi throw luôn thì ct sẽ tự kết thúc vì lỗi unexpected k được bắt.
+Kiểm soát bằng việc bắt các event lỗi: unhandledRejection, uncaughtException, SIGTERM. 
+VD: process.on("uncaughtException", unexpectedErrorHandler); Trong unexpectedErrorHandler thg có process.exit(0);
+=> Ta có thể override để tắt các connection tới database, socket các thứ nhưng thực tế k cần. Nếu process tự tắt, nó cũng tự close các connection kia rồi, và các công nghệ hiện đại đủ để tự xử lý khi 1 bên tự bị close, phía bên kia cũng tự hiểu điều đó mà ta k cần làm gì thêm.
+
+
+
+# Chuyển hết về async await
+-> Hàm callback
+X(a, callback); => khi hàm X thực hiện xong sẽ truyền kết quả vào hàm callback ở cuối để xử lý. 
+Thường hàm từ thư viện sẽ có sẵn phiên bản khác là async await. Vd: const x = await X(a); callback(x);
+
+Nếu không có phiên bản async await, buộc phải truyền callback vào bth. Nếu callback là async, nó sẽ đi tiếp luôn và thực hiện song song hàm callback. Có thể ép chờ:
+const x = await new Promise((resolve, reject) => {
+  X(a, async (err, result) => {
+    if(err) reject(err);
+    resolve(result);
+  })
+})
+=> Bản chất: promise kbh kết thúc nếu như cái cục cuối cùng của nó k gọi resolve or reject. Vd ở đây ta xóa resolve hay reject đi thì hàm promise này sẽ kbh kết thúc. Ta dựa vào nó để ép hàm này dùng được await.
+
+-> Promise: await X().then();
+Chú ý promise khi call resolve hay reject, nó vẫn chạy tiếp phần code bên dưới, do đó ta nên return để tránh nó đi tiếp
+=> Trong callback phải check if(err) tuỳ lib, promise vẫn phải .then().catch, còn async await phải có try catch. Do đó chuyển sang async await phải luôn nhớ try catch error
+
+-> Event với on
+Ta có thể biến thành Promise để dùng với async. Bằng cách cho resolve khi onsucess, reject với onerror:
+new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => {
+    resolve(reader.result);
+  };
+  reader.onerror = (error) => {
+    reject(error);
+  };
+  reader.readAsDataURL(file);
+});
+
+

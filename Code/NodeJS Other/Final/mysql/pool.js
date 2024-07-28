@@ -1,4 +1,4 @@
-// NodeJS Final / Dùng mysql2
+// Dùng mysql2
 
 const express = require("express");
 const app = express();

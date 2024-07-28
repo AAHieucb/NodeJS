@@ -5,8 +5,7 @@ const path = require("path");
 const PORT = 3443;
 const app = express();
 
-// Bảo mật server nodejs / # 1 số phương pháp bảo mật thông dụng
-// Cản CSRF
+// Bảo mật cản CSRF
 var cookieParser = require('cookie-parser')
 var csrf = require('csurf')
 var csrfProtection = csrf({ cookie: true })
@@ -17,14 +16,16 @@ app.get('/form', csrfProtection, function (req, res) { // Dùng nó như 1 middl
 app.post('/process', csrfProtection, function (req, res) {
     res.send('data is being processed');
 })
-{/* Ở trong view send ta dùng token csrf gửi kèm ẩn đi. Cái csrfToken gửi đi thực chất là nhận được từ router get
-bên trên khi được send cái { csrfToken: req.csrfToken() } => kiểm chứng post có đúng header này mới được
+/* 
+Ở trong view send ta dùng token csrf gửi kèm ẩn đi. Cái csrfToken gửi đi thực chất là nhận được từ router get bên trên khi được send cái { csrfToken: req.csrfToken() } => kiểm chứng post có đúng header này mới được
 <form action="/process" method="POST">
     <input type="hidden" name="_csrf" value="{{csrfToken}}">
     Favorite color: <input type="text" name="favoriteColor">
     <button type="submit">Submit</button>
 </form> 
-*/}
+*/
+
+
 
 // Các kiểu khác / xss-filter
 const xssFilters = require('xss-filters');
@@ -37,7 +38,9 @@ app.get('/', (req, res) => {
 });
 app.listen(3000);
 
-// Mã hóa dữ liệu truyền giữa máy khách và máy chủ với TLS, SSL
+
+
+// Mã hóa dữ liệu truyền giữa máy khách và máy chủ với TLS, SSL thủ công
 app.use("/", (req,res) => {
     res.send("Hello");
 })

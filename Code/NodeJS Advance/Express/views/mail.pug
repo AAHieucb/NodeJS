@@ -2,8 +2,8 @@ mixin alert(type, msg)
     -var classes = "alert alert-"+type
     div(class=classes)
         strong=msg
-        //- khoảng cách indent cũng chính là thứ báo hiệu thẻ nào lồng thẻ nào
-        //- tag=<> thì là gán text node đó
+        //- Khoảng cách indent cũng chính là thứ báo hiệu thẻ nào lồng thẻ nào
+        //- Tag=<> thì là gán text node đó
 <!DOCTYPE html>
 html(lang="vi")
     head
@@ -19,7 +19,7 @@ html(lang="vi")
                             //- Gọi mixin alert khi nhận được biến msg từ route
                             if (msg) 
                                 +alert(type, msg)
-                            //-khi k truyền object type, msg thì k hiện mixins, dùng kiểu k có lỗi thì k hiện alert 
+                            //- Khi k truyền object type, msg thì k hiện mixins, dùng kiểu k có lỗi thì k hiện alert 
                             
                             form(method="POST" action="/sendMail" enctype="multipart/form-data")
                                 div.form-group

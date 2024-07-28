@@ -11,11 +11,11 @@
     <p id="msg"></p>
     <div id="noti"></div>
 
+    <!-- Phải script tới jQuery -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
-    <!-- phải script tới jQuery -->
 
-    <!-- Mặc định file này nhận được từ phía server thì base url là url của server rồi. Ở đây mặc định 
-        tự hiểu là http://localhost:3000/socket.io/socket.io.js -->
+    <!-- Mặc định file này nhận được từ phía server thì base url là url của server rồi. Ở đây mặc định tự hiểu là http://localhost:3000/socket.io/socket.io.js -->
+    <!-- Nếu dùng CSR thì sẽ khác, còn SSR thì file này server gửi thì sẽ như này -->
     <script src="/socket.io/socket.io.js"></script>
 
     <script>

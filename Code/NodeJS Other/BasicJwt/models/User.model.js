@@ -15,7 +15,7 @@ const UserSchema = mongoose.Schema({
   }
 });
 
-// Bắt trước khi chạy lệnh save của model sẽ chạy middleware này trước
+// Dùng middleware mongodb
 UserSchema.pre('save', async function(next){
   try {
     console.log("Called before save:::", this.email, this.password);

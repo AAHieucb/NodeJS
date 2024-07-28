@@ -1,4 +1,4 @@
-// # NodeJS Final / Xây GraphQL API
+// Xây GraphQL API
 
 const { ApolloServer, gql } = require('apollo-server');
 

@@ -1,5 +1,6 @@
 const Joi = require("joi");
 
+// Dùng Joi
 const userValidate = data => {
   const userSchema = Joi.object({
     // Chỉ cho đuôi gmail.com để tránh email 10p rác

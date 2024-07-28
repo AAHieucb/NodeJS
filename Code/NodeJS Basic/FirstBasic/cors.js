@@ -1,6 +1,4 @@
-// # Các module quan trọng phía server
 // Dùng express 
-
 var express = require('express')
 var app = express();
 const a = 1;
@@ -25,8 +23,6 @@ app.get('/products/:id', test, function (req, res, next) {
         msg: 'This is CORS-enabled '
     })
 })
-// Gửi bằng res.json cái object như trên thì browser client nhận được và hiển thị chay luôn thôi vì đâu có được gọi 
-// từ 1 dự án front end xử lý dữ liệu nhận về đâu
 
 app.listen(3000, function () {
     console.log('web server listening on port 3000')

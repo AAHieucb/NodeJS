@@ -9,10 +9,6 @@
             padding: 0;
             box-sizing: border-box;
         }
-        /* trong css ví dụ ta set width của div là 100px nhưng khi hiển thị thì kích thước lại >100px vì 
-        actual width = content-width + padding + border=> thành ra 2 cái div ta set width như nhau nhưng  vì padding và 
-        border khác nhau nên kích thước khác-> box-sizing: border-box sẽ khiến phần width/height ta set sẽ bao gồm cả 
-        padding và border để khi muốn hiển thị 2 div cùng kích thước mà padding khác nhau thì chỉ cần set width như nhau*/
 
         body {
             font: 13px Helvetica, Arial;
@@ -77,7 +73,7 @@
                 // Tao sự kiện khi click vào nút send
                 socket.emit("chat message", $("#m").val());
                 $("#m").val("");
-                return false; // preventDefault
+                return false; // tương tự preventDefault
             });
 
             // Băt sự kiện từ server

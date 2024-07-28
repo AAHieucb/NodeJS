@@ -1,10 +1,8 @@
-// Dùng tool / # Dùng Jest
+// Dùng Jest
 
 // Integration Test là kiểu test code của ta dùng đến code khác chạy có đúng k
 // Test được cái này phải mô phỏng code khác mà ta dùng, bằng cách tạo mock
-// Ta gọi hàm total, mà total lại gọi đến hàm sum, như v muốn test total ta phải test cả sum, nhưng rõ ràng ta chỉ
-// muốn test thằng total thôi, sum là code của ng khác ta k quan tâm. Khi đó ta phải mock hàm sum
-// Cách thay đổi chức năng của 1 hàm ở file có rồi
+// Ta gọi hàm total, mà total lại gọi đến hàm sum, như v muốn test total ta phải test cả sum, nhưng rõ ràng ta chỉ muốn test thằng total thôi, sum là code của ng khác ta k quan tâm. Khi đó ta phải mock hàm sum
 
 jest.mock('./testFunction'); // Báo hiệu mọi import từ file này có thể được mock
 
@@ -39,9 +37,7 @@ test('mock axios.get', async () => {
     expect(response.data).toEqual({ foo: 'bar' });
 });
 
-// Bên cạnh vc sửa hàm có sẵn ở file khác, ta có thể mock 1 hàm mới. VD cần test hàm forEach dưới đây nhận vào 1
-// function, bh nếu ta dùng function của file khác thì phải kiểm tra function file đó có đúng k trc đã thành ra bị
-// lệ thuộc. nếu ta tạo hẳn 1 function mới để test sẽ hay hơn
+// Bên cạnh vc sửa hàm có sẵn ở file khác, ta có thể mock 1 hàm mới. VD cần test hàm forEach dưới đây nhận vào 1 function, bh nếu ta dùng function của file khác thì phải kiểm tra function file đó có đúng k trc đã thành ra bị lệ thuộc. nếu ta tạo hẳn 1 function mới để test sẽ hay hơn
 function forEach(items, callback) {
     for (let index = 0; index < items.length; index++) {
         callback(items[index]);
@@ -49,12 +45,12 @@ function forEach(items, callback) {
 }
 test('test foreach', () => {
     const mockCallback = jest.fn(x => 42 + x); // Hàm fn cho phép tạo 1 function mới
-    forEach([0, 1], mockCallback); // Test hàm tạo ra. Từ đây ta có thể lấy các thứ để kiểm tra hàm tạo ra đã được
-    // dùng như thế nào. VD ở trên hàm đc gọi 2 lần thì check như sau:
+    forEach([0, 1], mockCallback); 
+    // Test hàm tạo ra. Từ đây ta có thể lấy các thứ để kiểm tra hàm tạo ra đã được dùng như thế nào. VD ở trên hàm đc gọi 2 lần thì check như sau:
     expect(mockCallback.mock.calls.length).toBe(2); // Mock function được gọi 2 lần
-    expect(mockCallback.mock.calls[0][0]).toBe(0); // tham số thứ nhất của lần gọi đầu tiên là 0
-    expect(mockCallback.mock.calls[1][0]).toBe(1); // tham số thứ nhất của lần gọi thứ 2 là 1
-    expect(mockCallback.mock.results[0].value).toBe(42); // giá trị trả về của lần gọi đầu tiên là 42
+    expect(mockCallback.mock.calls[0][0]).toBe(0); // Tham số thứ nhất của lần gọi đầu tiên là 0
+    expect(mockCallback.mock.calls[1][0]).toBe(1); // Tham số thứ nhất của lần gọi thứ 2 là 1
+    expect(mockCallback.mock.results[0].value).toBe(42); // Giá trị trả về của lần gọi đầu tiên là 42
 });
 // Mọi mock function đều có thuộc tính mock lưu cách hàm được gọi và thuộc tính được lưu trữ
 
@@ -69,9 +65,7 @@ test('test mock return value', () => {
     // [ [11], [12] ] calls lấy tất cả đối số
 });
 
-
-// jest.fn().mockImplementation(<function>) = jest.fn(<function>) chỉ là 1 cách viết định nghĩa khác
-// nhưng ta còn có thể chỉ định nghĩa cho lần đầu tiên với mockImplementationOnce(<function>);
+// jest.fn().mockImplementation(<function>) = jest.fn(<function>) chỉ là 1 cách viết định nghĩa khác nhưng ta còn có thể chỉ định nghĩa cho lần đầu tiên với mockImplementationOnce(<function>);
 sum.plus.mockImplementationOnce(()=>"hello");
 test('works1', () => {
     expect(sum.plus()).toEqual("hello");

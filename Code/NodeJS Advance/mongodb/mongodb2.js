@@ -10,8 +10,7 @@ db.once('open', async function() {
     console.log("Kết nối thành công !");
     var Schema = mongoose.Schema;
     
-    // Thao tác với Schema SchemaTypes
-    const schema = new Schema({ name: String }); // console.log(schema); // Truy cập nhiều thuộc tính của schema
+    const schema = new Schema({ name: String }); 
     console.log(schema.path('name') instanceof mongoose.SchemaType); // true
     console.log(schema.path('name') instanceof mongoose.Schema.Types.String); // true
     console.log(schema.path('name').instance); // 'String'
@@ -55,16 +54,14 @@ db.once('open', async function() {
     });
 
     // Thao tác với từng document
-    var numberDoc = mongoose.model('Number', numberSchema); // Chú ý đặt tên biến k được trùng với các kiểu types, type của model phải là số ít 
-    // và database server sẽ tự chuyển sang số nhiều cho ta. 1 model = là 1 collection
+    var numberDoc = mongoose.model('Number', numberSchema);
     var doc = new numberDoc(); // Gán luôn khi tạo or tạo rỗng r khai báo sau đều được
     doc.integerOnly = 2.001;
     console.log(doc.integerOnly); // 2
     console.log(doc.i); // 2
-    // Ta tạo ra 1 instance doc như này thì database server cũng tạo schema cho ta nhưng k có document nào, phải gọi
-    // query save để lưu vào database thì mới có.
+    // Ta tạo ra 1 instance doc như này thì database server cũng tạo schema cho ta nhưng k có document nào, phải gọi query save để lưu vào database thì mới có.
 
-    // Thao tác với Schema SchemaTypes / Validation
+    // Thao tác với Schema SchemaTypes
     var schema2 = new Schema({
         test: {
             type: String,

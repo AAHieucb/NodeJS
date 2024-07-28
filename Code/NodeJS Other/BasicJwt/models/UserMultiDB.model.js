@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-// Khi dùng multidb cùng lúc 
+// Khi connect multidb cùng lúc 
 
 const { newConnection, userConnection } = require("../helpers/connections_multi_mongodb");
 

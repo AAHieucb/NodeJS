@@ -1,4 +1,4 @@
-// # Các package backend NodeJS thường dùng / Dùng chalk / Dùng figlet / Dùng marked + marked-terminal / Dùng minimist
+// Dùng chalk figlet marked marked-terminal minimist
 
 import("chalk").then((chalk) => { // Có thể cài v4 để dùng với commonjs
     chalk = chalk.default;

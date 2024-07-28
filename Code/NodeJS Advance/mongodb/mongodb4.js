@@ -17,8 +17,7 @@ db.once('open', async function() {
     console.log(doc instanceof mongoose.Model); // true
     console.log(doc instanceof mongoose.Document); // true
 
-    // Nếu doc ta tìm ra k có gì thì gán bên dưới sẽ lỗi, nhưng nếu có thì hàm gán bên dưới sẽ thay đổi sang giá trị
-    // foo tức tương đương với lệnh updateOne còn gì
+    // Nếu doc ta tìm ra k có gì thì gán bên dưới sẽ lỗi, nhưng nếu có thì hàm gán bên dưới sẽ thay đổi sang giá trị foo tức tương đương với lệnh updateOne còn gì
     doc.name = 'foo';
     // Tương đương với `updateOne({ _id: doc._id }, { $set: { name: 'foo' } })` trong MongoDB.
     // $set là internal name thêm vào các thứ của mongodb để tránh conflict
@@ -42,8 +41,7 @@ db.once('open', async function() {
     if (err) {
         console.log("Err2 " + err);
     }
-    // Khi ta đăng lên database thì nó cũng tự check validation cho ta rồi. Nhưng ta có thể tự tạo ra các biến document
-    // như này thì k có lỗi, ta vẫn có thể yêu cầu check bằng hàm validate như v. Nó sẽ throw error nếu sai
+    // Khi post lên db thì nó cũng tự check validation cho ta rồi. Ta vẫn có thể yêu cầu check bằng hàm validate như v. Nó sẽ throw error nếu sai
 
     // await Student.updateOne({}, { age: 'bar' }, { runValidators: true }); // Cái option runValidators nếu k có thì nó vẫn tự check cho ta thôi
 
@@ -75,9 +73,7 @@ db.once('open', async function() {
     // });
     
     // subdocument k tự động lưu khi có sự thay đổi mà phải đợi documents cha lưu trước. Hiển nhiên vì ta gán tay mà
-    // Khi gọi vào middleware như save, validate,.. của cha thì cũng gọi vào tất cả thứ đó của con. VD ở đây con có 1
-    // middware tên là save sẽ forward đi 1 error. parent gọi save sẽ gọi vào con trước r gọi vào cha console.log ra 
-    // cái error message là #sadpanda và do error nên k thực hiện lưu document mới là invalid
+    // Khi gọi vào middleware như save, validate,.. của cha thì cũng gọi vào tất cả thứ đó của con trước.
     childSchema.pre('save', function (next) {
         // return next(new Error('#sadpanda'));
     });
@@ -92,8 +88,7 @@ db.once('open', async function() {
         console.log("childSchema validate.");
         next();
     });
-    // Vc dùng next sẽ khiến nó chuyển sang middleware tiếp theo nhưng vẫn chạy các câu lệnh bên dưới của middleware
-    // hiện tại. Ta có thể return next() để dừng luôn các câu lệnh bên dưới nếu muốn
+    // Vc dùng next sẽ khiến nó chuyển sang middleware tiếp theo nhưng vẫn chạy các câu lệnh bên dưới của middleware hiện tại. 
     childSchema1.pre("save", function(next) {
         console.log("childSchema save.");
         next();
@@ -126,9 +121,7 @@ db.once('open', async function() {
     console.log(subdoc) // In cái subdoc ra
     console.log(subdoc.isNew); // true vì mới tạo bên trên
     // await parent2.save(function (err) { if (err) console.log(err)});
-    // parent2.child1.id(subdoc._id).remove(); // xóa con đầu tiên luôn
-    // Điều thú vị là với từng con nó sẽ chạy middleware của con luôn, ở đây có 2 con nhưng chỉ chạy middleware 1 lần
-    // vì ta xóa 1 con đầu tiên đi r. Ta k rõ thứ tự như nào nhưng nó xóa trước r mới thêm con vào cha
+    // parent2.child1.id(subdoc._id).remove(); // Xóa con đầu tiên luôn
 
     // var newdoc = await parent2.child1.create({ name: 'Freetut.net' });
     // console.log(newdoc); // Hàm create nó chỉ tạo chứ éo lưu vào con nên k dùng vì ở đây ta create từ child1 là 1 subdocs

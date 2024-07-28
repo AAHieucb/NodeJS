@@ -2,8 +2,10 @@ const redis = require("redis");
 const client = redis.createClient({
   port: 1,
   host: "127.0.0.1",
-  // legacyMode: true // dùng như v3 là tự động connect nhưng v4 gọi v3 k ổn đâu
 });
+
+// Dùng redis
+// Tạo connection
 
 // client.on("error", function(error) {
 //   console.error("err");

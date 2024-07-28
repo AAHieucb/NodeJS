@@ -1,7 +1,5 @@
-// # Các package có sẵn trong NodeJS
-
 // Dùng fs
-// Dùng writeFileSync và writeFile
+// Viết vào file
 const fs = require("fs");
 fs.writeFile('./text.txt', "This", data => {console.log("end")});
 fs.writeFileSync('./text.txt', "This");
@@ -21,6 +19,8 @@ async function testFsPromise(){
 }
 testFsPromise();
 
+
+
 // Dùng events
 const events = require("events");
 const eventEmitter = new events.EventEmitter();
@@ -32,8 +32,7 @@ function callback() {
     console.log('Kết nối sự kiện connection 2');
 }
 eventEmitter.on('connection', callback);
-// eventEmitter.removeListener('connection', callback); // Nếu chỉ muốn remove 1 sự kiện gắn với 1 callback function 
-// cụ thể thì callback k đc viết TT mà phải có tên hàm thì mới remove đc như này
+// eventEmitter.removeListener('connection', callback); // Nếu chỉ muốn remove 1 sự kiện gắn với 1 callback function
 
 eventEmitter.emit("connection"); // Có nhiều listener cùng 1 sự kiện sẽ thực hiện theo thứ tự queue các hàm callback
 
@@ -51,11 +50,11 @@ eventEmitter.emit("event2", 7);
 eventEmitter.setMaxListeners(10); // default là 10
 console.log(eventEmitter.getMaxListeners());
 console.log(eventEmitter.listeners("connection"));
-// Listeners là hàm callback gắn với sự kiện. Có 2 hàm callback thì event đó có 2 listeners. 
-// Hàm once khi gọi xong sẽ xóa listener đi. Tên của listener là tên hàm, các hàm anonymous sẽ k có tên của listener
 
 // Mọi kiểu class bh đều có thể dùng đc event bằng cách cho nó kế thừa EventEmitter
 class MyClass extends events.EventEmitter{ }
 var instanceOfClass = new MyClass();
 instanceOfClass.on("test",(data) => console.log(data));
 instanceOfClass.emit("test", "Fucked");
+
+

@@ -1,9 +1,7 @@
 const express = require("express");
 const app = express();
 
-// # Các package khác liên quan tới server / morgan
-// # Dùng compression
-// # Các package backend NodeJS thường dùng / Dùng clear
+// Dùng morgan  compression  clear
 
 const morgan = require("morgan");
 const compression = require("compression");

@@ -1,6 +1,6 @@
 extend ./layouts/general
 block content
-    //- template layout giúp ta tái sử dụng code ở nhiều file vì k thể file pug nào ta cũng thêm CDN bootstrap nào mãi đc
+    //- Template layout giúp ta tái sử dụng code ở nhiều file vì k thể file pug nào ta cũng thêm CDN bootstrap nào mãi đc
     .container-fluid.my-5
         .row
             .col-8.offset-2
@@ -15,8 +15,8 @@ block content
                                         .form-group
                                             label(for='name') Name
                                             input#name.form-control(name="name", type='text')
-                                        //- name của input là key, giá trị user nhập là value, ta sẽ dùng nó như query 
-                                        //- params cho tính năng search còn action chỉ định đường link mà nó gửi tới 
+                                        //- Name của input là key, giá trị user nhập là value, ta sẽ dùng nó như query 
+                                        //- Params cho tính năng search còn action chỉ định đường link mà nó gửi tới 
                                     .col-6
                                         .form-group
                                             label(for='age') Age
@@ -37,8 +37,7 @@ block content
                                         tbody
                                             each user in users
                                                 tr
-                                                    //- Để hiển thị giá trị của biến vòng lặp là text của 1 thẻ trong
-                                                    //- pug phải dùng dấu =
+                                                    //- Để hiển thị giá trị của biến vòng lặp là text của 1 thẻ trong pug phải dùng dấu =
                                                     //- Dùng users.length được vì nó là 1 mảng
                                                     td.text-center
                                                         img(src=user.avatar, width="50px", height="50px")

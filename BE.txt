@@ -1,0 +1,161 @@
+## API server 
+-> License của server
+
+-> Setup biến môi trường bảo mật 
+Tạo biến môi trường dựa trên biến môi trường khác
+Chạy dự án ở các môi trường khác nhau
+
+-> Thao tác với data stream
+
+-> Multithread, trao đổi data qua lại giữa các thread
+
+-> Tương tác với biến commandline
+
+-> Mã hoá văn bản, mật khẩu
+
+-> Tạo cache tạm trong server, global store tạm
+
+-> Ghi log
+
+-> Tự động ghi log request của user, thống kê
+
+-> Xử lý upload ảnh 
+
+-> Chia cấu trúc thư mục cho router con
+
+-> Web SSR cung html
+
+-> Dùng rate limit cản DDoS
+
+-> Xử lý lỗi connect timeout
+
+-> Xử lý router lỗi, router not found
+
+-> Cung file static, parse json body
+
+-> Thêm các header bảo mật cho route
+
+-> Xử lý cors
+
+-> Compress data gửi đi, dùng brotli
+
+-> Validate type input của object
+
+-> Thao tác với session data và cookies
+
+-> Override method cho form HTML chỉ có GET và POST
+
+-> Flash message trong server SSR
+
+-> Dùng jsonwebtoken tạo accesstoken và refresh token
+
+-> Tạo tính năng gửi mail từ 1 central server
+
+-> Connect SQL DB với Connection Pool hoặc connect thủ công mỗi query
+Validate và parameterize tham số
+
+-> Dùng socket gửi sự kiện, tạo kênh và phòng, broadcast
+
+-> Quản lý phiên bản môi trường của server
+
+-> Dùng tối ưu full core CPU trên máy
+
+-> Viết test nhanh cho API ngay trên file dự án
+Test performance
+
+-> Auto reload server khi code đổi
+
+-> Chạy nhiều process cho server
+Tự khởi động lại khi server crash
+Deploy 
+
+-> Debug
+
+-> Import module với tên thay cho relative url
+
+-> Hanlde global error throw ngay ngoài cùng
+
+-> Xây 1 GraphQL server
+
+-> Dựng crawling server, crawl website
+
+-> Nén file trong server
+Thao tác với hệ thống tệp
+
+-> Self sign cho web https
+
+
+
+# Tạo 1 Streaming server cho video
+Thực tế với video, người ta có thể nhúng từ link youtube hoặc đăng lên ipfs hay cdn cloud thay vì dựng hẳn 1 server vì rất tốn, trừ các web chuyên về video.
+Cơ chế: Người dùng click vào phần nào của video sẽ gửi http request nhận về 1 lượng bytes kể từ vị trí đó trở đi và tiếp tục cho đến hết video, thông tin này nằm trong header. Ở FE, video player của html5 hỗ trợ sẵn việc gửi request đi và xử lý response nhận về như nào rồi, server chỉ cần gửi lại đúng format response là được
+
+Cơ chế tính lượt view cho video không phải là số lần gọi request GET và cũng k yêu cầu phải lấy xem hết mọi bytes của video. VD 1 video dài 20p, người dùng gọi GET hết 10 mốc lúc 1p, 2p, 5p30s,... (random thay đổi tùy server custom) thì tính là 1 view.
+
+
+
+# Dùng HTTP2 HTTP3
+HTTP1 thì mỗi yêu cầu là 1 connection TCP riêng.
+
+HTTP1.1 duy trì kết nối cho phép nhiều yêu cầu tới 1 server được xử lý trong cùng một kết nối TCP.
+Nó còn có HTTP pipelining cho phép gửi nhiều request đồng thời trên cùng 1 TCP connection mà không cần chờ request trước done, nhưng response trả về phải đúng thứ tự. Head-of-Line Blocking là hiện tượng response request trước quá lâu làm cho các requests sau bị blocked, nên tính năng này ít được sử dụng.
+Để đảm bảo k bị lỗi, browser duy trì nhiều TCP connection tới server và gửi song song, chứ k chỉ 1 connection.
+
+HTTP2 dùng HTTP stream. Trong 1 TCP connection có thể gửi hàng loạt các stream request và các stream k cần đúng thứ tự nữa, giải quyết vấn đề Head-of-Line Blocking ở tầng application nhưng vẫn bị ở tầng transport với TCP: Client <--- 1 TCP connection [Stream1 header, stream2 header, stream1 data, stream3 header, ...] ---> Server
+Server push new data tới client khi có update mà k cần client phải poll liên tục, giảm sô request. Dùng HPACK nén giảm kích thước header. Dùng binary format nhanh hơn so với định dạng văn bản của HTTP/1.x.
+
+HTTP3 dùng protocol QUIC, dựa trên UDP ở ngay tầng transport nhưng nó chỉnh sửa để UDP mà tốt hơn TCP, vẫn có cơ chế phục hồi gói tin khi bị mất.
+Client <--- 1 QUIC/UDP connection [Stream1, stream2, stream3, ...] ---> Server
+QUIC cũng được dùng để đổi mạng trong điện thoại mà k bị lag vì dùng chung 1 connection id.
+
+=> Mặc định server dùng HTTP1.1, phải cấu hình thêm nếu muốn dùng HTTP2 HTTP3. 
+Cũng có thể dựng 1 proxy nginx server dùng HTTP2, khi đó sẽ k tận dụng hết dược sức mạnh của HTTP2: Client <-- HTTP2 --> Nginx <-- HTTP1.1 --> Server
+
+
+
+## Database mongodb
+-> Thêm static function cho model
+
+-> Tạo direct connection 
+
+-> Dùng query phức tạp, liên kết bảng
+
+-> Watch sự thay đổi của data
+
+-> Tạo ra 1 thuộc tính ảo cho schema mà k cần lưu trong db
+
+-> Dùng middleware cho schema để xử lý trước và sau khi thực hiện các thao tác
+
+-> Dùng các hàm transaction
+
+-> Đánh index
+
+-> Cài db bằng cloud hay app hay docker.
+
+-> Backup db
+
+-> Tạo replica
+
+-> Parameterize và sanitize input
+
+-> Khai báo type cho trường, mix type, validate type
+
+-> Dùng connection pool: tối ưu tốc độ connect tới db bằng cách tái sử dụng connection.
+Serverless khó vì thường mở rộng nhiều theo chiều ngang. Nếu mỗi server duy trì 1 pool riêng chứa các connection thì sẽ bị quá nhiều open connection mở trong 1 lúc. 
+Giải pháp là dùng như RDS Proxy (Relational Database Service Proxy) là 1 dịch vụ của Amazon: Servers <-- RDS Proxy --> Databases
+Đơn giản nó là 1 global connection pool, mọi connection tới db đều gọi tới nó giúp tối ưu chi phí connection.
+
+
+
+## Cache redis
+-> Config đồng bộ lưu vào ổ đĩa lâu dài
+
+-> Sử dụng pub/sub để truyền tin
+
+-> Dùng transaction
+
+-> Thao tác với command và code
+
+-> Subcribe các loại sự kiện trong cache
+
+

@@ -1,4 +1,4 @@
-// Dùng tool / # Dùng jest
+// Dùng jest
 
 const myBeverage = {
     delicious: true,

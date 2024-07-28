@@ -1,4 +1,4 @@
-// Dùng mongodb / # Basic / Dùng express-mongo-santinize
+// Dùng express-mongo-sanitize
 
 const express = require('express');
 const mongoSanitize = require('express-mongo-sanitize');
@@ -37,11 +37,3 @@ console.log(mongoSanitize.sanitize(payload, {
     replaceWith: '_'
 }));
 console.log(payload);
-
-// # Các package backend NodeJS thường dùng / Dùng clean-css
-var CleanCSS = require('clean-css');
-var options = {
-    format: 'beautify', // Formats output in a really nice way
-    format: 'keep-breaks'
-};
-console.log(new CleanCSS(options).minify('a{font-weight:bold;}'));
