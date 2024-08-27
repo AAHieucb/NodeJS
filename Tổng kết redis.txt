@@ -16,7 +16,7 @@ Redis hỗ trợ sẵn atomic như: set, setnx là atomic, incrBy và decrBy cũ
 -> Dùng cache tốn thêm bộ nhớ, nên đảm bảo luôn luôn có expire time cho data.
 
 -> Cài package với npm: 
-redis hoặc ioredis => để tương tác với redis rất mạnh dùng cho server
+redis hoặc ioredis (nên dùng, cú pháp như redis-cli) => để tương tác với redis rất mạnh dùng cho server
 redis-cli -> mở để thao tác với cmd: rdcli (phải chờ 1 lát)
 redis-commander => giúp quản lý redis bằng gui, luôn luôn nên dùng
 

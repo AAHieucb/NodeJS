@@ -4,6 +4,8 @@ NodeJS xd trên nền tảng Javascript V8 Engine tốc độ cao, mã nguồn m
 
 
 # Basic
+-> Có sẵn cli: node -> http.STATUS_CODES / Date.now()
+
 -> Install chuẩn phiên bản: npm install package-name@version --save
 Chạy ứng dụng license có thể dùng: MIT, ISC, GPL-3.0
 
@@ -29,12 +31,6 @@ NodeJS dùng 1 buffer pool chứa các buffer k còn được sử dụng. Khi c
 -> Dùng fs: Thao tác với file
 Điều đặc biệt là nó có thể watch sự thay đổi của 1 file, điều mà database k làm được
 
--> Dùng stream:
-Mỗi stream đều là 1 event emitter cho phép bắt sự kiện. 4 sự kiện có sẵn là data(đọc), end(hết dữ liệu để đọc), error, finish(khi hoàn thành)
-Các stream trong NodeJS đều là chuỗi or buffer. Chuyển sang chế độ object mode của stream giúp nó thao tác với các kiểu giá trị khác của JS k là dạng buffer hay chuỗi
-
-Kiểu stream giúp giải quyết vấn đề: VD cần đọc 1 dữ liệu 10GB mà server có 1GB thì nó giúp lấy từng phần của dữ liệu để đọc nên có ưu thế khi xử lý dữ liệu lớn từng chút 1. Cơ chế của nó sẽ ghi dữ liệu vào buffer và check nếu buffer đầy sẽ dừng lại, xử lý, ghi tiếp phần tiếp theo vào buffer khắc phục hiện tượng tràn buffer của kiểu đọc thông thường.
-
 -> Dùng child_process: thư viện hỗ trợ thao tác đa luồng trong nodejs
 Dùng process.send trong nodejs có thể gửi data từ process con sang process cha.
 Dùng thư viện @rauschma/stringio bổ trợ cho việc dùng child_process
@@ -46,6 +42,19 @@ Dùng thư viện @rauschma/stringio bổ trợ cho việc dùng child_process
 
 -> Dùng os: Chrome V8 của google là 1 js engine có thư viện libuv viết bằng C++ giúp tương tác với phần cưng và thực hiện các task nặng. Thư viện này giúp tương tác với libuv đó
 VD: Có thể tận dụng tối đa CPU cho server thông qua việc set giá trị biến môi trường process.env.UV_THREADPOOL_SIZE, có thể tăng tốc cho NodeJS đến 3 lần, nếu máy chạy server cùi chỉ có 4 thread thì đừng hy vọng
+
+
+
+# Dùng stream
+Cơ chế: chia file thành từng chunks và xử lý luôn, còn dùng bth sẽ load tất cả vào bộ nhớ và xử lý 1 lúc => nên dùng stream mọi lúc, trừ khi có nhu cầu đọc toàn bộ file 1 lúc
+Với các file lớn mấy GB, dùng stream xử lý giúp tối ưu bộ nhớ gấp trăm lần và tốc độ cũng nhanh hơn, k bị tràn buffer.
+
+VD đọc 1 file và ghi vào 1 file khác, fs.readFile(..., (err,data) => { fs.writeFile(...) }) nên thay thế bằng: (fs.createReadStream(...)).pipe(fs.createWriteStream(...));
+C# hay bất cứ ngôn ngữ nào đều có class thao tác với stream.
+Xem mem của 1 process nodejs trong win: chạy server như bth -> vào Task Manager tab Details -> tìm process tên là "node". Mỗi request sẽ thấy memory tiêu thụ tăng lên để xử lý 
+
+-> Dùng stream: Mỗi stream đều là 1 event emitter cho phép bắt sự kiện. 4 sự kiện có sẵn là data(đọc), end(hết dữ liệu để đọc), error, finish(khi hoàn thành)
+Các stream trong NodeJS đều là chuỗi or buffer. Chuyển sang chế độ object mode của stream giúp nó thao tác với các kiểu giá trị khác của JS k là dạng buffer hay chuỗi
 
 
 
@@ -135,24 +144,37 @@ VD: npx express-generator --view=pug myapp -> dùng view engine là pug
 
 
 
-# Dùng jsonwebtoken
+# Dùng jsonwebtoken và bảo mật
 Tối thiểu ta phải có bảo mật SSL, chống XSS, và Database Injection, rate limit chặn DDoS. 
-access token sinh từ {userid,role,timestamp,expiration} + secret key
+
+access token sinh từ {userid,role,timestamp,expiration} + secret key. Check password hợp lệ thì sinh accesstoken gửi cho client.
+Expire time nhét vào payload và được check ở server chứ k lưu ở 1 trường FE để người dùng đổi tùy tiện
 
 -> Dùng passport + passport-jwt kết hợp: sẽ dùng jwt như 1 strategy làm đơn giản code hơn
 Dùng passport-local nếu xác thực tk mk tự làm
 
--> Tự động đăng nhập thì cho FE lưu accesstoken và refreshtoken
-- Cookie: httpOnly cookie flag làm browser k đọc được cookie bằng JS. Cài cookie flag SameSite=strict và secure=true(chỉ HTTPs) để giảm thiểu CSRF
+-> FE lưu refreshtoken tự động login
+- Cookie: httpOnly cookie flag làm browser k đọc được cookie bằng JS. Cài cookie flag SameSite=strict và secure=true(chỉ HTTPs) để giảm thiểu CSRF.
 - Indexed DB (ít dùng): là 1 NoSQL DB, dùng khi cần lưu 1 lượng data lớn và global trong code. Lưu được file, blobs. High performance với indexed, hỗ trợ transactions. Thường 1 app chỉ tạo 1 db dù ta có thể tạo bnh db cũng đươc. Cũng phải tạo connection, tạo object, lưu và chờ như db bth.
-=> SSR nên dùng cookie, CSR nên dùng localStorage vì các framework FE chống XSS rất tốt mà k cần cookie. Chỉ dùng indexed db khi muốn lưu như localStorage nhưng cần memory > 5MB
+=> localStorage thì phải chống XSS mọi nơi nên cookie httpOnly an toàn hơn, nhưng các framework FE giờ rất mạnh để chống XSS r nên k đáng kể.
+=> SSR nên dùng cookie, CSR nên dùng localStorage. Chỉ dùng indexed db khi muốn lưu như localStorage nhưng cần memory > 5MB
 
 -> JWT cũng dùng khi quá trình verify bằng 1 pp bên ngoài mất nhiều tg thì chỉ cho làm 1 lần rồi sau đó dùng jwt xác thực cho nhanh. 
 VD: ký message trong web3 xong rồi dùng jwt để giao tiếp.
 
 -> Dùng redis vô hiệu hoá token
 Usecase hệ thống bị hack và yêu cầu admin vô hiệu hóa 1 refresh token. Ta lưu tất cả refreshtoken vào redis và check thêm 1 bước, nếu nó k tồn tại trong redis, tức bị xoá hoặc expires thì login fail. Để vô hiệu hoá chỉ cần xoá khỏi redis.
-Có thể dùng redis lưu refreshtoken kiểu: key là user id, value là refreshtoken. Điều này đồng nghĩa refreshtoken mới được lấy thì refreshtoken cũ tự k dùng được nữa. Ta có thể làm điều tương tự với accesstoken để disable accesstoken cũ khi accesstoken mới được sinh ra với cơ chế này.
+- Lưu redis kiểu key là user id, value là refreshtoken. Điều này đồng nghĩa refreshtoken mới được lấy thì refreshtoken cũ tự k dùng được nữa. Tương tự vói accesstoken
+- Nếu quản lý nhiều token 1 người thì lưu (user => [blacklist token]) thì mỗi lần check phải check thêm token hết hạn chưa rồi xóa thủ công khỏi blacklist.
+
+-> Bài toán: ứng dụng cập nhật có tính năng mới, chỉ ai có accesstoken mới mới dùng được, mọi accesstoken cũ cần bị hủy, tức buộc người dùng phải đăng nhập lại.
+C1: Kể từ lúc cập nhật, mọi request của người dùng lên server lần đầu đều báo lỗi token k hợp lệ, yêu cầu login lại và lưu vào blacklist. Bất cứ ai chưa có trong blacklist đều báo k hợp lệ => K ổn nếu người dùng đăng nhập trên nhiều thiết bị và có nhiều token thì cái này chỉ báo có 1 lần là sai, các thiết bị khác sẽ pass cái blacklist
+
+C2: Thay đổi cấu trúc token. 
+1 JWT token được cấu tạo bởi: [(base64UrlEncoded JSON) Header] [(base64UrlEncoded JSON) Payload] [(base64UrlEncoded String) Signature]
+Lưu version vào payload. VD ban đầu là {id, email} thì thêm thành {id, email, version}. Mỗi request ngoài check expiretime, check thêm version phải trùng với version của hệ thống. Version hệ thống có thể lưu trong env or từng user database. Khi update thì tăng version lên, accesstoken mới tạo ra cũng tăng version lên là được
+Ta có thể custom chỉ update với list user xác định. Vd lưu vào user database thì đổi version của user nào sẽ chỉ hủy accessToken của user đó => Cũng có thể thêm tùy ý trường type vào payload để chỉ định áp dụng với user có type là gì
+=> Tối ưu hơn nữa: thay vì báo lỗi có thể trả lại accessToken mới cho người dùng luôn nếu accesstoken đúng như version sai, FE phải check và update accessToken với mọi request
 
 
 
@@ -275,11 +297,13 @@ Restart lại server này: cmd computer management -> Services and Applications 
 
 
 # Dùng socketio
-Bắt sự kiện qua lại giữa socket client và server, broadcast event, tạo kênh và phòng, tự động kết nối lại, phát hiện ngắn kết nối => ref tới "Projects / BlogWeb"
 Cơ chế Socket.io xây dựa vào Engine.io, đầu tiên chạy long-polling để kết nối, r dùng các phương thức giao tiếp khác tốt hơn như websocket, nhưng chiếm ít tài nguyên hơn
+Bắt sự kiện qua lại giữa socket client và server, broadcast event, tạo kênh và phòng, tự động kết nối lại, phát hiện ngắn kết nối, tạo channel nén dữ liệu khi gửi
+volatile: message gửi đi có tồn tại lâu dài không. Nếu dùng nó thì đang gửi mà disconnect thì bỏ luôn, nếu k dùng thì message được lưu lại tạm thời, khi reconnect sẽ gửi lại
 
 -> Polling: query liên tục xem có thay đổi không. Duration càng ngắn, càng tốn tài nguyên.
 Long-polling khắc phục nhược điểm của polling với ý tưởng: client gửi 1 request và server giữ lại request đó và sẽ response khi có 1 sự kiện tương ứng diễn ra. Nếu request client bị timeout, khi hết timeout nhưng vẫn chưa có sự kiện mong đợi nào thì server buộc trả về 1 response mà chả có dữ liệu nào, vẫn tốt hơn short-polling nhiều rồi.
+Để tránh việc client bị treo hay ảnh hưởng hiệu suất của tác vụ khác, khi sử dụng long polling, nên thực hiện long polling trên một thread riêng.
 
 
 
@@ -297,11 +321,9 @@ Ta có thể dùng 1 file bth text là db và cung các hàm để nó truy cậ
 
 
 # Debug trong nodejs
-node --inspect index.js -> mở devtool của chrome lên sẽ thấy option nodejs (k thấy thì gõ url socket ws vào thanh search) -> click là thấy console của nodejs trong browser
+node --inspect index.js -> mở devtool của chrome lên sẽ thấy option nodejs (k thấy thì gõ chrome://inspect/#devices) -> click là thấy console của nodejs trong browser
 Console của browser sẽ giúp nodejs nhìn rõ chi tiết mọi object. Có thể tương tác trực tiếp in ra biến trong browser khi api chạy dừng ở breakpoint.
-File js chạy phát tắt ngay thì k thể mở được devtool. Có thể cho server lắng nghe ở 1 cổng lâu để dùng. Khi file server chạy kết thúc, nó xóa hết các biến k dùng nên ta log các biến bên ngoài ra undefined, nên phải đặt breakpoint ở trong hàm API và thực hiện call tới mới thấy mọi thứ.
-
-Bật devtool connect debugger lên, console của nó sẽ đồng bộ với terminal của nodejs.
+File js chạy phát tắt ngay thì k thể mở được devtool. Có thể cho server lắng nghe ở 1 cổng lâu để dùng. 
 Click đúp vào dòng nào trong tab Source để đặt breakpoint, khi call api sẽ dừng ngay tại đó, F10 đi tiếp. Đặt "debugger;" trong code thì devtool browser cũng hiểu là dừng ở đó
 
 -> Package morgan: giúp log các request ra terminal
@@ -309,7 +331,6 @@ Click đúp vào dòng nào trong tab Source để đặt breakpoint, khi call a
 -> Package debug: giúp log ở môi trường debug. 
 VD: const debug = require("debug")("myapp:server"); debug("This is message");
 => Tức dùng debug với namespace có tên là myapp:server, namespace có vai trò lọc và phân loại các dòng log debug
-
 Để dùng:
 Trong linux: "start": "DEBUG=app:* node app.js" or chạy terminal trực tiếp DEBUG=app:* node app.js
 Trong window: cd vào thư mục -> set DEBUG=appmyapp:* => để cho debug trong môi trường nào rồi chạy bth. Làm như này sẽ set biến môi trường của window trong phạm vi thư mục đó
@@ -356,3 +377,15 @@ new Promise((resolve, reject) => {
 });
 
 
+
+# Tương tác telegram
+-> Tạo bot tự động nhắn tin vào channel sau 1 khoảng thời gian, có thể dùng thay thế gửi mail.
+telegraf => giúp tương tác với telegram
+node-schedule => package giúp quản lý job, có thể setup chạy hàm gì vào thời điểm nào.
+
+Quy trình:
+@BotFather => chat với thằng này để tạo bot, lấy API key, có thể edit và làm mọi thứ với bot.
+Tạo 1 channel và thêm bot vào làm admin => ấn vào hình cái bút ở cuối list chat, ấn vào setting của channel
+@JsonDumpBot => chat với thằng này để lấy thông tin phòng chat
+Ta chat vào channel và forward message tơi @JsonDumpBot để lấy thông tin phòng chat, lấy được id channel trong forward_from_chat
+=> Dùng channelid + api key là tạo được 1 con bot có thể sendmessage vào channel đó.

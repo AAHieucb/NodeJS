@@ -84,13 +84,23 @@ Thao tác với hệ thống tệp
 
 -> Self sign cho web https
 
+-> Tương tác với mạng xh như telegram
+
+-> Chạy job định kỳ
+
 
 
 # Tạo 1 Streaming server cho video
 Thực tế với video, người ta có thể nhúng từ link youtube hoặc đăng lên ipfs hay cdn cloud thay vì dựng hẳn 1 server vì rất tốn, trừ các web chuyên về video.
 Cơ chế: Người dùng click vào phần nào của video sẽ gửi http request nhận về 1 lượng bytes kể từ vị trí đó trở đi và tiếp tục cho đến hết video, thông tin này nằm trong header. Ở FE, video player của html5 hỗ trợ sẵn việc gửi request đi và xử lý response nhận về như nào rồi, server chỉ cần gửi lại đúng format response là được
 
-Cơ chế tính lượt view cho video không phải là số lần gọi request GET và cũng k yêu cầu phải lấy xem hết mọi bytes của video. VD 1 video dài 20p, người dùng gọi GET hết 10 mốc lúc 1p, 2p, 5p30s,... (random thay đổi tùy server custom) thì tính là 1 view.
+-> Cơ chế tính lượt view cho video không phải là số lần gọi request GET và cũng k yêu cầu phải lấy xem hết mọi bytes của video. 
+VD chọn 1 mốc 30s và chia khoảng 30s đó khắp video thay đổi vị trí random liên tục. Vd 10s đầu ở đoạn 1p->1p10s, 10s sau ở 2p->2p10s, 10s cuối ở 3p50s->4p => user phải xem đúng các đoạn đó mới +1 view. 
+
+VD 1 giải pháp chống spam view là lưu IP user vào trong cache tự hết hạn và bị xóa sau khoảng 5p. Mỗi khi định tăng view bởi 1 ip sẽ check ip vẫn có trong database thì k cộng view lên. Tức là người dùng refresh liên tục trong 5p sẽ k có tác dụng vì ip vẫn có trong DB. Tức max 1 người trong 5p chỉ được 1 view
+=> Thực ra lưu ip k ổn VD nhiều người cùng bắt VPN hay chung mạng LAN sẽ k chuẩn, ta có thể tạo 1 userid ảo dù chưa login và lưu 1 id vào cookies chứ kp lưu ip, mỗi request phải gửi kèm cookies lên để server lưu. 
+VD các nghệ sĩ nổi tiếng khi cộng lượt view tăng quá nhanh, chắc chắn DB k thể sử dụng MySQL hay MongoDB mà phải sử dụng cache như redis.
+Nên thêm ratelimit và black list chặn ip truy cập bất thường. VD 1 IP truy cập đồng thời tới cả nghìn lần 1p thì khá vô lý cho 1 mạng LAN thì sẽ bị chặn ngay. VD Dùng nginx làm reserve proxy có thể lấy được ip của user trong header trường X-Forwarded-For
 
 
 
@@ -126,7 +136,7 @@ Cũng có thể dựng 1 proxy nginx server dùng HTTP2, khi đó sẽ k tận d
 
 -> Dùng middleware cho schema để xử lý trước và sau khi thực hiện các thao tác
 
--> Dùng các hàm transaction
+-> Dùng các hàm transaction, tạo transaction custom
 
 -> Đánh index
 

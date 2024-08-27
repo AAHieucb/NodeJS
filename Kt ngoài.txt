@@ -75,7 +75,3 @@ Tương tự nhiều TH export biến trực tiếp bị sai vì các thành ph�
 => Để fix ta phải export 1 hàm trong file trả về biến đó, thì mỗi lần lấy sẽ gọi lại hàm lấy biến đó. Biến này như 1 instance global set và lấy thoải mái.
 
 
-
-# Thư viện common
-
-

@@ -32,7 +32,10 @@ Compass có thể connect vào service cổng 27017 để dùng. Nó chỉ là 1
 
 # Dùng mongoose
 Object Data Modeling (ODM) là kỹ thuật ánh xạ dữ liệu từ db vào các đối tượng trong mã code. Mongoose là 1 ODM cho mongodb.
-Dùng kèm express-mongo-sanitize: package dùng cho express khi dùng mongodb có thể xử lý input tránh Injection
+Dùng kèm: 
+express-mongo-sanitize: package dùng cho express khi dùng mongodb có thể xử lý input tránh Injection
+mongoose-sequence: plugin hỗ trợ autoincrement 1 trường nào đó khi tương tác với mongoose
+mongoose-paginate-v2 plugin hỗ trợ phân trang cho mongoose
 
 Thêm static function cho schema 
 Thêm các hàm cho 1 instance của schema
@@ -47,6 +50,7 @@ Dùng validate để check trước giá trị các trường hiện tại có �
 Dùng pre/port middleware cho schema để xử lý trước và sau khi thực hiện các thao tác. Mỗi thao tác thực chất cũng chạy lần lượt qua các middleware nếu đinh nghĩa. 
 
 -> Hàng loạt transaction: findOneAndUpdate, findByIdAndDelete, findOneAndReplace, findOneAndRemove
+Cũng có thể tự tạo transaction custom với startSession, startTransaction
 
 VD: Khi 1 người gọi hàm db.collection.updateMany() chẳng hạn thì nó chỉnh sửa nhiều document nhưng vc sửa đổi từng doc vẫn là atomic dù operation as a whole thì k atomic.
 

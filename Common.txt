@@ -32,6 +32,55 @@ Game dùng accesstoken truy cập thông tin người dùng do facebook cung c�
 Có thể dùng Let's script để có SSL free trong vài tháng. 
 Dùng openssl để có key và cert tự ký: openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 => Sinh key và cert có hạn 365 ngày
 
+-> CSRF (Cross site request forgery) là 1 vector đánh lừa trình duyệt thực hiện hành động không mong muốn trong ứng dụng người dùng đã đăng nhập.
+VD: B là 1 người muốn phá hủy 1 dự án mà A đang làm. B đăng tải 1 bài lên diễn đàn www.webapp.com nhưng kèm theo 1 đoạn code kiểu: <img height="0" width="0" src="http://www.webapp.com/project/1/destroy">. A vào đăng nhập vào diễn đàn như thường lệ và xem bài viết của B. Khi đó, browser của A đã cố gắng load ảnh nhưng thực tế lại gửi câu lệnh destroy vào địa chỉ này để xóa project có id là 1. Access token hợp lệ vì người dùng đã đăng nhập. Chú ý là request có thể đến từ cùng trang web hoặc từ 1 trang web khác.
+VD biến thể tinh vi hơn: hacker dùng 1 url rất mượt mà kiếu: <img height="0" width="0" src="http://www.ahackersite.com/abc.jpg"/> => xong cấu hình lại máy chủ: Redirect 302/abc.jpg http://www.webapp.com/project/1/destroy"/> thì người dùng k thể phát hiện ra được. Vấn đề này là phía người làm web cần phải xử lý.
+
+--> Chặn bằng CRSF token trong form ẩn:
+Trong mỗi phiên làm việc sinh ra duy nhất 1 crsftoken mới và FE cho vào form ẩn để gửi kèm. VD action gửi tiền:
+<form action="http://bank.com/transfer.do" method="post">
+  <input name="amount" value="100000"/>
+  <input type="hidden" name="csrf_token" value="{{csrf_token}}">
+  <button type="submit">Submit</button>
+</form>
+Khi thực hiện action, server check có csrftoken hợp lệ mới cho thực hiện là được. Hacker k biết giá trị trường này sẽ k thể CSRF được.
+
+--> Chặn bằng SameSite option của cookie
+SameSite là attribute của cookie quyết định việc gửi cookie cho cross site, ta cần đảm bảo request chỉ đến từ web của ta. Có 3 giá trị:
+Strict: ngăn hoàn toàn việc gửi cookie trong mọi cross-site. Vd A đăng nhập rồi, xong vào website ở 1 link khác sẽ báo là chưa đăng nhập vì cookie k được gửi kèm
+Lax: Tương tự nhưng vẫn gửi được cross-site với request GET, request POST sẽ bị chặn => mặc định 
+None
+=> Vượt qua Lax bằng cách pop up website và thực hiện. Khi ta thấy duyệt 1 site mà pop up lên 1 site khác và thông tin cá nhân bị đổi là hiểu vấn đề.
+
+--> Double Submit Cookie: cách tốt nhất
+Người dùng vào thì gửi 1 random val lưu vào cookie (tạo mới random) -> các form trong web sẽ có hidden field gắn giá trị random đó (k fix cứng) -> thực hiện request thì server check random val trong cookie với trong hidden field giống nhau là được.
+WebA call tới API webB thì nên nhớ dù gửi lại có cookie của webB thì vẫn k đọc được cookie đó là gì nên k thêm đúng trường như frontend chuẩn được (or dùng header X-CSRF-Token)
+
+--> Package csurf trong nodejs: tạo middleware chống crsf attack. Cơ chế nó gắn 1 token gửi tới client để client gửi lại r check thôi
+
+-> Dùng thư viện chống XSS: validator, xss, express-validator, xss-filter, DOMPurify. Bản chất nó sẽ validate regexp email, sanitize string, convert sang html entities.
+
+-> SSL chống MITTM nhưng vẫn bị replica attack. 2 pp:
+- Timestamp: VD ta cấm 1 request được lặp lại trong quá 1p bằng cách lưu dấu thời gian lại r check. Chú ý xử lý múi giờ khác nhau. 
+Nhược điểm là vẫn replicate được trong 1p đó, an toàn hơn là dùng nonce
+- Nonce: Cơ chế chống replicate attack. Client gửi request tới server thêm nonce cho server lưu và nếu 1 nonce từng được sử dụng sẽ lỗi luôn.
+Có thể dùng sessionid nếu nó thay đổi ở mỗi request. Server nên lưu redis.
+
+Để tránh redis phải lưu nonce quá tải thì dùng kèm cả 2 cách là tốt nhất. Vd: signature = md5(uid=1001&stime=19h00&nonce=sessionId-123456 + key)
+Phía server: - Vẫn check timestamp chưa quá 1p
+- Check nonce chưa có trong redis ok
+- if(redis.hasKey('sessionid-123456')) { return false; } else { redis lưu lại nonce vói expire time là 1p }
+=> Nhờ v sau 1p nonce bị xóa thì redis sẽ k tốn
+
+-> Signature Generation: VD MITM bắt request chuyển tiền và sửa payload người nhận thành hacker. Điều này thực tế khó xảy ra vì các app quan trọng như ngân hàng, github thường gửi thẳng OTP về điện thoại, google authen. Giải pháp là ký payload bằng khóa của người dùng thì nếu hacker đổi payload sẽ k khớp với sig nữa. 
+=> Cơ chế cặp khoá ở đây có thể làm như SSH key. 
+
+-> BlackList: Cho người dùng hoặc IP nào spam vào blacklist cấm luôn, Vd khi 1 người dùng gửi quá nhiều request trong 10s liên tiếp. Có thể lưu vào redis chẳng hạn.
+WhiteList: cấm mọi thứ trừ các IP và user trong whitelist
+
+
+
+# Header server bảo mật
 -> Strict-Transport-Security:
 Vd: res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains'); => Chỉ dùng HTTPS với các domain chỉ định trong vòng 31536000s tiếp theo. includeSubDomains là mọi domain con đều dùng HTTPS
 Cần set lớn hơn thời hạn 1 năm (31,536,000 giây). Khi đã set thì phía server không thể xóa được thông tin setting đã được lưu 1 lần trên trình duyệt nên cần check kỹ rằng server k cần HTTP response mới dùng. 
@@ -62,31 +111,7 @@ URL: https://csp-evaluator.withgoogle.com/ => web test website có CSP an toàn 
 CSP có thể được add từ backend hoặc frontend với thẻ meta trong tag header: <meta http-equiv="Content-Security-Policy" content="default-src 'self'">
 Package helmet của nodejs tự động hỗ trợ cả CSP. Có thể setup thủ công trong server như nginx ez vì chỉ cần thêm header là được. 
 VD1: Content-Security-Policy: script-src 'self' https://viblo.asia => Mã JS ở trang của ta và trang viblo.asia có thể tải và chạy trong web của ta. Bất kỳ script nào không đến từ 2 nguồn đó sẽ bị chặn k cho thực thi.
-=> Header này vẫn chưa hoàn hảo, nó cản Reflected XSS và DOM-based XSS nhưng chưa cản được Stored XSS vì XSS kiểu này đến từ server của ta. Do đó vẫn cần kết hợp X-XSS-Protection kích hoạt 1 bộ lọc.
-
--> CSRF (Cross site request forgery) là 1 vector đánh lừa trình duyệt thực hiện hành động không mong muốn trong ứng dụng người dùng đã đăng nhập.
-VD: B là 1 người muốn phá hủy 1 dự án mà A đang làm. B đăng tải 1 bài lên diễn đàn www.webapp.com nhưng kèm theo 1 đoạn code kiểu: <img height="0" width="0" src="http://www.webapp.com/project/1/destroy">. A vào đăng nhập vào diễn đàn như thường lệ và xem bài viết của B. Khi đó, browser của A đã cố gắng load ảnh nhưng thực tế lại gửi câu lệnh destroy vào địa chỉ này để xóa project có id là 1. Access token hợp lệ vì người dùng đã đăng nhập. Chú ý là request có thể đến từ cùng trang web hoặc từ 1 trang web khác.
-VD biến thể tinh vi hơn: hacker dùng 1 url rất mượt mà kiếu: <img height="0" width="0" src="http://www.ahackersite.com/abc.jpg"/> => xong cấu hình lại máy chủ: Redirect 302/abc.jpg http://www.webapp.com/project/1/destroy"/> thì người dùng k thể phát hiện ra được. Vấn đề này là phía người làm web cần phải xử lý.
-
---> Chặn bằng CRSF token trong form ẩn:
-Trong mỗi phiên làm việc sinh ra duy nhất 1 crsftoken và FE cho vào form ẩn để gửi kèm. VD action gửi tiền:
-<form action="http://bank.com/transfer.do" method="post">
-  <input name="amount" value="100000"/>
-  <input type="hidden" name="csrf_token" value="{{csrf_token}}">
-  <button type="submit">Submit</button>
-</form>
-Khi thực hiện action, server check có csrftoken hợp lệ mới cho thực hiện là được. Hacker k biết giá trị trường này sẽ k thể CSRF được.
-
---> Chặn bằng SameSite option của cookie
-SameSite là attribute của cookie quyết định việc gửi cookie cho cross site, ta cần đảm bảo request chỉ đến từ web của ta. Có 3 giá trị:
-Strict: ngăn hoàn toàn việc gửi cookie trong mọi cross-site. Vd A đăng nhập rồi, xong vào website ở 1 link khác sẽ báo là chưa đăng nhập vì cookie k được gửi kèm
-Lax: Tương tự nhưng vẫn gửi được cross-site với request GET, request POST sẽ bị chặn => mặc định 
-None
-=> Vượt qua Lax bằng cách pop up website và thực hiện. Khi ta thấy duyệt 1 site mà pop up lên 1 site khác và thông tin cá nhân bị đổi là hiểu vấn đề.
-
---> Double Submit Cookie:
-Người dùng vào thì gửi 1 random val lưu vào cookie (tạo mới random) -> các form trong web sẽ có hidden field gắn giá trị random đó (k fix cứng) -> thực hiện request thì server check random val trong cookie với trong hidden field giống nhau là được.
-WebA call tới API webB thì nên nhớ dù gửi lại có cookie của webB thì vẫn k đọc được cookie đó là gì nên k thêm đúng trường như frontend chuẩn được
+=> Header này vẫn chưa hoàn hảo, nó cản Reflected XSS và DOM-based XSS nhưng chưa cản được Stored XSS vì XSS kiểu này đến từ server của ta. Do đó vẫn cần kết hợp X-XSS-Protection kích hoạt 1 bộ lọc
 
 -> X-Permitted-Cross-Domain-Policies: none => Các header dùng cho cross domain request sẽ bị cấm. Tức là trình duyệt sẽ không thực hiện bất kỳ loại truy cập nào từ các tên miền khác, ngay cả khi chính sách cross-domain policy khác được thiết lập. Điều này cũng ảnh hưởng đến tính tương thích web của ta với các web khác.
 
@@ -94,14 +119,39 @@ WebA call tới API webB thì nên nhớ dù gửi lại có cookie của webB t
 
 -> Referrer-Policy: same-origin => Header này xác định thông tin về nguồn gốc của yêu cầu (referer) sẽ chỉ được bao gồm nếu trang gửi và trang nhận cùng 1 origin. Tức nó ngăn chặn việc tiết lộ thông tin về nguồn gốc của yêu cầu khi trang web gửi yêu cầu đến các tên miền khác.
 
--> Dùng thư viện chống XSS: validator, xss, express-validator, xss-filter, DOMPurify. Bản chất nó sẽ validate regexp email, sanitize string, convert sang html entities.
-
 
 
 # Server-Side Request Forgery (SSRF)
 Hacker khiến server gọi các request tới chính nó.
 VD: Server có url http://localhost/admin cho người dùng input 1 url ảnh để nó fetch về. Hacker input luôn http://localhost/admin/delete, server lấy url về và thử fetch thì lại gọi hàm của chính nó. Do server tự gọi chính nó nên request thành công. 
 Tức hacker có thể khiến server gọi API thực hiện hành động gì tuỳ ý nó, hoặc khiến server gọi vào API khác mà nó có quyền để lấy data nhạy cảm về. Cuối cùng trả ra FE hiển thị dưới dạng ảnh nhưng thực chất là hiển thị thông tin nhạy cảm cho hacker.
+
+
+
+# JSON Hijacking
+User vào web độc chứa mã: var script = document.createElement('script'); script.src = 'https://victim.com/data.json?callback=handleData'; document.body.appendChild(script); sẽ gửi request tới web đã đăng nhập fetch JSON data về. Fetch trực tiếp bị cản bởi SOP nên phải cho vào <script>
+Fetch bằng script k lấy được kết quả trả về, giải pháp là in ra rồi overwrite hàm in là được. VD overwirte hàm get của Object:
+var stolenData = {};
+Object.defineProperty(stolenData, "user", {
+  get: function() {
+    alert('Đã lấy cắp dữ liệu: user'); // Gửi tới server của hacker
+    return 'john_doe';
+  }
+});
+Trình duyệt hiện đại đã fix điều này. VD ta tạo ra function Array đè lên JS được, nhưng sẽ k hoạt động với dấu [], mà chỉ được với new Array(1,2,3) k thể json hijacking.
+Nhưng biến thể hiện đại đã cho phép overwrite mọi thứ với Proxy. VD: 
+Object.setPrototypeOf(__proto__, new Proxy(__proto__, {
+  has: function(target, name) {
+    alert(name.replace(/./g, function(c) {
+      c = c.charCodeAt(0);
+      return String.fromCharCode(c >> 8, c & 0xff);
+    }));
+  }
+}));
+
+-> Cách chống: 
+- Server cần dùng CORS, hoặc cấu hình CSP chuẩn nếu cho phép web khác gọi API, <script> qua mặt SOP nhưng k qua được CSP => nên giờ ít gặp kiểu tấn công này.
+- Thêm for(;;;); vào đầu response, lúc xử lý thì lọc bỏ đi là được. Thêm bất cứ thứ gì miễn k thể parse JSON trực tiếp thành object là được.
 
 
 
@@ -140,7 +190,28 @@ Nhiều tiến trình khi chạy phải thêm --no-daemon như câu lệnh pm2 s
 
 
 
+# SSH key bảo mật
+Kết hợp với tường lửa và firewall để bảo mật server cực mạnh
+Vì dev thường không code thẳng trên server mà luôn phải truy cập vào bằng SSH bảo mật tốt hơn mật khẩu thông thường.
+
+Cơ chế: Dev sinh cặp private và public key, gửi pubkey lưu ở server. Khi connect, server gửi 1 challenge tới client, client dùng pivkey mã hoá và gửi lại. Server dùng pubkey giải mã, nếu ra đúng message challenge cũ thì đúng.
+=> Key lưu sẵn trong máy thì k cần gõ lại mk mỗi khi connect
+
+
+
+# Về require, import, module.export và export, dynamic import trong nodejs:
+Có 2 type là module và commonjs, có thể xem type trong file package.json, mặc định là commonjs. Còn type module dùng để phát triển các gói module riêng bằng nodejs của ES6
+import/export dùng ở fe or type module, require và module.exports chỉ dùng trong commonjs
+Thực tế trong Nodejs ta có thể dùng package đặc biệt như ESM cho phép dùng import, export ngay trong type commonjs.
+Cũng có dynamic import dùng được ở cả commonjs và ES6, phải import thông qua promise
+
+
+
 # Other
 -> Google API convert text to speech
+Package openai giúp convert speech to text: https://towardsdatascience.com/build-a-speech-to-text-web-app-using-node-js-210f8c054d79
 
+-> Package:
+coveralls, travis CI, github CI/CD: test, deploy trực tiếp 
+daemon: 1 package biến script thành chương trình dạng daemon. 
 
