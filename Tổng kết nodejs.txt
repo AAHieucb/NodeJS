@@ -389,3 +389,51 @@ Tạo 1 channel và thêm bot vào làm admin => ấn vào hình cái bút ở c
 @JsonDumpBot => chat với thằng này để lấy thông tin phòng chat
 Ta chat vào channel và forward message tơi @JsonDumpBot để lấy thông tin phòng chat, lấy được id channel trong forward_from_chat
 => Dùng channelid + api key là tạo được 1 con bot có thể sendmessage vào channel đó.
+
+
+
+# Master exports require
+Khi dùng module.exports = { x: new Class() } và require ở nhiều file khác, nó chỉ chạy qua file 1 lần rồi lưu object vào cache. Dù file có thay đổi động thì cũng k chạy lại. Cái export ra dùng như 1 singleton.
+Khi dùng async, logic chạy như bth. Gọi hàm async trong constructor, ở ngoài class hay ở class dùng require đều chạy như bth thôi. Constructor k chứa async nên logic khởi tạo async thường viết ở hàm riêng để gọi. Vd nếu gọi hàm init() là async trong constructor của class thì khi chạy xong mới dùng được các biến như bth thôi.
+
+-> Code
+const x = new Class(); => class bth
+module.exports = x; hoặc module exports = { x }; hoặc module.exports = { x: new Class() };
+=> Export singleton ra dùng, có constructor
+
+Class { static method() {} }
+module.exports = Class;
+const Class = require("./Class"); Class.method();
+=> Export singleton 
+
+module.exports = () => new Class(); 
+const createInstance = require("./Class"); const x = createInstance();
+Hoặc:
+module.exports = Class;
+const Class = require("./Class"); const x = new Class();
+=> Mỗi lần dùng là 1 lần tạo mới
+
+--> Hiểu về async r tùy biến thoải mái:
+class MyClass { 
+  constructor() { this.initialize(); } 
+  async initialize() { } 
+  static getInstance() { 
+    if(!MyClass.instance) MyClass.instance = new MyClass();  
+    return MyClass.instance; 
+  } 
+}
+const instance = Database.getInstance();
+module.exports = instance;
+const instance = require('./file');
+=> Init async và lấy singleton ra dùng. Đảm bảo bước initialize async chạy đầu tiên xong mới gọi hàm liên quan là được
+
+-> Tùy biến lỗi:
+VD gọi hàm async, bên trong hàm gán giá trị cho 1 biến và k chờ nó, sau đó ta export biến ra trong file sẽ lỗi vì khi export, nó sẽ copy state hiện tại của biến vào cache (khi chưa thực hiện xong await) và bị sai. Tương tự nhiều TH export biến trực tiếp bị sai vì các thành phân bên trong chưa init xong.
+let x = 1; async function runSleep() { await sleep(2000); x = 2; } 
+runSleep();
+module.exports = { x };
+
+Để fix, phải export 1 hàm trong file trả về biến đó thì state biến đó k bị cache ngay, dùng singleton. VD: 
+let x = 1; async function runSleep() { await sleep(2000); x = 2; } 
+runSleep(); function getX(){ return x; }
+module.exports = { getX: getX };

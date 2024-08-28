@@ -190,7 +190,7 @@ Nhiều tiến trình khi chạy phải thêm --no-daemon như câu lệnh pm2 s
 
 
 
-# SSH key bảo mật
+# Bảo mật với SSH key
 Kết hợp với tường lửa và firewall để bảo mật server cực mạnh
 Vì dev thường không code thẳng trên server mà luôn phải truy cập vào bằng SSH bảo mật tốt hơn mật khẩu thông thường.
 
