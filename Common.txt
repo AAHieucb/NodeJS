@@ -25,6 +25,8 @@ Game chạy nền bằng cách dùng id game + mật khẩu game + tham số mã
 Máy chủ facebook trả về accesstoken
 Game dùng accesstoken truy cập thông tin người dùng do facebook cung cấp
 
+URL OAuth2 với discord: https://discordjs.guide/oauth2/#a-quick-example
+
 
 
 # Bảo mật server thông dụng
