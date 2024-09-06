@@ -1,31 +1,35 @@
 Redis
-Data Redis lưu trong main memory, kp ổ đĩa, nên có thể xử lý hàng triệu yêu cầu mỗi giây. Ta vẫn config để lưu vào ổ đĩa lâu dài được.
-Vói data k cần lưu lâu dài, có thể bỏ qua database và chỉ lưu vào redis, vd bảng xếp hàng game realtime. Nếu data thường đổi hoặc chỉ query rất ít thì k nên lưu vào redis
+Data bình thường thì dùng database, query nhiều thì dùng cache redis. Với data mang tính nhất thời k cần lưu lâu dài, có thể bỏ qua database và chỉ lưu vào redis, vd bảng xếp hàng game realtime. Nếu chỉ query rất ít thì k nên lưu vào redis.
+Redis có lưu data cả trong ổ đĩa: RDB (Redis db backup) tạo bản sao định kỳ dạng file snapshot (mặc định); AOF (append only file) ghi mọi lệnh ghi vào file log và phát lại file để khổi phục data => có thể config tuỳ biến.
+=> Redis có xác suất mất data nếu ghi rồi tắt luôn mà chưa kịp tạo file snapshot.
 
 
 
 # Basic
--> Redis hỗ trợ Pub/Sub giúp tạo các phòng chat hiệu suất cao, bình luận thời gian thực. 
-Redis hỗ trợ sẵn atomic như: set, setnx là atomic, incrBy và decrBy cũng là atomic.
-(key, value, expiretime)
+-> Redis lưu kiểu (key, val, expiretime), hỗ trợ transaction.
+Dùng cache tốn thêm bộ nhớ, nên đảm bảo luôn luôn có expire time cho data.
 
--> Cài đặt: 
-- Có cloud redis
+-> Cài đặt: - Có cloud redis https://app.redislabs.com/
 - Cài với docker: docker pull redis -> docker run --name myredis -p 6379:6379 -d redis => dùng redis client bình thường tại công 6379
-
--> Dùng cache tốn thêm bộ nhớ, nên đảm bảo luôn luôn có expire time cho data.
+- Redis insight dùng UI: https://www.youtube.com/watch?v=bkSdxT1Vk4s&t=4s
 
 -> Cài package với npm: 
 redis hoặc ioredis (nên dùng, cú pháp như redis-cli) => để tương tác với redis rất mạnh dùng cho server
 redis-cli -> mở để thao tác với cmd: rdcli (phải chờ 1 lát)
-redis-commander => giúp quản lý redis bằng gui, luôn luôn nên dùng
+redis-commander => giúp quản lý redis bằng gui
+
+-> Nhiều kiểu xoá cache: xoá định kỳ; xoá theo expires time; xoá data nếu trong 1 tháng k có query. VD tạo cron job xoá redis; tạo job chạy vào đêm tự xoá 80% data ít dùng
+
+-> Redis có tính năng pipeline để gửi nhiều lệnh Redis đến server mà không cần chờ phản hồi sau mỗi lệnh. Sẽ tăng hiệu suất bằng cách gửi lệnh liên tục rồi nhận tất cả phản hồi đồng loạt 1 lần. Tốc độ bth đã nhanh hơn mysql 20 lần, nhưng dùng pipeline sẽ sẽ nhanh hơn cả ngàn lần lần
 
 
+# redis-cli và các kiểu dữ liệu
+Có nhiều kiểu data: set, string, list, zset (sorted set), hash, bitmap, hyperloglog, GEO, stream
 
-# Dùng redis-cli
 -> Mọi command trong redis-cli đều có dạng code tương ứng:
 ping => nhận lại PONG tức connection ok
-KEYS * => nhận lại tất cả các key trong redis hiện tại
+KEYS a:* => nhận lại tất cả các key trong redis bắt đầu với a:
+EXISTS <key> => check sự tồn tại 1 key
 
 PSUBSCRIBE o* => lắng nghe mọi thông điệp gửi tới channel có tên thỏa mãn pattern o* là bắt đầu bằng ký tự o
 SUBSCRIBE redisChat => tạo và lắng nghe thông điệp gửi đến channel tên là redisChat
@@ -36,12 +40,13 @@ getrange mykey 0 -1 => lấy tòan bộ ký tự của key tên là mykey
 getrange mykey 0 3 => lấy ký tự từ 0 đến 3 của key tên là mykey (getrange mykey <start> <end>)
 SET "kavin" 123 
 GET "kavin" => sẽ trả lại 123 cho ta, k có trả ra null
-set foo bar ex 20 => sau 20s sẽ hết hạn và tự bị xóa khỏi redis
-mset key1 value1 key2 value2 => set multiple key-value
+set foo bar ex 20 => set giá trị kèm expires time luôn, sau 20s sẽ hết hạn và tự bị xóa khỏi redis
+set foo bar ex px 20000 => px biến đổi thành milliseconds
+mset user:001:name myname user:001:age 18 => set multiple key-value
 mget key1 key2 => lấy multiple key
 strlen key1 => lấy length của 1 key
 incr/decr key1 => tăng giá trị key1 lên 1, chỉ được nếu key1 là 1 số int
-incrby/decrby key1 10 
+incrby/decrby blog::0001::readcount 10 
 SETEX <key> <timeout> "<value>" => set kèm timeout
 SETNX <key> "<value>" => key k tồn tại thì set là value, nếu key tồn tại r thì thôi, tức là Set if Not eXist
 DEL <key>
@@ -49,22 +54,28 @@ DEL <key>
 expire mykey 10 => set expire time cho 1 key có sẵn tên là mykey hết hạn sau 10s
 ttl mykey => hiện expire time của mykey
 
-Dùng mảng:
-lpush players Ronadol => thêm 1 phần tử Ronadol vào mảng players, push sẽ lên đầu mảng
+Dùng mảng => khi cần lấy theo range, lấy cả list, lấy theo index, dùng implement stack queue
+lpush players a b c => lpush thêm dần từ bên trái nên mảng sẽ thành [c, b, a ]
 lpushx movies abc => push phần tử tên là abc vào mảng movies nếu key movies tồn tại, nếu key movies k tồn tại thì k push
 lrange players 0 -1 => lấy toàn bộ phần tử trong mảng players
-rpush players Hello => push phần tử Hello vào cuối của mảng players
+rpush players 1 2 3 => push vào từ bên phải sẽ thành [1, 2, 3]
 llen players => lấy length của array
-lpop players => xóa phần tử đầu tiên trong mảng và trả về phần tử đó
-rpop players => xóa phần tử cuối cùng của players 
-lset players 0 Lingrad => thay thế phần tử đầu tiên số 0 của mảng thành Lingrad
+lpop players => xóa 1 phần tử ngoài cùng bên trái và trả về phần tử đó
+lpop players 3 => xoá 3 phần tử bên trái
+rpop players => tương tự xoá bên phải
+lset players 1 Lingrad => thay thế phần tử index là 1 của mảng thành Lingrad
 linsert players after Lingrad Martial => insert phần tử mới tên là Martial vào sau phần tử có giá trị là Lingrad trong mảng players, trả về số lượng phần tử mảng
 linsert players before Martial Greenwood => tương tự nhưng chèn vào trước phần tử nào
-lindex players 2 => lấy cụ thể 1 phần tử thứ 2 trong mảng (chú ý redis xếp mảng từ 1)
+lindex players 2 => lấy cụ thể ptử index là 2 trong mảng
 sort players ALPHA => hiển thị mảng sort theo bảng chữ cái
 sort players desc ALPHA => ngược bảng chữ cái
+llen players => lấy kích thước mảng
+lrem players 1 7 => xoá phần tử index là 1 có giá trị là 7
+ltrim players 1 4 => xoá và chỉ  để lại phần tử từ index 1 đến index 4
 
-Dùng set:
+blpop key 0 => loại bỏ và trả về phần tử trái ngoài cùng của list, nếu list trống sẽ chờ trong timeout giây, timeout là 0 sẽ chờ vô hạn. VD dùng cho worker subscribe MQ
+
+Dùng set => khi cần thao tác set operator. VD sở thích chung của nhiều người tìm thông qua giao điểm của 2 tập hợp
 sadd mykey myvalue1 myvalue2 myvalue3 => thêm 3 phần tử vào set
 smembers mykey => hiển thị set
 scard mykey => lấy số lượng phần tử set (card là cardinality)
@@ -76,15 +87,20 @@ sinterstore newsetinter mykey mykey2 => lưu các phần tử chung 2 set và 1 
 sunion mykey mykey2 => show union 2 set
 sunionstore newsetunion mykey mykey2 => lưu union 2 set vào 1 set mới tên là newsetunion
 
-Dùng hash set. VD cần lưu vào redis xem 1 user mua sản phẩm nào với số lượng bao nhiêu:
-hset cart:user-001 product:p-001 1 => lưu vào cặp [product:p-001, 1] vào bảng hash set tại key search là cart:user-001. Trong hệ thống thực tế, họ thường lưu kiểu cart:<userid> hay product:<productid> như v, ta chỉ id vào cache còn sau đó query vào DB lấy data chi tiết sau. K nên lưu các thông tin hay đổi như name hay giá cả vì lưu xong nó giảm giá phát thì dữ liệu cache bị sai
+Dùng hash set => khi cần truy xuất key val
+VD cần lưu vào redis xem 1 user mua sản phẩm nào với số lượng bao nhiêu: hset cart:user-001 product:p-001 1 => lưu vào cặp [product:p-001, 1] vào bảng hash set tại key search là cart:user-001. Trong hệ thống thực tế, họ thường lưu kiểu cart:<userid> hay product:<productid> như v, ta chỉ id vào cache còn sau đó query vào DB lấy data chi tiết sau. K nên lưu các thông tin hay đổi như name hay giá cả vì lưu xong nó giảm giá phát thì dữ liệu cache bị sai
 hgetall cart:user-001 => lấy mọi [field,val] của key search cart:user-001 (hay lấy mọi sản phẩm của user này)
 hincrby cart:user-001 product:p-001 => tăng val thêm 3, nếu muốn giảm thì dùng hincrby với số âm là được
 hmset cart:user-002 product:iPhone13 4 product:iPhone14 1 => add multi params
 hlen cart:user-002 => lấy length (lấy tổng loại mặt hàng của user)
 hdel cart:user-002 product:iPhone14 => xóa 1 field của key search nào
 
-Ứng dụng: trong shopee hay tiki, muốn thêm 1 sản phẩm vào giỏ hàng phải yêu cầu đăng nhập. Trong amazon, ta có thể thêm vào mà k yêu cầu đăng nhập, sau khi đăng nhập hay đk tài khoản mới, dữ liệu giỏ hàng đó sẽ tự đồng bộ, làm v thì số lượng request rất lớn và để đạt tốc độ tức thì như amazon, họ dùng mô hình như bên trên. Khi người dùng đặt giỏ hàng thì 1 id ảo được sinh ra, frontend lưu ngay vào cookie or storage, còn backend lưu vào cache or cookies or storage. Server có thể lưu vào DB nhưng tốc độ sẽ bị chậm hơn, lưu vào redis là tốt nhất vì các tính năng getall, tăng giảm số lượng có sẵn các hàm atomic r. Sau khi đăng nhập thì lưu data từ cache vào database thực là xong. 
+-> string có 3 kiểu encode dựa trên SDS (string dynamic symbol) của C: embedded khi length <= 44 bytes, raw khi length > 44 bytes, int khi là số nguyên
+Vd: SET str <44 ký tự> => "object encode str" sẽ ra embstr
+SET str <45 ký tự> => sẽ ra raw
+SET num 1234 => "object encode num" sẽ ra int
+
+-> Usecase: trong hệ thống phân tán nhiều server, các server thường đồng bộ session data của user thông qua 1 redis db chung thay vì mỗi máy lưu 1 session data riêng. Vừa tối ưu bộ nhớ và tốc độ, vừa giúp đồng bộ user k cần login lại nhiều lần.
 
 
 
@@ -167,7 +183,7 @@ const isGiamGia = async({userId}) => {
     }
 }
 
-Dùng redis là tối ưu:
+Dùng redis là tối ưu => pessimitics lock
 const isGiamGia = async({userId}) => {
   const result = await this.redis.setNX(userId, 'true');
   if (result === 1) {
@@ -177,4 +193,19 @@ const isGiamGia = async({userId}) => {
 => setnx là 1 atom của redis nghĩa là nếu userId k có giá trị thì set là true, có rồi thì k làm gì cả
 
 
+
+# Update đồng bộ cache database
+Cache luôn phải đồng bộ data với db gốc, khi write sẽ update cả cache và db, khi read sẽ đọc trong cache, không có thì đọc trong DB rồi update vào cache.
+Khi cần update data trong cache thì nên delete thay vì update thủ công, cache sẽ tự động được update ở lần get đầu tiên của user.
+
+Do qtr update cache và db k là 1 tx nên có thể bị xung đột khi nhiều người cùng write và read db, cache. Nhiều giải pháp:
+- Ta dùng khoá phân tán bi quan hoặc tự implement mutex locking update db rồi update cache 
+- Cho từng task vào MQ để lấy thực hiện lần lượt, update db rồi update cache
+- Cách duy nhất xử lý mà k biến nó thành tx là update db rồi xoá cache. Nhưng để tránh bước xoá cache lỗi, có thể xoá cache -> nếu thành công thì update db -> lại xoá cache
+Cách này vẫn lỗi ở 1 số TH hiếm hoi nên vẫn ok và là tạm thời là cách tốt nhất hiện tại. VD: user 1 update db và xoá cache, user 2 đọc từ db xong và cbi add vào cache, user 3 ngay lúc đó update db và xoá cache, user 2 bh mới add được vào cache, db và cache sẽ khác data.
+
+
+
+# Other
+-> redis-benchmark tool test performance. URL: https://www.youtube.com/watch?v=dpDGXbe_LeE
 

@@ -217,3 +217,5 @@ Package openai giúp convert speech to text: https://towardsdatascience.com/buil
 coveralls, travis CI, github CI/CD: test, deploy trực tiếp 
 daemon: 1 package biến script thành chương trình dạng daemon. 
 
+-> Ngoài ra còn có P3P là chuẩn bảo mật cũ hiện k còn được sử dụng trong trình duyệt hiện đại vì k đủ còn đủ bảo mật. 
+Vd: res.setHeader('P3P', 'CP=NOI DSP COR NID ADM DEV PSA OUR IND UNI PUR COM NAV INT STA');

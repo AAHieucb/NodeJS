@@ -28,15 +28,6 @@ Android: (Android) Java, Kotlin, SDK / (iOS) Objective-C, Swift / (Cross platfor
 
 
 
-# Cache Redis và Memcached 
-Redis k thể thay thế các db như mysql vì nó k có đủ ACID, k hỗ trợ truy vấn phức tạp qua table, nối bảng hay phân quyền bảo mật.
-
-Redis cung cấp nhiều tính năng như pub/sub, đếm số lần xảy ra. Nó cũng hỗ trợ các kiểu dữ liệu phức tạp. VD: Redis hỗ trợ HyperLogLog là một cấu trúc dữ liệu xác định xấp xỉ số lượng phần tử duy nhất trong một tập hợp lớn mà không cần lưu trữ tất cả các phần tử đó
-Memcached giống Redis nhưng thiếu nhiều tính năng, k hỗ trợ vài loại type dữ liệu. Do đó nó cũng có hiệu suất cao hơn và tải công việc lớn hơn.
-=> Ứng dụng nhỏ dùng memcached là được. Còn cần linh hoạt hay tính năng nâng cao thì dùng redis.
-
-
-
 # Event loop
 Event liên tục được bắt để add vào queue theo thứ tự: Timer event(timeout,interval) -> IO callback-> Idle(nội bộ k qt)-> Poll(Tìm kiếm sự kiện IO mới đang polling) -> Check(xử lý callback của setImmediate)-> Close Callbacks(xử lý các callback ngắt kết nối) -> quay lại Timer
 Khi có event -> gửi event cho C++ xử lý, xong thì sẽ gửi callback cần thực hiện vào event queue của JS. 
@@ -74,4 +65,14 @@ Gọi hàm async, bên trong hàm gán giá trị cho 1 biến và k chờ nó, 
 Tương tự nhiều TH export biến trực tiếp bị sai vì các thành phân bên trong chưa init xong đã thực hiện copy rồi.
 => Để fix ta phải export 1 hàm trong file trả về biến đó, thì mỗi lần lấy sẽ gọi lại hàm lấy biến đó. Biến này như 1 instance global set và lấy thoải mái.
 
+
+
+# So sánh cache redis
+Redis có ACID và hiệu suất cao hơn db bth. Nó chỉ k thể thay thế các db như mysql vì k hỗ trợ truy vấn phức tạp như nối table, hay phân quyền bảo mật. 
+Chú ý nếu k cần 2 tính năng đó cũng k nên lưu hết data vào cache vì redis dùng main memory nhỏ dễ bị tràn. 
+
+Redis cung cấp nhiều tính năng như pub/sub, sự kiện, hỗ trợ kiểu dữ liệu phức tạp, có chế độ cluster, lưu data bền bỉ trong đĩa cứng, đơn luồng (nên mỗi lệnh là atomic)
+VD: Redis hỗ trợ HyperLogLog là một cấu trúc dữ liệu xác định xấp xỉ số lượng phần tử duy nhất trong một tập hợp lớn mà không cần lưu trữ tất cả các phần tử đó
+Memcached giống Redis nhưng thiếu nhiều tính năng, chỉ dùng với string, chỉ lưu trong memory restart là mất. Do đó nó cũng có hiệu suất cao hơn và tải công việc lớn hơn.
+=> Ứng dụng nhỏ dùng memcached là được. Còn cần linh hoạt hay tính năng nâng cao thì dùng redis.
 

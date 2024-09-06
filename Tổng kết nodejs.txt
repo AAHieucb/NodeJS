@@ -149,6 +149,7 @@ Tối thiểu ta phải có bảo mật SSL, chống XSS, và Database Injection
 
 access token sinh từ {userid,role,timestamp,expiration} + secret key. Check password hợp lệ thì sinh accesstoken gửi cho client.
 Expire time nhét vào payload và được check ở server chứ k lưu ở 1 trường FE để người dùng đổi tùy tiện
+Chú ý k lưu thông tin nhạy cảm vào payload vì ai cũng giải mã ra được (jwt.io), chỉ có phần secret key trong token là k thể giải.
 
 -> Dùng passport + passport-jwt kết hợp: sẽ dùng jwt như 1 strategy làm đơn giản code hơn
 Dùng passport-local nếu xác thực tk mk tự làm
@@ -163,9 +164,10 @@ Dùng passport-local nếu xác thực tk mk tự làm
 VD: ký message trong web3 xong rồi dùng jwt để giao tiếp.
 
 -> Dùng redis vô hiệu hoá token
-Usecase hệ thống bị hack và yêu cầu admin vô hiệu hóa 1 refresh token. Ta lưu tất cả refreshtoken vào redis và check thêm 1 bước, nếu nó k tồn tại trong redis, tức bị xoá hoặc expires thì login fail. Để vô hiệu hoá chỉ cần xoá khỏi redis.
-- Lưu redis kiểu key là user id, value là refreshtoken. Điều này đồng nghĩa refreshtoken mới được lấy thì refreshtoken cũ tự k dùng được nữa. Tương tự vói accesstoken
-- Nếu quản lý nhiều token 1 người thì lưu (user => [blacklist token]) thì mỗi lần check phải check thêm token hết hạn chưa rồi xóa thủ công khỏi blacklist.
+Usecase hệ thống bị hack và yêu cầu admin vô hiệu hóa 1 refresh token. Ta lưu tất cả refreshtoken vào redis và check thêm 1 bước, nếu nó k tồn tại trong redis, tức bị xoá hoặc expires thì login fail. Để vô hiệu hoá chỉ cần xoá khỏi redis. Tương tự nếu muốn vô hiệu accessToken
+- Lưu redis kiểu key là user id, value là refreshtoken. Điều này đồng nghĩa token mới được lấy thì token cũ tự k dùng được nữa. 
+- Nếu quản lý nhiều token 1 người, VD mỗi thiết bị 1 token thì ta lưu token sai vào (user => [blacklist token]) mỗi lần check phải check thêm token hết hạn chưa rồi xóa thủ công khỏi blacklist, hoặc tạo làm sao để tự xoá khi token qua expires time. Tương tự với pp whitelist.
+=> Đây cũng là tính năng cho phép user logout mọi thiết bị hay các thiết bị cụ thể khi phát hiện bất thường
 
 -> Bài toán: ứng dụng cập nhật có tính năng mới, chỉ ai có accesstoken mới mới dùng được, mọi accesstoken cũ cần bị hủy, tức buộc người dùng phải đăng nhập lại.
 C1: Kể từ lúc cập nhật, mọi request của người dùng lên server lần đầu đều báo lỗi token k hợp lệ, yêu cầu login lại và lưu vào blacklist. Bất cứ ai chưa có trong blacklist đều báo k hợp lệ => K ổn nếu người dùng đăng nhập trên nhiều thiết bị và có nhiều token thì cái này chỉ báo có 1 lần là sai, các thiết bị khác sẽ pass cái blacklist
@@ -176,25 +178,42 @@ Lưu version vào payload. VD ban đầu là {id, email} thì thêm thành {id, 
 Ta có thể custom chỉ update với list user xác định. Vd lưu vào user database thì đổi version của user nào sẽ chỉ hủy accessToken của user đó => Cũng có thể thêm tùy ý trường type vào payload để chỉ định áp dụng với user có type là gì
 => Tối ưu hơn nữa: thay vì báo lỗi có thể trả lại accessToken mới cho người dùng luôn nếu accesstoken đúng như version sai, FE phải check và update accessToken với mọi request
 
+-> Xây dựng hệ thống tự phát hiện token bị hacker cướp: mặc định chơi 1 user có thể nhiều token vì login từ nhiều thiết bị.
+Mỗi khi có login từ 1 thiết bị mới, gửi mail thông báo cho user về ip và location của thiết bị đó, để họ tự xác thực.
+Khi AT hết hạn, FE nên gửi cả RT và AT cũ tới server. Khi làm mới token, server cũng nên làm mới cả RT và AT gửi cho user chứ k chỉ AT. Khi 1 RT được dùng để lấy cặp token mới, server nên lưu cả RT và AT và blacklist trong thời hạn expires time của nó. Nếu 1 request mà dùng lại AT và RT này, khả năng cao là token đã bị hack, server sẽ vô hiệu hoá thêm cả cặp token mới vào blacklist và gửi mail thông báo cho user luôn. Vì hacker có thể là người trước đó login hoặc là người mới login.
+
+-> HMAC: giao thức ít dùng hơn jwt
+User login với username password -> Server sinh ra 1 key đối xứng HMAC gửi user -> user cần gửi request lấy tài nguyên -> user ký sign ra signU = req.body + nonce + timestmap + HMAC key -> user gửi request kèm signU -> server sinh ra signS với quy trình tương tự -> ss signU và signS giống nhau thì trả về resource
+Mỗi request đều sinh 1 signU mới, do đó tự động chống replica attack
 
 
-# Lưu session data
--> Lưu trong cookie: Session cookie có thời gian ngắn và hiệu lực trong 1 phiên làm việc, nó bị xóa khi người dùng logout or hết hạn. Persistent cookie có thời gian lưu lâu dài
-Server k thể xác định được các requests HTTP có phải từ cùng 1 người hay không vì HTTP là 1 giao thức k trạng thái, cookie ra đời đã giải quyết vấn đề đó. Setup cookie middleware giúp lưu data tự động truyền giữa client server trong phạm vi 1 session.
-Chú ý session storage là khái niệm chỉ có ở FE, backend k có session storage mà chỉ có cookie. 
 
--> Lưu trong db
-Có thể dùng express-session hoặc cookie-session để lưu session data trong cookie nhưng bị lỗi memory leak. Để fix, ta k được lưu session trong cookie nữa mà phải lưu trong các database khác bằng cách thêm option store:
+# Session và cookie
+Cookie có giới hạn bộ nhớ nhỏ, được lưu ở phía client.
+Session là 1 loại data trao đổi giữa client và server, mỗi session có 1 id riêng. Session có thể implement là data trong 1 phiên làm việc hoặc data login lâu dài tuỳ ý.
+
+-> Session data có thể lưu ở phía client trong cookie: Session cookie có thời gian ngắn và hiệu lực trong 1 phiên làm việc, nó bị xóa khi người dùng logout or hết hạn. Hoặc setup persistent cookie có thời gian lưu lâu dài
+Server k thể xác định được các requests HTTP có phải từ cùng 1 người hay không vì HTTP là 1 giao thức k trạng thái, cookie ra đời đã giải quyết vấn đề đó. VD Setup cookie middleware lưu data tự động truyền giữa client server trong phạm vi 1 session.
+Chú ý session storage là khái niệm chỉ có ở FE, backend k có session storage mà chỉ có cookie.
+=> Nói đến session thì là data trong 1 lần vào web thôi, còn lưu login data lâu dài thì dùng jwt lưu cookies đi. Session ít dùng trong dự án lớn mà thường lưu data lâu dài
+
+-> Lưu session data ở server bên trong database:
+Có thể dùng express-session lưu cookie trong memory (restart server là mất) hoặc cookie-session để lưu session data trong cookie (bị lỗi memory leak). Để fix, ta k được lưu session trong cookie nữa mà phải lưu trong các database khác bằng cách thêm option store:
 - VD redis:
 store: new RedisStore(),
 - VD connect-mongo hỗ trợ lưu session data:
 store: new MongoStore ({ 
   url: 'mongodb: // localhost: 27017 / test-app', // URL MONGODB CỦA BẠN 
-  ttl: 14 * 24 * 60 * 60, 
+  ttl: 14 * 24 * 60 * 60, // thời gian hết hạn 1 session
   autoRemove: 'native' 
 }),
-ttl là thời gian hết hạn 1 session
 => Đăng nhập vào mongo atlas sẽ thấy session được lưu ở đó
+
+-> Đồng bộ session trong hệ phân tán: client gửi request tới nhiều server khác nhau, server 1 lưu session data, server 2 lưu sẽ invalid yêu cầu login lại
+- Lưu session data ở client thông qua cookies
+- Lưu ở local server thì cấu hình nginx trung gian thuật toán chỉ gửi 1 user tới 1 server là được
+- Lưu ở 1 database or redis chung để nhiều server cùng lấy được => sập phát là toang luôn
+- Lưu ở local 1 server, rồi gọi đồng bộ copy session data vào các server khác cũng được.
 
 
 
@@ -304,6 +323,13 @@ volatile: message gửi đi có tồn tại lâu dài không. Nếu dùng nó th
 -> Polling: query liên tục xem có thay đổi không. Duration càng ngắn, càng tốn tài nguyên.
 Long-polling khắc phục nhược điểm của polling với ý tưởng: client gửi 1 request và server giữ lại request đó và sẽ response khi có 1 sự kiện tương ứng diễn ra. Nếu request client bị timeout, khi hết timeout nhưng vẫn chưa có sự kiện mong đợi nào thì server buộc trả về 1 response mà chả có dữ liệu nào, vẫn tốt hơn short-polling nhiều rồi.
 Để tránh việc client bị treo hay ảnh hưởng hiệu suất của tác vụ khác, khi sử dụng long polling, nên thực hiện long polling trên một thread riêng.
+
+-> URL: https://socket.io/docs/v4/tutorial/step-7 => Nó dùng serverOffset để đánh dấu để gửi message thiếu bù lại khi bị disconnect rồi reconnect.
+Code theo luồng: VD tưởng tượng tạo phòng, rồi mn vào thì có data rồi làm gì thì có data gì, ta sẽ dễ dàng biết cái nào phát sự kiện và làm gì. VD lúc connect thì phát sự kiện nhận về data => nên tạo phòng thay vì connect luôn như battle hand, k vào phòng thì chưa cần kết nối socket. Nên cho options user enable chứ k luôn tạo socket mỗi khi vào web.
+Để đảm bảo socket hoạt động, ui k update data ngay mà chờ socket gửi data mới về mới update. Data từ socket sẽ chỉ lấy từ socket, k cần fetch API => project battle hand
+
+-> Phía client hay server đều có thể tách file riêng cho export ra cái socket để thao tác => battle hand
+VD cần gửi data cho 1 list socket thoả mãn đk: tạo singleton lưu list socket; trong hàm on cũng có thể lấy list socket với io.sockets.sockets; export từ file riêng cho dự án lớn
 
 
 
