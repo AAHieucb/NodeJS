@@ -1,4 +1,4 @@
-// # Dùng redis
+// # Dùng redis => nên chuyển sang ioredis
 const redis = require("redis");
 
 (async () => {
@@ -52,9 +52,9 @@ const redis = require("redis");
     // 1 người gửi message tới channel là tất cả subscriber nhận được
     const subscriber = client.duplicate(); // or gọi lại createClient
     await subscriber.connect();
-    // await subscriber.subscribe('dogs', (message) => { // channel dogs
-    //     console.log(message);
-    // }) // Đương nhiên có hàm unsubscribe
+    await subscriber.subscribe('dogs', (message) => { // channel dogs
+        console.log(message);
+    }) // Đương nhiên có hàm unsubscribe
     client.publish('dogs', 'Roger'); // k lưu vào redis mà chỉ các subscriber nhận được. Nó cho phép 2 người lạ trò chuyện được với nhau như socket.
 
     // Chức năng chính của redis là nó làm cache tăng tốc request gần như tức thời. Nếu dữ liệu k có cache mới truy vấn vào database r lại cập nhập vào cache.
