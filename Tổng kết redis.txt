@@ -1,26 +1,30 @@
 Redis
 Data bình thường thì dùng database, query nhiều thì dùng cache redis. Với data mang tính nhất thời k cần lưu lâu dài, có thể bỏ qua database và chỉ lưu vào redis, vd bảng xếp hàng game realtime. Nếu chỉ query rất ít thì k nên lưu vào redis.
-Redis có lưu data cả trong ổ đĩa: RDB (Redis db backup) tạo bản sao định kỳ dạng file snapshot (mặc định); AOF (append only file) ghi mọi lệnh ghi vào file log và phát lại file để khổi phục data => có thể config tuỳ biến.
-=> Redis có xác suất mất data nếu ghi rồi tắt luôn mà chưa kịp tạo file snapshot.
 
 
 
 # Basic
+GPT for redis: https://redis.io/chat
+
 -> Redis lưu kiểu (key, val, expiretime), hỗ trợ transaction.
 Dùng cache tốn thêm bộ nhớ, nên đảm bảo luôn luôn có expire time cho data.
 
 -> Cài đặt: - Có cloud redis https://app.redislabs.com/
+- Có app redis: https://redis.io/downloads/ => tut: https://viblo.asia/p/phan-1-cai-dat-redis-co-ban-tuning-redis-bWrZnADYKxw
 - Cài với docker: docker pull redis -> docker run --name myredis -p 6379:6379 -d redis => dùng redis client bình thường tại công 6379
+Vào terminal: docker exec -it myredis redis-cli
 - Redis insight dùng UI: https://www.youtube.com/watch?v=bkSdxT1Vk4s&t=4s
 
 -> Cài package với npm: 
-redis hoặc ioredis (nên dùng, cú pháp như redis-cli) => để tương tác với redis rất mạnh dùng cho server
+redis (docs chuẩn) hoặc ioredis (nên dùng, cú pháp y hư redis-cli) => để tương tác với redis rất mạnh dùng cho server
 redis-cli -> mở để thao tác với cmd: rdcli (phải chờ 1 lát)
 redis-commander => giúp quản lý redis bằng gui
 
 -> Nhiều kiểu xoá cache: xoá định kỳ; xoá theo expires time; xoá data nếu trong 1 tháng k có query. VD tạo cron job xoá redis; tạo job chạy vào đêm tự xoá 80% data ít dùng
 
 -> Redis có tính năng pipeline để gửi nhiều lệnh Redis đến server mà không cần chờ phản hồi sau mỗi lệnh. Sẽ tăng hiệu suất bằng cách gửi lệnh liên tục rồi nhận tất cả phản hồi đồng loạt 1 lần. Tốc độ bth đã nhanh hơn mysql 20 lần, nhưng dùng pipeline sẽ sẽ nhanh hơn cả ngàn lần lần
+VD khi cần gọi nh lệnh get: const results = await redis.pipeline().srandmember('colors').llen('users').del('allColors').get('user:10').sadd('talents', 'redis').exec();
+
 
 
 # redis-cli và các kiểu dữ liệu
@@ -29,9 +33,11 @@ Có nhiều kiểu data: set, string, list, zset (sorted set), hash, bitmap, hyp
 -> Mọi command trong redis-cli đều có dạng code tương ứng:
 ping => nhận lại PONG tức connection ok
 KEYS a:* => nhận lại tất cả các key trong redis bắt đầu với a:
+RANDOMKEY => lấy 1 key ngẫu nhiên
+"scan" "0" "MATCH" "*" "COUNT" "500" => lấy 500 phần tử đầu tiên, có phân trang và lấy từ 0
 EXISTS <key> => check sự tồn tại 1 key
 
-PSUBSCRIBE o* => lắng nghe mọi thông điệp gửi tới channel có tên thỏa mãn pattern o* là bắt đầu bằng ký tự o
+PSUBSCRIBE o* => lắng nghe mọi thông điệp gửi tới channel có tên thỏa mãn pattern o* là bắt đầu bằng ký tự o, giới hạn phụ thuộc vào bộ nhớ máy
 SUBSCRIBE redisChat => tạo và lắng nghe thông điệp gửi đến channel tên là redisChat
 PUBLISH redisChat "This is a message" => gửi thông điệp tới channel redis tên là redisChat
 
@@ -48,7 +54,7 @@ strlen key1 => lấy length của 1 key
 incr/decr key1 => tăng giá trị key1 lên 1, chỉ được nếu key1 là 1 số int
 incrby/decrby blog::0001::readcount 10 
 SETEX <key> <timeout> "<value>" => set kèm timeout
-SETNX <key> "<value>" => key k tồn tại thì set là value, nếu key tồn tại r thì thôi, tức là Set if Not eXist
+SETNX <key> "<value>" => key k tồn tại thì set là value, nếu key tồn tại r thì thôi, tức là Set if Not eXist (tx))
 DEL <key>
 
 expire mykey 10 => set expire time cho 1 key có sẵn tên là mykey hết hạn sau 10s
@@ -75,10 +81,14 @@ ltrim players 1 4 => xoá và chỉ  để lại phần tử từ index 1 đến
 
 blpop key 0 => loại bỏ và trả về phần tử trái ngoài cùng của list, nếu list trống sẽ chờ trong timeout giây, timeout là 0 sẽ chờ vô hạn. VD dùng cho worker subscribe MQ
 
-Dùng set => khi cần thao tác set operator. VD sở thích chung của nhiều người tìm thông qua giao điểm của 2 tập hợp
-sadd mykey myvalue1 myvalue2 myvalue3 => thêm 3 phần tử vào set
+Dùng set => khi cần thao tác set operator. VD sở thích chung của nhiều người tìm thông qua giao điểm của 2 tập hợp, quay số random
+sadd mykey myvalue1 myvalue2 myvalue3 => thêm 3 phần tử vào set, trả số lượng phần tử thêm thành công 
 smembers mykey => hiển thị set
+srem mykey myvalue1 => xoá phần tử
 scard mykey => lấy số lượng phần tử set (card là cardinality)
+srandmember mykey 2 => lấy ngẫu nhiên ra 2 phần tử 
+spop mykey 1 => xoá ngẫu nhiên 1 phần tử trong set
+smove cr7 m10 valuex => di chuyển phần tử valuex từ set cr7 sang set m10 
 sismember mykey value1 => check phần tử value1 có trong tập mykey hay không
 sdiff mykey mykey2 => hiển thị phần tử tập mykey có mà mykey2 không có (phải đúng thứ tự)
 sdiffstore newset mykey mykey2 => lưu phần tử tập mykey có mà mykey2 không có vào 1 set mới tên là newset
@@ -87,13 +97,31 @@ sinterstore newsetinter mykey mykey2 => lưu các phần tử chung 2 set và 1 
 sunion mykey mykey2 => show union 2 set
 sunionstore newsetunion mykey mykey2 => lưu union 2 set vào 1 set mới tên là newsetunion
 
-Dùng hash set => khi cần truy xuất key val
-VD cần lưu vào redis xem 1 user mua sản phẩm nào với số lượng bao nhiêu: hset cart:user-001 product:p-001 1 => lưu vào cặp [product:p-001, 1] vào bảng hash set tại key search là cart:user-001. Trong hệ thống thực tế, họ thường lưu kiểu cart:<userid> hay product:<productid> như v, ta chỉ id vào cache còn sau đó query vào DB lấy data chi tiết sau. K nên lưu các thông tin hay đổi như name hay giá cả vì lưu xong nó giảm giá phát thì dữ liệu cache bị sai
-hgetall cart:user-001 => lấy mọi [field,val] của key search cart:user-001 (hay lấy mọi sản phẩm của user này)
-hincrby cart:user-001 product:p-001 => tăng val thêm 3, nếu muốn giảm thì dùng hincrby với số âm là được
-hmset cart:user-002 product:iPhone13 4 product:iPhone14 1 => add multi params
-hlen cart:user-002 => lấy length (lấy tổng loại mặt hàng của user)
-hdel cart:user-002 product:iPhone14 => xóa 1 field của key search nào
+Dùng zset => set mà có sort, ví dụ cần lấy sorted bảng xếp hạng
+zadd pre:2023 89 manCity 84 arsenal 75 manu 67 liverpool => thêm 5 phần tử vào zset, sort theo số
+zrevrange pre:2023 0 -1 => lấy mọi phần tử sort theo chiều giảm dần. 
+revrange pre:2023 0 2 WITHSCORES => là lấy 3 phần tử điểm cao nhất, kèm điểm
+zrange pre:2023 0 -1 => lấy mọi phần tử chiều tăng dần
+zrem pre:2023 manu => xoá phần tử manu khỏi list
+zcard pre:2023 => đếm số phần tử
+zincrby pre:2023 30 liverpool => tăng điểm sort cho liverpool thêm 30
+zrangebyscore pre:2023 75 90 => lấy tăng dần các phần tử có điểm từ 75 đến 90
+zscore pre:2023 liverpool => lấy điểm số của 1 phần tử
+
+Dùng hashset => khi cần truy xuất nhanh theo key lấy ra 1 tập hợp trường và giá trị
+VD cần lưu vào redis xem 1 user mua sản phẩm nào với số lượng bao nhiêu: hset cart:user-001 product:p-001 1 => lưu vào cart:user-001 -> [product:p-001, 1] vào bảng hash set tại key search là cart:user-001. Trong hệ thống thực tế, họ thường lưu kiểu cart:<userid> hay product:<productid> như v, ta chỉ id vào cache còn sau đó query vào DB lấy data chi tiết sau. K nên lưu các thông tin hay đổi như name hay giá cả vì lưu xong nó giảm giá phát thì dữ liệu cache bị sai
+VD tính năng giỏ hàng: Hset cart:01 product01 1 product:02 2 lưu vào cache số lượng và id của product thôi, sau lấy đủ trường thì gọi thêm từ db
+hset user:01 name anonystick age 20 => lưu vào user:01->[(name->anonystick),(age->20)]
+hget user:01 name => lấy anonystick
+hmget user:01 name age => lấy giá trị của nhiều trường 
+hgetall user:01 => lấy mọi trường và value của 1 key
+hincrby cart:user-001 product:p-001 3 => tăng val thêm 3, nếu muốn giảm thì dùng hincrby với số âm là được
+hlen cart:user-002 => lấy số lượng trường của 1 key, k tính các key null
+hdel cart:user-002 product:iPhone14 => xóa 1 trường của key search nào
+hexists user:01 age => check trường age của key user:01 tồn tại k
+HKEYS user:01 => lấy list key
+HVALS user:01 => lấy list value
+=> Còn có redisJSON lưu data key value với value là kiểu json nhiều trường phức tạp. Ta cũng có thể stringify json lưu với kiểu hash bth
 
 -> string có 3 kiểu encode dựa trên SDS (string dynamic symbol) của C: embedded khi length <= 44 bytes, raw khi length > 44 bytes, int khi là số nguyên
 Vd: SET str <44 ký tự> => "object encode str" sẽ ra embstr
@@ -101,6 +129,79 @@ SET str <45 ký tự> => sẽ ra raw
 SET num 1234 => "object encode num" sẽ ra int
 
 -> Usecase: trong hệ thống phân tán nhiều server, các server thường đồng bộ session data của user thông qua 1 redis db chung thay vì mỗi máy lưu 1 session data riêng. Vừa tối ưu bộ nhớ và tốc độ, vừa giúp đồng bộ user k cần login lại nhiều lần.
+
+-> Transaction:
+MULTI -> bắt đầu 1 transaction. Gõ hàng loạt lệnh sẽ đưa vào hàng đợi -> EXEC sẽ thực hiện tuần tự trong 1 tx
+MULTI -> DISCARD -> dừng và rollback 1 tx
+=> Nếu sai về cú pháp thì rollback, nếu sai lỗi logic nó vẫn thực hiện VD incrby 1 string. Vì trong redis sai logic vẫn coi là thành công và return message lỗi
+
+MULTI đang thực hiện dở mà có lệnh khác thay đổi cùng trường vẫn sẽ thực hiện thành công.
+WATCH -> tạo 1 khoá cho 1 transaction (MULTI) đầu tiên sau nó -> nếu Th trên xảy ra thì transaction sẽ fail
+WATCH có tác dụng khoá cho các lệnh sau WATCH và trước EXEC, nên nếu WATCH r SET r MULTI r EXEC cùng trường cũng sẽ cản lại
+
+-> Lệnh quản lý
+MONITOR => giám sát hđ 
+CLIENT LIST => list connection
+INFO
+CONFIG GET maxclients => lấy max số lượng connection
+CONFIG SET maxclients 
+CONFIG GET * => lấy mọi cấu hình
+SLOWLOG help 
+SELECT <1 số từ 0 đến 15> => chuyển môi trường db
+
+
+
+# Backup và clone
+-> Export data redis ra file rồi import vào máy khác:
+- SAVE / BGSAVE -> sẽ export ra file dump.rdb, copy nó vào data file của redis và restart là được
+Giả sử chạy save trên docker: docker exec -it myredis /bin/sh -> ls là thấy file 
+- Dùng redis-commander có sẵn tính năng export import
+- Tạo 1 replica làm slave cho instance hiện tại. Nhiều db cloud chỉ cần nhập url của redis vào là nó tự đồng bộ bằng cách biến nó thành replica
+
+-> Riêng string, có thể import và export
+VD file import.txt:
+SET TUANDA1 1231
+SET TUANDA2 1232
+EXPIRE TUANDA1 1001
+EXPIRE TUANDA2 1002
+[root@master-node ~]# redis-cli < import.txt
+
+VD export cũng chỉ là xử lý file:
+[root@master-node ~]# redis-cli KEYS "*" > key_export.txt
+[root@master-node ~]# cat key_export.txt 
+TUANDA1
+TUANDA
+TUANDA2
+[root@master-node ~]# sed -i -e 's/^/GET /g' key_export.txt 
+[root@master-node ~]# cat key_export.txt 
+GET TUANDA1
+GET TUANDA
+GET TUANDA2
+[root@master-node ~]# redis-cli < key_export.txt > value_export.txt
+[root@master-node ~]# cat value_export.txt 
+1231
+123
+1232
+[root@master-node ~]# paste key_export.txt value_export.txt 
+GET TUANDA1	1231
+GET TUANDA	123
+GET TUANDA2	1232
+
+
+
+# Cấu hình bảo mật redis
+URL: https://viblo.asia/p/phan-3-bao-mat-cho-redis-redis-security-Eb85oARkZ2G
+Sửa file config thay đổi port
+Server và redis chung 1 máy thì k sao. Nếu remote thì để bind 0.0.0.0 (để mọi máy vào được) và config firewall chỉ cho ip của server
+Đặt mật khẩu, dùng Access List Redis (ACL)
+Xoá các lệnh nguy hiểm dev k cần dùng
+K cho redis chạy quyền root
+Phân quyền chạy và đọc file tối thiểu (file chạy là 750, file log, config là 640)
+Đặt lịch Backup log, config, dump
+Bật TLS giữa client và redis-server.
+
+-> ACL: Redis có thể phân quyền như DB, cho phép user nào được truy cập vào keys nào
+https://viblo.asia/p/phan-4-access-list-redis-tinh-nang-moi-o-ban-6-E375zAJ2lGW
 
 
 
@@ -206,6 +307,84 @@ Cách này vẫn lỗi ở 1 số TH hiếm hoi nên vẫn ok và là tạm th�
 
 
 
+# Redis cluster replication
+Scaling dùng khi thiếu bộ nhớ hoặc tốc độ xử lý chậm. Redis là single thread nên k tận dụng được multicore server. Giải pháp sharding tăng instance giúp tối ưu, nhưng khó khăn là kb cần lấy data từ instance nào => Redis cluster dùng Sharding Algorithm giải quyết vấn đề
+Sharding algorithm cũng chỉ đơn giản là hash key rồi mode để chia vào cluster. Nhưng nếu tăng số instance lên, sẽ phải resharding bằng cách tính toán lưu lại với toàn bộ key.
+Redis giải quyết vấn đề resharding: 1 database sẽ có tổng 16383 hash slots xếp vào các cluster. Data được hash rồi mode 16383 chia vào các hash slots. Rồi xếp các hash slots vào các cluster. VD cluster A lưu từ 0 đến 8000, cluster B lưu hash slots từ 8000 đến 16383. Thêm cluster B lưu từ 7000 đến 9000 thì phân phối hash slots của A và B sang D là ok.
+=> Cấu trúc dữ liệu được lưu tối ưu ez sao cho việc lấy là nhanh nhất, VD lấy hash slots từ 7000 đến 8000 rất nhanh.
+
+-> Redis cluster có high availability (HA), dù fail vẫn hoạt động bth.
+VD trong quá trình trigger failed-over, cluster thấy 1 primary shards fails sẽ tự bầu 1 replica khác làm primary shard mà ta k cần làm gì khác thủ công
+Cơ chế: trong 1 cluster, các shard và replica tự tương tác trao đổi message với nhau và nếu 1 primary shards k reply, sẽ tự phát hiện và bầu 1 replica của shard đó lên thay thế
+Ta tuỳ ý config quá trình bầu là cần bao nhiêu cluster đồng ý thì trigger failed-over khi tạo cluster.
+=> Luôn giữ 1 số lượng lẻ các primary shard và 2 replica cho mỗi primary shards để tránh split brain situation
+
+Network partition là khi hệ thống phân tán bị chia thành nhiều nhóm phân vùng và các vùng k thể tương tác với nhau. Nó xảy ra do lỗi mạng, lỗi phần cứng, hoặc quá tải gây nghẽn làm các nodes k thể tương tác. 
+Split-brain situation là 1 dạng của network partition, khi các nodes cô lập tiếp tục chạy độc lập và đưa ra quyết định.
+Ở đây, các phân vùng sẽ thấy các nodes ở phân vùng khác là offline và trigger failed over, biến replica thành primary shards. Nếu chia thành 2 phân vùng bằng node nhau, cả 2 sẽ tự cho mình là leader và sẽ tiếp tục nhận request từ clients khiến các phân vùng có cùng primary shards nhưng data khác nhau. Khi network partition được fix, các vùng sẽ merge lại với nhau tự động thì vd thấy 2 primary shards giống nhau ở 2 phân vùng và kb nên chọn cái nào làm primary. Nếu số node lẻ, ngay từ lúc network partition tách ra, phân vùng ít nodes hơn sẽ k tự nhận mình là leader nữa và sẽ k trigger failed over, cũng không nhận request từ client nữa.
+
+Nếu gặp split brain situation, phải dùng các giải pháp khác phức tạp hơn: Dùng các thuật toán đồng thuận như Paxos, Raft quorum-based consensus, thêm weight cho các node.
+
+-> Các mô hình: https://viblo.asia/p/phan-5-cac-mo-hinh-redis-uu-va-nhuoc-diem-vyDZOR87Kwj
+Replica và cluster sharding
+Mô hình đơn / master - slave / master - n slave / SETINEL / sharding cluster
+
+-> https://viblo.asia/p/phan-6-redis-master-salve-su-dung-acl-RnB5pAvbKPG => cấu hình 1 master 1 slave dùng ACL
+Trong Redis Cluster, mỗi node cần mở hai cổng TCP:
+- Cổng chính (6379): là cổng tiêu chuẩn mà Redis sử dụng để giao tiếp với các clients.
+- Cổng phụ (cổng chính + 10000, VD: 16379): Cổng này được sử dụng cho việc giao tiếp nội bộ giữa các nút trong cụm Redis
+
+-> https://viblo.asia/p/phan-7-redis-sentinel-su-dung-acl-eW65GpQjKDO => redis sentinel với ACL tự phát hiện master down bầu slave lên
+
+-> https://vnsys.wordpress.com/2019/01/16/ha-redis-sentinel-su-dung-haproxy/ => redis sentinel với HA Proxy xác đinh để xđ master trong sentinel
+https://www.youtube.com/watch?v=TWXTJdcgNoE => chi tiết
+
+-> Tạo cluster và tuỳ biến mọi thứ: https://viblo.asia/p/phan-8-cai-dat-redis-cluster-kiem-tra-cluster-YWOZrPmv5Q0
+
+
+
+# Config redis docker
+Thực chất docker có thể làm mọi thứ với redis. Kể cả tạo cluster các thứ.
+Nếu k tồn tại thì chỉ cần tạo mới file: /usr/local/etc/redis/redis.conf
+Nên nhớ terminal tối giản cho các image, k có nano hay cat nên buộc phải dùng lệnh từ docker. 
+
+Ta chuẩn bị sẵn file cho redis, có thể đổi port sang 6378 trong file config và làm như sau:
+VD sửa file config: docker run --name myredis1 -v $(pwd)/test.conf:/usr/local/etc/redis/redis.conf -p 6378:6378 -d redis redis-server /usr/local/etc/redis/redis.conf
+
+-> Redis có lưu data cả trong ổ đĩa: RDB (Redis db backup) tạo bản sao định kỳ dạng file snapshot (mặc định); AOF (append only file) ghi mọi lệnh ghi vào file log và phát lại file để khổi phục data => có thể config tuỳ biến.
+=> Redis có xác suất mất data nếu ghi rồi tắt luôn mà chưa kịp tạo file snapshot.
+Có thể tuỳ biến. VD redis.conf: save 300 1 => tạo snapshot mỗi 300s nếu có ít nhất 1 thay đổi
+
+
+
+# Client side cache
+Tính năng redis cho phép client gọi tới redis server rồi lưu cache ngay trong RAM của nó để lần sau k cần gọi vào redis nữa, nhanh hơn nữa.
+Gặp vấn đề khi có instance khác thay đổi data thì server cần invalidate local cache ở server trước. Có 2 modes:
+- Default mode: redis tạo bảng invalidation, khi client get sẽ thêm client id và key vào bảng đó. Khi key updated, deleted or expired thì server sẽ gửi invalidation message tới client tự xoá khỏi localCache. Client có thể bắt việc đó bằng cách subscribe vào channel "__redis__:invalidate" => nói chung chỉ cần set tracking on là xong
+- Breadcasting mode: default mode k gửi invalidate message tới client với 1 key nếu client chưa từng fetch key đó, ở mode này thì redis sẽ gửi invalidate message với key theo pattern chỉ định cho mọi client subscribe pattern đó. 
+URL: https://www.linode.com/docs/guides/redis-client-side-caching/
+
+
+
+# Redis stream
+Có thể thêm data bớt data event khỏi stream, subscribe vào stream với XREAD, XREADGROUP. Dùng để implement hàng đợi bằng redis cũng được.
+Tut: https://www.youtube.com/watch?v=EckRuTo-t0k
+
+
+
 # Other
 -> redis-benchmark tool test performance. URL: https://www.youtube.com/watch?v=dpDGXbe_LeE
+
+-> Usecase: Instagram muốn map 300M bức ảnh với userid tương ứng, yêu cầu tốc độ cao truy cập theo khoá và bộ nhớ k quá 15GB (EC2)
+K nên dùng SQL vì các bản ghi kbh update, chỉ insert, chả cần tx, chả có quan hệ bảng. Tối ưu là dùng redis. 
+Nếu dùng string tạo đơn giản nhất mỗi key 1 value với "SET media:1155315 939" => tốn 21GB
+
+Redis lưu hash với 2 kiểu dữ liệu ziplist và hashtable tuỳ vào kích thước data. ziplist có nén data nên bộ nhớ rẻ. Còn hashtable k nén data để tăng tốc độ truy vấn.
+ziplist hay zipmap là kiểu data nén nhưng k cần giải mã mà vẫn có thể truy cập vào phần tử, nhưng tốc độ truy cập bị giảm dần khi list càng nhiều data, tốn CPU vì nó phải duyệt qua list phần tử.
+Cấu hình ziplist: hash-max-ziplist-entries 512 # Số lượng entry tối đa trong một hash để sử dụng ziplist, lớn hơn sẽ dùng hashtable
+hash-max-ziplist-value 64 # Kích thước entry tối đa (tính bằng byte) để sử dụng ziplist
+
+Instagram chuyển qua dùn hash: set config hash-max-ziplist-entries con số tối ưu là 1000, lớn hơn sẽ gây áp lực lên CPU quá tải. Tận dụng lợi thế hash bằng cách chia 1000 bucket.
+VD: HSET "mediabucket:1155" "1155315" "939" "123" ... => Scale lên 300M key thì bộ nhớ chỉ tốn 5GB
+
 

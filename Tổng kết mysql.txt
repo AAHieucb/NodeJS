@@ -20,10 +20,15 @@ Tải MySQL Workbench -> Default Schema đặt là tên database, đặt usernam
 
 
 
-# Dùng mysql2
+# Dùng mysql2 nodejs
 -> Connect vào database với connection pool:
 - createConnection: mỗi lần gọi sẽ tạo ra 1 connection mới tới database. Ta phải chủ động createconnection rồi đóng ở cuối API => Kbh dùng
 - createPool (luôn dùng): gọi 1 lần createPool, nó sẽ tạo ra 1 list các connection tùy vào nhu cầu người dùng nhưng k được vượt quá max. Vd ta set max là 10 mà có 5 request độc lập tới db cùng lúc thì sẽ chỉ tạo 5 connection thôi, nếu có 20 requests cùng lúc thì sẽ tạo ra 10 connections truy xuất db xử lý 20 request đó. 
 Đóng connection thì nó k chỉ chuyển sang trạng thái sleep, khi có request mới, nó sẽ wakeup các connection đang sleep để tái sử dụng và truy cập tới db. 
+
+
+
+# Other
+-> sysbench là tool test performance, mock data cho sql, mock 1 phát mấy triệu r test luôn. URL: https://www.youtube.com/watch?v=dpDGXbe_LeE
 
 

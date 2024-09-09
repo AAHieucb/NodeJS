@@ -147,8 +147,7 @@ VD: npx express-generator --view=pug myapp -> dùng view engine là pug
 Tối thiểu ta phải có bảo mật SSL, chống XSS, và Database Injection, rate limit chặn DDoS. 
 
 access token sinh từ {userid,role,timestamp,expiration} + secret key. Check password hợp lệ thì sinh accesstoken gửi cho client.
-Expire time nhét vào payload và được check ở server chứ k lưu ở 1 trường FE để người dùng đổi tùy tiện
-Chú ý k lưu thông tin nhạy cảm vào payload vì ai cũng giải mã ra được (jwt.io), chỉ có phần secret key trong token là k thể giải.
+Expire time nhét vào payload và được check ở server chứ k lưu ở 1 trường FE để người dùng đổi tùy tiện. Chú ý k lưu thông tin nhạy cảm vào payload vì ai cũng giải mã ra được (jwt.io), chỉ có phần secret key trong token là k thể giải.
 
 -> Dùng passport + passport-jwt kết hợp: sẽ dùng jwt như 1 strategy làm đơn giản code hơn
 Dùng passport-local nếu xác thực tk mk tự làm
@@ -181,9 +180,12 @@ Ta có thể custom chỉ update với list user xác định. Vd lưu vào user
 Mỗi khi có login từ 1 thiết bị mới, gửi mail thông báo cho user về ip và location của thiết bị đó, để họ tự xác thực.
 Khi AT hết hạn, FE nên gửi cả RT và AT cũ tới server. Khi làm mới token, server cũng nên làm mới cả RT và AT gửi cho user chứ k chỉ AT. Khi 1 RT được dùng để lấy cặp token mới, server nên lưu cả RT và AT và blacklist trong thời hạn expires time của nó. Nếu 1 request mà dùng lại AT và RT này, khả năng cao là token đã bị hack, server sẽ vô hiệu hoá thêm cả cặp token mới vào blacklist và gửi mail thông báo cho user luôn. Vì hacker có thể là người trước đó login hoặc là người mới login.
 
--> HMAC: giao thức ít dùng hơn jwt
-User login với username password -> Server sinh ra 1 key đối xứng HMAC gửi user -> user cần gửi request lấy tài nguyên -> user ký sign ra signU = req.body + nonce + timestmap + HMAC key -> user gửi request kèm signU -> server sinh ra signS với quy trình tương tự -> ss signU và signS giống nhau thì trả về resource
-Mỗi request đều sinh 1 signU mới, do đó tự động chống replica attack
+-> 2 cách dùng JWT:
+- RSA => ref tới dự án "Ecommerce"
+- HMAC => Lộ secret ở db là mất hết nên ít dùng so với RSA, ref tới "Tinkerbell garden"
+Cơ chế: User login với username password -> Server dùng 1 HMAC secret key mã hoá thông tin payload thành signature, gửi cho user token = `payload.signature` -> user gửi kèm token ở mỗi request sau -> server check payload + HMAC secret key tạo lại đúng signature thì ok.
+HMAC secret key có thể sinh random ở mỗi phiên và lưu vào db thay vì dùng 1 key cố định để đảm bảo signature khác nhau mỗi lần sinh và k thể dùng lại signature cũ.
+Để chống replica attack trong 1 phiên, ta buộc sinh random HMAC secret key ở mỗi phiên lưu DB, sau đó gửi cho client lưu ở cả ở FE. Mỗi request, user phải ký lại payload kèm nonce và timestamp thành signature gửi kèm, server check signature đúng và timestamp k quá lâu và nonce chưa từng dùng là ok (nonce lưu kèm secret key trong db). Nếu lộ secret, sẽ chỉ lộ trong 1 phiên làm việc nên mới dám gửi cho FE như v
 
 
 
@@ -458,7 +460,9 @@ let x = 1; async function runSleep() { await sleep(2000); x = 2; }
 runSleep();
 module.exports = { x };
 
-Để fix, phải export 1 hàm trong file trả về biến đó thì state biến đó k bị cache ngay, dùng singleton. VD: 
+Để fix, phải export 1 hàm trong file trả về biến đó thì hàm bị cache, còn biến vẫn chạy và k bị xoá do hàm vẫn gọi tới, dùng singleton. VD: 
 let x = 1; async function runSleep() { await sleep(2000); x = 2; } 
 runSleep(); function getX(){ return x; }
 module.exports = { getX: getX };
+
+Hoặc thêm: let client = {}; client.x = x; module.exports = client; => nó sẽ cache client copy ngay, trường x của nó vẫn giữ vùng nhớ, khi nào async chạy xong sẽ gán giá trị vào vùng nhớ đó là có thôi
