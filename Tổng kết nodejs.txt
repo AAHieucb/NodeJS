@@ -64,8 +64,7 @@ Các stream trong NodeJS đều là chuỗi or buffer. Chuyển sang chế độ
 -> Dùng yargs: xử lý tham số từ dòng lệnh cmd. Chú ý người dùng cũng có thể gửi tới server command và server dùng lib này để xử lý data
 Dùng minimist đi kèm để parse process.argv thoải mái
 
--> Dùng crypto-js: thư viện giúp encrypt và decrypt văn bản, mật khẩu.
--> crypto: sinh random key
+-> crypto, crypto-js: sinh randomkey, mã hóa => thay bằng node:crypto có sẵn
 -> Dùng bcrypt: thư viện hash. Có thể tùy chọn hash bao nhiêu vòng nhưng sẽ rất nặng
 MD5 k còn được sử dụng vì mỗi string giống nhau cho đầu ra giống nhau.
 Còn bcrypt sinh hash khác nhau với string giống nhau, nhờ dùng salt khi hash. Đb là khi verify lại k cần cái salt nữa mà vẫn check được password ban đầu là đúng với đoạn hash
