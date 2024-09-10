@@ -387,4 +387,6 @@ hash-max-ziplist-value 64 # Kích thước entry tối đa (tính bằng byte) �
 Instagram chuyển qua dùn hash: set config hash-max-ziplist-entries con số tối ưu là 1000, lớn hơn sẽ gây áp lực lên CPU quá tải. Tận dụng lợi thế hash bằng cách chia 1000 bucket.
 VD: HSET "mediabucket:1155" "1155315" "939" "123" ... => Scale lên 300M key thì bộ nhớ chỉ tốn 5GB
 
+-> Còn có RedisStore được tối ưu chỉ cho lưu session data, cookies data phía server. 
+
 
