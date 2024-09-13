@@ -61,6 +61,17 @@ Memcached giống Redis nhưng thiếu nhiều tính năng, chỉ dùng với st
 
 
 
+# Config SSMS kết nối được với mssql nodejs trên máy win (hoạt động tốt năm 2022)
+Để tạo tài khoản mật khẩu và sử dụng: rightClick vào server -> property -> secure -> SQL Server and Window Authentication mode vì tk mk thì phải dùng mode SQL Server.
+Vào SQL bằng window authentication(là nơi tạo ra các user) -> security -> rightclick login -> new login -> SQL Server authentication -> gõ password; server roles -> mặc định có public tức là tài khoản cho mọi người -> ta nên dùng tài khoản cho người và chỉ có 1 user tên là sa có quyền sysadmin mà thoi; User mapping: chọn các database muốn truy cập bởi user này -> check các quyền db_datawriter và db_datareader là các quyền cơ bản nhất đọc và viết với database, để 2 quyền đó hoạt động thì phải là chủ của database tức check thêm db_owner(k check sẽ lỗi); Status: grant và enabled; 
+Restart lại server này: cmd computer management -> Services and Applications -> Services -> refresh lại SQL Server Browser, agent và service;
+=> Có thể vào database với từng tài khoản r, tk đó chỉ truy cập vào được những database ta đã set mà thôi
+=> Mỗi khi xóa hay làm gì trực tiếp trên database thì phải luôn luôn restart lại database và nếu có thể thì cả trong computer management.
+
+Để dùng đc server ta cần setting lần đâu trên máy win (các lần sau k cần làm phần này nữa): computer management -> services and applications -> services -> start các thứ SQL Server Browser, SQL Server, SQL Server CEIP services; -> SQL Server Configuration Manager -> SQL Server Services-> start SQL Server Browser; -> SQL Server Network Configuration -> Protocols for SQLEXPRESS -> enabled cái TCP/IP -> IP Addresses -> active và enabled yes -> TCP Dynamic Ports blank -> TCP Port 1433
+
+
+
 # Other
 -> NodeJS xd trên nền tảng Javascript V8 Engine tốc độ cao, mã nguồn mở. Engine gồm heap và stack, tải NodeJS là tải engine này về
 Javascript engine là trình thông dịch mã js. Ngoài V8 thì cũng có các js engine khác như: SpiderMonkey(FireFox), Hermes(ReactNative), Chakra(IE), JavascriptCore(Safari),..

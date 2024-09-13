@@ -2,28 +2,47 @@ Redis
 Data bình thường thì dùng database, query nhiều thì dùng cache redis. Với data mang tính nhất thời k cần lưu lâu dài, có thể bỏ qua database và chỉ lưu vào redis, vd bảng xếp hàng game realtime. Nếu chỉ query rất ít thì k nên lưu vào redis.
 
 
-
 # Basic
 GPT for redis: https://redis.io/chat
 
--> Redis lưu kiểu (key, val, expiretime), hỗ trợ transaction.
+Redis lưu kiểu (key, val, expiretime), hỗ trợ transaction. 
 Dùng cache tốn thêm bộ nhớ, nên đảm bảo luôn luôn có expire time cho data.
 
 -> Cài đặt: - Có cloud redis https://app.redislabs.com/
 - Có app redis: https://redis.io/downloads/ => tut: https://viblo.asia/p/phan-1-cai-dat-redis-co-ban-tuning-redis-bWrZnADYKxw
-- Cài với docker: docker pull redis -> docker run --name myredis -p 6379:6379 -d redis => dùng redis client bình thường tại công 6379
-Vào terminal: docker exec -it myredis redis-cli
 - Redis insight dùng UI: https://www.youtube.com/watch?v=bkSdxT1Vk4s&t=4s
 
--> Cài package với npm: 
+--> Cài với docker: docker pull redis -> docker run --name myredis -p 6379:6379 -d redis => dùng redis client bình thường tại cổng 6379 => ref tới "Tool / Docker"
+Vào terminal redis docker: docker exec -it myredis redis-cli 
+
+Vào máy terminal máy docker: docker exec -it myredis /bin/sh, terminal tối giản cho các image, k có nano hay cat nên buộc phải dùng lệnh từ docker. 
+Có thể làm mọi thứ với redis docker, kể cả tạo container, setup haproxy. Nếu file config k tồn tại, chỉ cần tạo mới tại: /usr/local/etc/redis/redis.conf
+VD setup đổi port sang 6378: Chuẩn bị file redis.conf với "port 6378" ở local -> vào terminal docker redis -> docker run --name myredis1 -v $(pwd)/test.conf:/usr/local/etc/redis/redis.conf -p 6378:6378 -d redis redis-server /usr/local/etc/redis/redis.conf
+
+-> Cài package với npm: redis-commander => giúp quản lý redis bằng gui
 redis (docs chuẩn) hoặc ioredis (nên dùng, cú pháp y hư redis-cli) => để tương tác với redis rất mạnh dùng cho server
 redis-cli -> mở để thao tác với cmd: rdcli (phải chờ 1 lát)
-redis-commander => giúp quản lý redis bằng gui
 
--> Nhiều kiểu xoá cache: xoá định kỳ; xoá theo expires time; xoá data nếu trong 1 tháng k có query. VD tạo cron job xoá redis; tạo job chạy vào đêm tự xoá 80% data ít dùng
 
--> Redis có tính năng pipeline để gửi nhiều lệnh Redis đến server mà không cần chờ phản hồi sau mỗi lệnh. Sẽ tăng hiệu suất bằng cách gửi lệnh liên tục rồi nhận tất cả phản hồi đồng loạt 1 lần. Tốc độ bth đã nhanh hơn mysql 20 lần, nhưng dùng pipeline sẽ sẽ nhanh hơn cả ngàn lần lần
+
+# Xóa cache tối ưu
+- Luôn set xoá theo expires time
+- Đặt điều kiện xoá data nếu trong 1 tháng k có query. VD dùng event, hoặc mỗi khi query sẽ update lại TTL thành 1 month là được.
+- Tạo job chạy vào đêm tự xoá 80% data ít dùng
+- Chạy cronjob, với data gần hết expires time thì check, nếu query nhiều thì tự nới rộng TTL, query ít thì xóa đi.
+=> Thường chỉ cần expires time là đủ nhưng ta muốn tối ưu nhất có thể, phải xử lý TH bộ nhớ giới hạn cần tối ưu và lưu lượng traffic lớn.
+
+
+
+# Redis pipeline
+PP batching giúp gửi nhiều lệnh Redis đến server mà không cần chờ phản hồi sau mỗi lệnh. Tăng hiệu suất bằng cách gửi lệnh liên tục rồi nhận tất cả phản hồi đồng loạt 1 lần. Tốc độ bth đã nhanh hơn mysql 20 lần, nhưng dùng pipeline sẽ sẽ nhanh hơn cả ngàn lần.
 VD khi cần gọi nh lệnh get: const results = await redis.pipeline().srandmember('colors').llen('users').del('allColors').get('user:10').sadd('talents', 'redis').exec();
+
+
+
+# Redis stream
+Có thể thêm data, bớt data event khỏi stream, subscribe vào stream với XREAD, XREADGROUP. Dùng để implement hàng đợi bằng redis ok.
+Tut: https://www.youtube.com/watch?v=EckRuTo-t0k
 
 
 
@@ -41,6 +60,9 @@ PSUBSCRIBE o* => lắng nghe mọi thông điệp gửi tới channel có tên t
 SUBSCRIBE redisChat => tạo và lắng nghe thông điệp gửi đến channel tên là redisChat
 PUBLISH redisChat "This is a message" => gửi thông điệp tới channel redis tên là redisChat
 
+expire mykey 10 => set expire time cho 1 key có sẵn tên là mykey hết hạn sau 10s
+ttl mykey => hiện expire time của mykey
+
 Dùng string:
 getrange mykey 0 -1 => lấy tòan bộ ký tự của key tên là mykey
 getrange mykey 0 3 => lấy ký tự từ 0 đến 3 của key tên là mykey (getrange mykey <start> <end>)
@@ -56,9 +78,6 @@ incrby/decrby blog::0001::readcount 10
 SETEX <key> <timeout> "<value>" => set kèm timeout
 SETNX <key> "<value>" => key k tồn tại thì set là value, nếu key tồn tại r thì thôi, tức là Set if Not eXist (tx))
 DEL <key>
-
-expire mykey 10 => set expire time cho 1 key có sẵn tên là mykey hết hạn sau 10s
-ttl mykey => hiện expire time của mykey
 
 Dùng mảng => khi cần lấy theo range, lấy cả list, lấy theo index, dùng implement stack queue
 lpush players a b c => lpush thêm dần từ bên trái nên mảng sẽ thành [c, b, a ]
@@ -78,7 +97,6 @@ sort players desc ALPHA => ngược bảng chữ cái
 llen players => lấy kích thước mảng
 lrem players 1 7 => xoá phần tử index là 1 có giá trị là 7
 ltrim players 1 4 => xoá và chỉ  để lại phần tử từ index 1 đến index 4
-
 blpop key 0 => loại bỏ và trả về phần tử trái ngoài cùng của list, nếu list trống sẽ chờ trong timeout giây, timeout là 0 sẽ chờ vô hạn. VD dùng cho worker subscribe MQ
 
 Dùng set => khi cần thao tác set operator. VD sở thích chung của nhiều người tìm thông qua giao điểm của 2 tập hợp, quay số random
@@ -128,8 +146,6 @@ Vd: SET str <44 ký tự> => "object encode str" sẽ ra embstr
 SET str <45 ký tự> => sẽ ra raw
 SET num 1234 => "object encode num" sẽ ra int
 
--> Usecase: trong hệ thống phân tán nhiều server, các server thường đồng bộ session data của user thông qua 1 redis db chung thay vì mỗi máy lưu 1 session data riêng. Vừa tối ưu bộ nhớ và tốc độ, vừa giúp đồng bộ user k cần login lại nhiều lần.
-
 -> Transaction:
 MULTI -> bắt đầu 1 transaction. Gõ hàng loạt lệnh sẽ đưa vào hàng đợi -> EXEC sẽ thực hiện tuần tự trong 1 tx
 MULTI -> DISCARD -> dừng và rollback 1 tx
@@ -139,8 +155,7 @@ MULTI đang thực hiện dở mà có lệnh khác thay đổi cùng trường 
 WATCH -> tạo 1 khoá cho 1 transaction (MULTI) đầu tiên sau nó -> nếu Th trên xảy ra thì transaction sẽ fail
 WATCH có tác dụng khoá cho các lệnh sau WATCH và trước EXEC, nên nếu WATCH r SET r MULTI r EXEC cùng trường cũng sẽ cản lại
 
--> Lệnh quản lý
-MONITOR => giám sát hđ 
+-> Lệnh quản lý: MONITOR => giám sát hđ 
 CLIENT LIST => list connection
 INFO
 CONFIG GET maxclients => lấy max số lượng connection
@@ -152,13 +167,20 @@ SELECT <1 số từ 0 đến 15> => chuyển môi trường db
 
 
 # Backup và clone
--> Export data redis ra file rồi import vào máy khác:
-- SAVE / BGSAVE -> sẽ export ra file dump.rdb, copy nó vào data file của redis và restart là được
-Giả sử chạy save trên docker: docker exec -it myredis /bin/sh -> ls là thấy file 
-- Dùng redis-commander có sẵn tính năng export import
-- Tạo 1 replica làm slave cho instance hiện tại. Nhiều db cloud chỉ cần nhập url của redis vào là nó tự đồng bộ bằng cách biến nó thành replica
+-> Redis tự động lưu data cả trong ổ đĩa: RDB (Redis db backup) tạo bản sao định kỳ dạng file snapshot (mặc định); AOF (append only file) ghi mọi lệnh ghi vào file log và phát lại file để khổi phục data => phải enable.
+=> Redis luôn có xác suất mất data nếu ghi rồi tắt luôn mà chưa kịp tạo file snapshot.
+Config tùy biến:
+VD redis.conf: save 300 1 => tạo snapshot mỗi 300s nếu có ít nhất 1 thay đổi
+VD redis.conf: appendonly yes  \n  appendfsync everysec => Ghi vào file mỗi giây
 
--> Riêng string, có thể import và export
+-> Export data redis ra file rồi import vào máy khác:
+- SAVE -> sẽ export ngay data hiện tại ngay lập tức ra file dump.rdb, copy nó vào data file của server redis khác và restart là được
+SAVE sẽ block redis cho đến khi hoàn thành, BGSAVE sẽ thực hiện trong background và k lock
+VD chạy SAVE trên cli docker, rồi "docker exec -it myredis /bin/sh" -> ls là thấy file.rdb
+- Dùng redis-commander có sẵn tính năng export import
+- Tạo 1 replica làm slave cho instance hiện tại. Nhiều db cloud chỉ cần nhập url của redis vào là nó tự đồng bộ bằng cách biến nó thành replica.
+
+-> Riêng string, có thể tự viết file import và export
 VD file import.txt:
 SET TUANDA1 1231
 SET TUANDA2 1232
@@ -183,7 +205,7 @@ GET TUANDA2
 123
 1232
 [root@master-node ~]# paste key_export.txt value_export.txt 
-GET TUANDA1	1231
+GET TUANDA1 1231
 GET TUANDA	123
 GET TUANDA2	1232
 
@@ -196,7 +218,7 @@ Server và redis chung 1 máy thì k sao. Nếu remote thì để bind 0.0.0.0 (
 Đặt mật khẩu, dùng Access List Redis (ACL)
 Xoá các lệnh nguy hiểm dev k cần dùng
 K cho redis chạy quyền root
-Phân quyền chạy và đọc file tối thiểu (file chạy là 750, file log, config là 640)
+Phân quyền chạy và đọc file tối thiểu (file chạy là 750, file log và config là 640)
 Đặt lịch Backup log, config, dump
 Bật TLS giữa client và redis-server.
 
@@ -205,6 +227,126 @@ https://viblo.asia/p/phan-4-access-list-redis-tinh-nang-moi-o-ban-6-E375zAJ2lGW
 
 
 
+# Update đồng bộ cache database
+Cache luôn phải đồng bộ data với db gốc, khi write sẽ update cả cache và db, khi read sẽ đọc trong cache, không có thì đọc trong DB rồi update vào cache.
+Khi cần update data trong cache thì nên delete thay vì update thủ công, cache sẽ tự động được update ở lần get đầu tiên của user.
+
+Do qtr update cache và db k là 1 tx nên có thể bị xung đột khi nhiều người cùng write và read db, cache. Nhiều giải pháp:
+- Ta dùng khoá phân tán bi quan hoặc tự implement mutex locking update db rồi update cache. Mọi chỗ updatedb đó trong dự án đều phải lock và update cache.
+- Cho từng task vào MQ để lấy thực hiện lần lượt, update db rồi update cache trong 1 task
+- Cách duy nhất xử lý mà k biến nó thành tx là update db rồi xoá cache. Nhưng để tránh bước xoá cache lỗi, cos theer xoá cache -> nếu success thì update db -> lại xoá cache
+Cách này vẫn lỗi ở 1 số TH hiếm hoi nên vẫn ok và tạm thời là cách tốt nhất hiện tại. VD: user 1 update db và xoá cache, user 2 đọc từ db xong và cbi add vào cache, user 3 ngay lúc đó update db và xoá cache, user 2 bh mới add được vào cache, db và cache sẽ khác data.
+
+
+
+# Client side cache
+Tính năng redis cho phép client gọi tới redis server rồi lưu cache ngay trong RAM của client để lần sau k cần gọi vào redis nữa, nhanh hơn nữa.
+Redis xử lý vấn đề khi có instance khác thay đổi data thì server cần invalidate local cache ở client. Có 2 modes:
+- Default mode: redis tạo bảng invalidation, khi client get sẽ thêm client id và key vào bảng đó. Khi key updated, deleted or expired thì server sẽ gửi invalidation message tới client tự xoá khỏi localCache. Client có thể bắt việc đó bằng cách set tracking on + subscribe vào channel "__redis__:invalidate" do server tạo sẵn.
+- Breadcasting mode: default mode, k gửi invalidate message tới client với 1 key nếu client chưa từng fetch key đó. Ở mode này thì redis sẽ gửi invalidate message với key theo pattern chỉ định cho mọi client subscribe pattern đó. 
+URL: https://www.linode.com/docs/guides/redis-client-side-caching/
+
+
+
+# Redis cluster replication
+Giải pháp scaling chỉ dùng khi thiếu bộ nhớ hoặc tốc độ xử lý chậm. 
+
+-> Cơ chế Redis cluster: Redis là single thread nên k tận dụng được multicore. Giải pháp sharding chia data ra các cluster giúp tăng instance tối ưu, nhưng khó khăn là kb cần lấy data từ instance nào => Redis cluster dùng Sharding Algorithm giải quyết vấn đề
+Sharding algorithm đơn giản là hash key rồi mod để chia vào cluster. Nhưng nếu tăng số instance lên sẽ phải resharding bằng cách tính toán lại toàn bộ key rất lâu.
+Redis giải quyết vấn đề resharding: 1 database sẽ có tổng 16383 hash slots xếp vào các cluster. Data được hash rồi mode 16383 chia vào các hash slots. Rồi xếp các hash slots vào các cluster. VD cluster A lưu từ 0 đến 8000, cluster B lưu hash slots từ 8000 đến 16383. Thêm cluster B lưu từ 7000 đến 9000 thì phân phối lại hash slots của A và B sang D là ok.
+=> Cấu trúc dữ liệu được lưu tối ưu sao cho việc lấy là nhanh nhất, VD lấy hash slots từ 7000 đến 8000 rất nhanh.
+
+-> Redis cluster có high availability (HA), dù fail vẫn hoạt động bth
+VD trong quá trình trigger failed-over, cluster thấy 1 primary shards fails sẽ tự bầu 1 replica khác làm primary shard mà ta k cần làm gì khác thủ công
+Cơ chế: trong 1 cluster, các shard và replica tự trao đổi message với nhau và nếu 1 primary shards k reply, sẽ tự phát hiện và bầu 1 replica của shard đó lên thay thế
+=> Ta tuỳ ý config quá trình bầu là cần bao nhiêu cluster đồng ý thì trigger failed-over khi tạo cluster.
+
+--> Luôn giữ 1 số lượng lẻ các primary shard và 2 replica cho mỗi primary shards để tránh split brain situation
+Network partition là khi hệ thống phân tán bị chia thành nhiều nhóm phân vùng và các vùng k thể tương tác với nhau. Nó xảy ra do lỗi mạng, lỗi phần cứng, hoặc quá tải gây nghẽn làm các nodes k thể tương tác. 
+Split-brain situation là 1 dạng của network partition, khi các nodes cô lập tiếp tục chạy độc lập và đưa ra quyết định.
+Ở đây, các phân vùng sẽ thấy các nodes ở phân vùng khác là offline và trigger failed over, biến replica thành primary shards. Nếu chia thành 2 phân vùng bằng node nhau, cả 2 sẽ tự cho mình là leader và sẽ tiếp tục nhận request từ clients khiến các phân vùng có cùng primary shards nhưng data khác nhau. Khi network partition được fix, các vùng sẽ merge lại với nhau tự động thì vd thấy 2 primary shards giống nhau ở 2 phân vùng và kb nên chọn cái nào làm primary. Nếu số node lẻ, ngay từ lúc network partition tách ra, phân vùng ít nodes hơn sẽ k tự nhận mình là leader nữa và sẽ k trigger failed over, cũng không nhận request từ client nữa.
+=> Nếu gặp split brain situation, phải dùng các giải pháp khác phức tạp hơn như các thuật toán đồng thuận như Paxos, Raft quorum-based consensus, thêm weight cho các node.
+
+-> Các mô hình: https://viblo.asia/p/phan-5-cac-mo-hinh-redis-uu-va-nhuoc-diem-vyDZOR87Kwj
+Mô hình đơn / master - slave / master - n slave / SENTINEL / sharding cluster
+Replica nhân bản master, cluster là chia 1 master thành nhiều master. Ở sharding cluster, ta có nhiều master, mỗi msaster có các slave replica.
+
+-> https://viblo.asia/p/phan-6-redis-master-salve-su-dung-acl-RnB5pAvbKPG => cách cấu hình 1 master 1 slave dùng ACL
+Trong Redis Cluster, mỗi node cần mở hai cổng TCP:
+- Cổng chính (6379): là cổng tiêu chuẩn mà Redis sử dụng để giao tiếp với các clients.
+- Cổng phụ (cổng chính + 10000, VD: 16379): Cổng này được sử dụng cho việc giao tiếp nội bộ giữa các nút trong cụm Redis
+
+-> https://viblo.asia/p/phan-7-redis-sentinel-su-dung-acl-eW65GpQjKDO => redis sentinel với ACL tự phát hiện master down bầu slave lên
+
+-> https://vnsys.wordpress.com/2019/01/16/ha-redis-sentinel-su-dung-haproxy/ => redis sentinel với HA Proxy để xđ master trong sentinel
+https://www.youtube.com/watch?v=TWXTJdcgNoE => chi tiết
+
+-> Tạo cluster và tuỳ biến mọi thứ: https://viblo.asia/p/phan-8-cai-dat-redis-cluster-kiem-tra-cluster-YWOZrPmv5Q0
+
+
+
+# Redis keyspace notification
+URL: https://redis.io/docs/latest/develop/use/keyspace-notifications/
+Keyspace notification cho phép client subscribe vào channel để nhận các event đặc biệt của redis. Có event như: khi 1 data hết hạn, hay khi 1 key mới được set.
+VD Tự hủy đơn hàng nếu chưa thanh toán quá N phút: set expires time cho đơn hàng và subscribe sự kiện hết hạn thì thực hiện tuỳ ý.
+
+-> Thao tác cli: thực tế các tính năng kiểu bắt sự kiện đều là dùng channel pubsub của redis
+- Mode này mặc định bị disable, phải bật lên với: rdcli config set notify-keyspace-events Ex => thì E là 1 key event, x là bắt sự kiện khi expire
+- Mở 1 terminal bắt sự kiện expire với: psubscribe __keyevent@0__:expired
+- Mở 1 terminal khác chạy: set orderId:123 123 EX 5 => để set 1 giá trị expire sau 5s, khi đó terminal đầu tiên sẽ bắt được
+
+-> Thao tác với code:
+pSubscribe giúp lắng nghe theo 1 pattern. VD: client.psubscribe('user:*');
+subscribe giúp lắng nghe 1 channel cụ thể nào. VD: client.subscribe('user:123');
+
+
+
+# Other
+-> redis-benchmark tool test performance. URL: https://www.youtube.com/watch?v=dpDGXbe_LeE
+
+-> Còn có RedisStore được tối ưu chỉ cho lưu session data, cookies data phía server. 
+
+-> Usecase Instagram muốn map 300M bức ảnh với userid tương ứng, yêu cầu tốc độ cao truy cập theo khoá và bộ nhớ k quá 15GB (EC2)
+K nên dùng SQL vì các bản ghi kbh update, chỉ insert, chả cần tx, chả có quan hệ bảng. Tối ưu là dùng redis. 
+Nếu dùng string tạo đơn giản nhất mỗi key 1 value với "SET media:1155315 939" => tốn 21GB
+
+Redis lưu hash với 2 kiểu dữ liệu ziplist và hashtable tuỳ vào kích thước data. ziplist có nén data nên bộ nhớ rẻ. Còn hashtable k nén data để tăng tốc độ truy vấn.
+ziplist hay zipmap là kiểu data nén nhưng k cần giải mã mà vẫn có thể truy cập vào phần tử, nhưng tốc độ truy cập bị giảm dần khi list càng nhiều data, tốn CPU vì nó phải duyệt qua list phần tử.
+Cấu hình ziplist: hash-max-ziplist-entries 512 # Số lượng entry tối đa trong một hash để sử dụng ziplist, lớn hơn sẽ dùng hashtable
+hash-max-ziplist-value 64 # Kích thước entry tối đa (tính bằng byte) để sử dụng ziplist
+
+Instagram chuyển qua dùn hash: set config hash-max-ziplist-entries con số tối ưu là 1000, lớn hơn sẽ gây áp lực lên CPU quá tải. Tận dụng lợi thế hash bằng cách chia 1000 bucket.
+VD: HSET "mediabucket:1155" "1155315" "939" "123" ... => Scale lên 300M key thì bộ nhớ chỉ tốn 5GB
+
+-> Usecase 1 user gửi hàng loạt request bắt phiếu giảm giá, hoặc nhiều user đồng thời mua mà kho còn 1 sản phẩm. 
+Cần đảm bảo 1 người k lấy 2 phiếu giảm giá, chỉ 1 user được mua sản phẩm. User có thể refresh trang liên tục, thậm chí dùng tool bắt mã giảm giá.
+VD dùng hàm atomic hoặc tạo transaction:
+const isGiamGia = async({userId}) => {
+    const record = await phieuGiamGia.findOneAndUpdate({
+        userId
+    }, {
+        $setOnInsert: {
+            userId,
+        },
+    }, {
+        new: false,
+        upsert: true,
+    });
+    if (!record) {
+        this.isGiamGia();
+    }
+}
+VD dùng redis pessimitics lock
+const isGiamGia = async({userId}) => {
+  const result = await this.redis.setNX(userId, 'true'); // setnx là 1 atom của redis nghĩa là nếu userId k có giá trị thì set là true, có rồi thì k làm gì cả
+  if (result === 1) {
+    // 1 người chỉ đươc 1 mã giảm giá
+  }
+}
+
+
+
+//!!!!!!!!!
 # 3 sự số cache
 -> Cache avalanche: nhiều data hết hạn cùng lúc đẩy toàn bộ truy cập vào db
 Có thể làm kiểu cho data trong cache expires vô hạn, như vậy sẽ có rất nhiều data. Nên vào buổi đêm ít người dùng th ta update cache trong background và xoá các data ít truy cập đi. Có thể viết 1 tool check số lần truy cập cache để biết data nào ít truy cập thì xóa khỏi cache.
@@ -229,164 +371,3 @@ const getData = async get(key) => {
 
 3) Cache penetration: tạo nhiều request mà redis k có để vào hết db.
 Request tới nếu k có trong cache thì gán null luôn -> xong request databse -> database k có thì thôi -> database có thì update cache giá trị đó thế vào giá trị null ban đầu
-
-
-
-# Tự hủy đơn hàng nếu chưa thanh toán quá N phút
-Dùng redis keyspace notification: https://redis.io/docs/latest/develop/use/keyspace-notifications/
-Keyspace notification cho phép client subscribe vào channel để nhận các event đặc biệt của redis. Có event như: khi 1 data hết hạn, hay khi 1 key mới được set.
-Set expires time cho đơn hàng và subscribe sự kiện hết hạn thì thực hiện tuỳ ý.
-
--> Thao tác cli: 
-- Mode này mặc định bị disable, phải bật lên với: rdcli config set notify-keyspace-events Ex => thì E là 1 key event, x là bắt sự kiện khi expire
-- Mở 1 terminal bắt sự kiện expire với: psubscribe __keyevent@0__:expired
-- Mở 1 terminal khác chạy: set orderId:123 123 EX 5 => để set 1 giá trị expire sau 5s, khi đó terminal đầu tiên sẽ bắt được
-
--> Thao tác với code:
-pSubscribe giúp lắng nghe theo 1 pattern. VD: client.psubscribe('user:*');
-subscribe giúp lắng nghe 1 channel cụ thể nào. VD: client.subscribe('user:123');
-
-
-
-# Kho còn 1 nhưng có nhiều users mua cùng lúc
-Tương tự khi usser refresh trang liên tục để bắt mã giảm giá, tối ưu tốc độ thì nên dùng mongodb hoặc redis.
-
--> User refresh trang liên tục hoặc dùng tool auto lấy phiếu giảm giả. Nếu ta dùng mongoDB thông thường thì:
-isGiamGia = async( req, res) => {
-    const {userId} = req.body;
-    const record = await phieuGiamGia.findOne({
-        userId
-    });
-    if(userId){
-        return res.json({isGet: true})
-    }
-    const creRecord = await phieuGiamGia.create({userId})
-    return res.json({
-        isGet: creRecord ? true : false
-    })
-}
-=> Check chưa có mã thì cho mã. Sai vì có TH 1 người 2 phiếu giảm giá khi gửi 2 request gần như tức thời, request 2 chạy qua findOne khi request 1 chưa kịp gọi create.
-
-Fix ez cho thành atomic:
-const isGiamGia = async({userId}) => {
-    const record = await phieuGiamGia.findOneAndUpdate({
-        userId
-    },{
-        $setOnInsert: {
-            userId,
-        },
-    }, {
-        new: false,
-        upsert: true,
-    });
-    if (!record) {
-        this.isGiamGia();
-    }
-}
-
-Dùng redis là tối ưu => pessimitics lock
-const isGiamGia = async({userId}) => {
-  const result = await this.redis.setNX(userId, 'true');
-  if (result === 1) {
-    // set được r, cho phép mua
-  }
-}
-=> setnx là 1 atom của redis nghĩa là nếu userId k có giá trị thì set là true, có rồi thì k làm gì cả
-
-
-
-# Update đồng bộ cache database
-Cache luôn phải đồng bộ data với db gốc, khi write sẽ update cả cache và db, khi read sẽ đọc trong cache, không có thì đọc trong DB rồi update vào cache.
-Khi cần update data trong cache thì nên delete thay vì update thủ công, cache sẽ tự động được update ở lần get đầu tiên của user.
-
-Do qtr update cache và db k là 1 tx nên có thể bị xung đột khi nhiều người cùng write và read db, cache. Nhiều giải pháp:
-- Ta dùng khoá phân tán bi quan hoặc tự implement mutex locking update db rồi update cache 
-- Cho từng task vào MQ để lấy thực hiện lần lượt, update db rồi update cache
-- Cách duy nhất xử lý mà k biến nó thành tx là update db rồi xoá cache. Nhưng để tránh bước xoá cache lỗi, có thể xoá cache -> nếu thành công thì update db -> lại xoá cache
-Cách này vẫn lỗi ở 1 số TH hiếm hoi nên vẫn ok và là tạm thời là cách tốt nhất hiện tại. VD: user 1 update db và xoá cache, user 2 đọc từ db xong và cbi add vào cache, user 3 ngay lúc đó update db và xoá cache, user 2 bh mới add được vào cache, db và cache sẽ khác data.
-
-
-
-# Redis cluster replication
-Scaling dùng khi thiếu bộ nhớ hoặc tốc độ xử lý chậm. Redis là single thread nên k tận dụng được multicore server. Giải pháp sharding tăng instance giúp tối ưu, nhưng khó khăn là kb cần lấy data từ instance nào => Redis cluster dùng Sharding Algorithm giải quyết vấn đề
-Sharding algorithm cũng chỉ đơn giản là hash key rồi mode để chia vào cluster. Nhưng nếu tăng số instance lên, sẽ phải resharding bằng cách tính toán lưu lại với toàn bộ key.
-Redis giải quyết vấn đề resharding: 1 database sẽ có tổng 16383 hash slots xếp vào các cluster. Data được hash rồi mode 16383 chia vào các hash slots. Rồi xếp các hash slots vào các cluster. VD cluster A lưu từ 0 đến 8000, cluster B lưu hash slots từ 8000 đến 16383. Thêm cluster B lưu từ 7000 đến 9000 thì phân phối hash slots của A và B sang D là ok.
-=> Cấu trúc dữ liệu được lưu tối ưu ez sao cho việc lấy là nhanh nhất, VD lấy hash slots từ 7000 đến 8000 rất nhanh.
-
--> Redis cluster có high availability (HA), dù fail vẫn hoạt động bth.
-VD trong quá trình trigger failed-over, cluster thấy 1 primary shards fails sẽ tự bầu 1 replica khác làm primary shard mà ta k cần làm gì khác thủ công
-Cơ chế: trong 1 cluster, các shard và replica tự tương tác trao đổi message với nhau và nếu 1 primary shards k reply, sẽ tự phát hiện và bầu 1 replica của shard đó lên thay thế
-Ta tuỳ ý config quá trình bầu là cần bao nhiêu cluster đồng ý thì trigger failed-over khi tạo cluster.
-=> Luôn giữ 1 số lượng lẻ các primary shard và 2 replica cho mỗi primary shards để tránh split brain situation
-
-Network partition là khi hệ thống phân tán bị chia thành nhiều nhóm phân vùng và các vùng k thể tương tác với nhau. Nó xảy ra do lỗi mạng, lỗi phần cứng, hoặc quá tải gây nghẽn làm các nodes k thể tương tác. 
-Split-brain situation là 1 dạng của network partition, khi các nodes cô lập tiếp tục chạy độc lập và đưa ra quyết định.
-Ở đây, các phân vùng sẽ thấy các nodes ở phân vùng khác là offline và trigger failed over, biến replica thành primary shards. Nếu chia thành 2 phân vùng bằng node nhau, cả 2 sẽ tự cho mình là leader và sẽ tiếp tục nhận request từ clients khiến các phân vùng có cùng primary shards nhưng data khác nhau. Khi network partition được fix, các vùng sẽ merge lại với nhau tự động thì vd thấy 2 primary shards giống nhau ở 2 phân vùng và kb nên chọn cái nào làm primary. Nếu số node lẻ, ngay từ lúc network partition tách ra, phân vùng ít nodes hơn sẽ k tự nhận mình là leader nữa và sẽ k trigger failed over, cũng không nhận request từ client nữa.
-
-Nếu gặp split brain situation, phải dùng các giải pháp khác phức tạp hơn: Dùng các thuật toán đồng thuận như Paxos, Raft quorum-based consensus, thêm weight cho các node.
-
--> Các mô hình: https://viblo.asia/p/phan-5-cac-mo-hinh-redis-uu-va-nhuoc-diem-vyDZOR87Kwj
-Replica và cluster sharding
-Mô hình đơn / master - slave / master - n slave / SETINEL / sharding cluster
-
--> https://viblo.asia/p/phan-6-redis-master-salve-su-dung-acl-RnB5pAvbKPG => cấu hình 1 master 1 slave dùng ACL
-Trong Redis Cluster, mỗi node cần mở hai cổng TCP:
-- Cổng chính (6379): là cổng tiêu chuẩn mà Redis sử dụng để giao tiếp với các clients.
-- Cổng phụ (cổng chính + 10000, VD: 16379): Cổng này được sử dụng cho việc giao tiếp nội bộ giữa các nút trong cụm Redis
-
--> https://viblo.asia/p/phan-7-redis-sentinel-su-dung-acl-eW65GpQjKDO => redis sentinel với ACL tự phát hiện master down bầu slave lên
-
--> https://vnsys.wordpress.com/2019/01/16/ha-redis-sentinel-su-dung-haproxy/ => redis sentinel với HA Proxy xác đinh để xđ master trong sentinel
-https://www.youtube.com/watch?v=TWXTJdcgNoE => chi tiết
-
--> Tạo cluster và tuỳ biến mọi thứ: https://viblo.asia/p/phan-8-cai-dat-redis-cluster-kiem-tra-cluster-YWOZrPmv5Q0
-
-
-
-# Config redis docker
-Thực chất docker có thể làm mọi thứ với redis. Kể cả tạo cluster các thứ.
-Nếu k tồn tại thì chỉ cần tạo mới file: /usr/local/etc/redis/redis.conf
-Nên nhớ terminal tối giản cho các image, k có nano hay cat nên buộc phải dùng lệnh từ docker. 
-
-Ta chuẩn bị sẵn file cho redis, có thể đổi port sang 6378 trong file config và làm như sau:
-VD sửa file config: docker run --name myredis1 -v $(pwd)/test.conf:/usr/local/etc/redis/redis.conf -p 6378:6378 -d redis redis-server /usr/local/etc/redis/redis.conf
-
--> Redis có lưu data cả trong ổ đĩa: RDB (Redis db backup) tạo bản sao định kỳ dạng file snapshot (mặc định); AOF (append only file) ghi mọi lệnh ghi vào file log và phát lại file để khổi phục data => có thể config tuỳ biến.
-=> Redis có xác suất mất data nếu ghi rồi tắt luôn mà chưa kịp tạo file snapshot.
-Có thể tuỳ biến. VD redis.conf: save 300 1 => tạo snapshot mỗi 300s nếu có ít nhất 1 thay đổi
-
-
-
-# Client side cache
-Tính năng redis cho phép client gọi tới redis server rồi lưu cache ngay trong RAM của nó để lần sau k cần gọi vào redis nữa, nhanh hơn nữa.
-Gặp vấn đề khi có instance khác thay đổi data thì server cần invalidate local cache ở server trước. Có 2 modes:
-- Default mode: redis tạo bảng invalidation, khi client get sẽ thêm client id và key vào bảng đó. Khi key updated, deleted or expired thì server sẽ gửi invalidation message tới client tự xoá khỏi localCache. Client có thể bắt việc đó bằng cách subscribe vào channel "__redis__:invalidate" => nói chung chỉ cần set tracking on là xong
-- Breadcasting mode: default mode k gửi invalidate message tới client với 1 key nếu client chưa từng fetch key đó, ở mode này thì redis sẽ gửi invalidate message với key theo pattern chỉ định cho mọi client subscribe pattern đó. 
-URL: https://www.linode.com/docs/guides/redis-client-side-caching/
-
-
-
-# Redis stream
-Có thể thêm data bớt data event khỏi stream, subscribe vào stream với XREAD, XREADGROUP. Dùng để implement hàng đợi bằng redis cũng được.
-Tut: https://www.youtube.com/watch?v=EckRuTo-t0k
-
-
-
-# Other
--> redis-benchmark tool test performance. URL: https://www.youtube.com/watch?v=dpDGXbe_LeE
-
--> Usecase: Instagram muốn map 300M bức ảnh với userid tương ứng, yêu cầu tốc độ cao truy cập theo khoá và bộ nhớ k quá 15GB (EC2)
-K nên dùng SQL vì các bản ghi kbh update, chỉ insert, chả cần tx, chả có quan hệ bảng. Tối ưu là dùng redis. 
-Nếu dùng string tạo đơn giản nhất mỗi key 1 value với "SET media:1155315 939" => tốn 21GB
-
-Redis lưu hash với 2 kiểu dữ liệu ziplist và hashtable tuỳ vào kích thước data. ziplist có nén data nên bộ nhớ rẻ. Còn hashtable k nén data để tăng tốc độ truy vấn.
-ziplist hay zipmap là kiểu data nén nhưng k cần giải mã mà vẫn có thể truy cập vào phần tử, nhưng tốc độ truy cập bị giảm dần khi list càng nhiều data, tốn CPU vì nó phải duyệt qua list phần tử.
-Cấu hình ziplist: hash-max-ziplist-entries 512 # Số lượng entry tối đa trong một hash để sử dụng ziplist, lớn hơn sẽ dùng hashtable
-hash-max-ziplist-value 64 # Kích thước entry tối đa (tính bằng byte) để sử dụng ziplist
-
-Instagram chuyển qua dùn hash: set config hash-max-ziplist-entries con số tối ưu là 1000, lớn hơn sẽ gây áp lực lên CPU quá tải. Tận dụng lợi thế hash bằng cách chia 1000 bucket.
-VD: HSET "mediabucket:1155" "1155315" "939" "123" ... => Scale lên 300M key thì bộ nhớ chỉ tốn 5GB
-
--> Còn có RedisStore được tối ưu chỉ cho lưu session data, cookies data phía server. 
-
-
