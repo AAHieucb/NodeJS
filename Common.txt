@@ -1,6 +1,33 @@
-# Header khác
-Connection: 'keep-alive' => k đóng TCP connection mà tái sử dụng cho nhiều request sau. Kết hợp với header keep-alive dưới
-'keep-alive': 'timeout=5, max=100' => nếu k có yêu cầu nào mới trong 5s sẽ đóng connection, connection này chỉ xử lý max 100 request là đóng
+# Tạo streaming server cho video
+Thực tế với video, người ta có thể nhúng từ link youtube hoặc đăng lên ipfs hay cdn cloud thay vì dựng hẳn 1 server vì rất tốn, trừ các web chuyên về video.
+Cơ chế: Người dùng click vào phần nào của video sẽ gửi http request nhận về 1 lượng bytes kể từ vị trí đó trở đi và tiếp tục cho đến hết video, thông tin này nằm trong header. Ở FE, video player của html5 hỗ trợ sẵn việc gửi request đi và xử lý response nhận về như nào rồi, server chỉ cần gửi lại đúng format response là được
+
+-> Cơ chế tính lượt view cho video không phải là số lần gọi request GET và cũng k yêu cầu phải lấy xem hết mọi bytes của video. 
+VD chọn 1 mốc 30s và chia khoảng 30s đó khắp video thay đổi vị trí random liên tục. Vd 10s đầu ở đoạn 1p->1p10s, 10s sau ở 2p->2p10s, 10s cuối ở 3p50s->4p => user phải xem đúng các đoạn đó mới +1 view. 
+
+VD 1 giải pháp chống spam view là lưu IP user vào trong cache tự hết hạn và bị xóa sau khoảng 5p. Mỗi khi định tăng view bởi 1 ip sẽ check ip vẫn có trong database thì k cộng view lên. Tức là người dùng refresh liên tục trong 5p sẽ k có tác dụng vì ip vẫn có trong DB. Tức max 1 người trong 5p chỉ được 1 view
+=> Thực ra lưu ip k ổn VD nhiều người cùng bắt VPN hay chung mạng LAN sẽ k chuẩn, ta có thể tạo 1 userid ảo dù chưa login và lưu 1 id vào cookies chứ kp lưu ip, mỗi request phải gửi kèm cookies lên để server lưu. 
+VD các nghệ sĩ nổi tiếng khi cộng lượt view tăng quá nhanh, chắc chắn DB k thể sử dụng MySQL hay MongoDB mà phải sử dụng cache như redis.
+Nên thêm ratelimit và black list chặn ip truy cập bất thường. VD 1 IP truy cập đồng thời tới cả nghìn lần 1p thì khá vô lý cho 1 mạng LAN thì sẽ bị chặn ngay. VD Dùng nginx làm reserve proxy có thể lấy được ip của user trong header trường X-Forwarded-For
+
+
+
+# Dùng HTTP2 HTTP3
+HTTP1 thì mỗi yêu cầu là 1 connection TCP riêng.
+
+HTTP1.1 duy trì kết nối cho phép nhiều yêu cầu tới 1 server được xử lý trong cùng một kết nối TCP.
+Nó còn có HTTP pipelining cho phép gửi nhiều request đồng thời trên cùng 1 TCP connection mà không cần chờ request trước done, nhưng response trả về phải đúng thứ tự. Head-of-Line Blocking là hiện tượng response request trước quá lâu làm cho các requests sau bị blocked, nên tính năng này ít được sử dụng.
+Để đảm bảo k bị lỗi, browser duy trì nhiều TCP connection tới server và gửi song song, chứ k chỉ 1 connection.
+
+HTTP2 dùng HTTP stream. Trong 1 TCP connection có thể gửi hàng loạt các stream request và các stream k cần đúng thứ tự nữa, giải quyết vấn đề Head-of-Line Blocking ở tầng application nhưng vẫn bị ở tầng transport với TCP: Client <--- 1 TCP connection [Stream1 header, stream2 header, stream1 data, stream3 header, ...] ---> Server
+Server push new data tới client khi có update mà k cần client phải poll liên tục, giảm sô request. Dùng HPACK nén giảm kích thước header. Dùng binary format nhanh hơn so với định dạng văn bản của HTTP/1.x.
+
+HTTP3 dùng protocol QUIC, dựa trên UDP ở ngay tầng transport nhưng nó chỉnh sửa để UDP mà tốt hơn TCP, vẫn có cơ chế phục hồi gói tin khi bị mất.
+Client <--- 1 QUIC/UDP connection [Stream1, stream2, stream3, ...] ---> Server
+QUIC cũng được dùng để đổi mạng trong điện thoại mà k bị lag vì dùng chung 1 connection id.
+
+=> Mặc định server thường dùng HTTP1.1, phải cấu hình thêm nếu muốn dùng HTTP2 HTTP3. 
+Cũng có thể dựng 1 proxy nginx server dùng HTTP2, khi đó sẽ k tận dụng hết dược sức mạnh của HTTP2: Client <-- HTTP2 --> Nginx <-- HTTP1.1 --> Server
 
 
 
@@ -26,6 +53,47 @@ Máy chủ facebook trả về accesstoken
 Game dùng accesstoken truy cập thông tin người dùng do facebook cung cấp
 
 URL OAuth2 với discord: https://discordjs.guide/oauth2/#a-quick-example
+
+
+
+# Tổng hợp header bảo mật server
+-> Strict-Transport-Security:
+Vd: res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains'); => Chỉ dùng HTTPS với các domain chỉ định trong vòng 31536000s tiếp theo. includeSubDomains là mọi domain con đều dùng HTTPS
+Cần set lớn hơn thời hạn 1 năm (31,536,000 giây). Khi đã set thì phía server không thể xóa được thông tin setting đã được lưu 1 lần trên trình duyệt nên cần check kỹ rằng server k cần HTTP response mới dùng. 
+
+VD: res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload'); => Option preload cho phép bạn yêu cầu trang web của mình được bao gồm trong danh sách preload HSTS của trình duyệt. Với list này, trình duyệt sẽ biết để chỉ sử dụng HTTPS cho trang web đó, ngay cả khi đó là lần đầu tiên người dùng truy cập trang web.
+Cũng có thể xử lý khi request người dùng là http thì tự redirect tới https thay vì để browser báo lỗi
+
+-> X-Frame-Options: Cho biết liệu 1 trang web khác có được nhúng trang web của ta để hiển thị trong <frame> <iframe> <object> hay không. 
+VD: res.setHeader("X-Frame-Options", "DENY");
+res.setHeader("X-Frame-Options", "SAMEORIGIN");
+res.setHeader("X-Frame-Options", "ALLOW-FROM https://example.com/");
+Nếu người dùng truy cập 1 website độc hại và 1 iframe nhúng web khác vô hình được cài sẵn. Thông tin của người dùng ở web đó có thể bị gửi tới server của hacker. Còn khi dùng 1 API với X-Frame-Options DENY, api này k thể được gọi từ 1 iframe
+
+-> X-Content-Type-Options: nosniff => Kiểu lấy data từ server về và check đúng type response mới cho dùng ấy. 
+Mặc định trình duyệt đọc các loại MIME chỉ định trong tiêu đề và nếu header này trống thì sẽ tự hiển thị theo cách phù hợp nhất. VD: website cho phép người dùng tải lên 1 ảnh và xác nhận phân mở rộng là jpg và png nhưng tệp này lại chứa mã html độc hại. Nếu k đi kèm type thì như đã nói, trình duyệt tự động xác định type là html và thực thi là toang
+Để tăng bảo mật, ta nên set nosniff thì browser sẽ k tự xác định mà xử lý type theo đúng header X-Content-Type
+Người dùng gửi .exe trình duyệt -> server nhận lưu vào db -> người dùng request get lại -> server gửi lại type là png -> trình duyệt đọc exe như png nên k exec nên k sao
+
+-> X-XSS-Protection: "1; mode=block" => Header kích hoạt bộ lọc XSS tích hợp trong các trình duyệt hiện đại. 
+Nó có 4 chế độ là 0(bộ lọc XSS vô hiệu hóa), 1(kích hoạt và bảo vệ trang nếu phát hiện tấn công), 1;modeblock(kích hoạt và ngăn chặn hiển thị trang nếu phát hiện tấn công), 1;report="https://<url>" (kích hoạt và báo cáo vi phạm vào url nào khi phát hiện tấn công) => có thể kết hợp 1;mode-block;report="<url>"
+Nó dùng trong header của response, không phải request. Nếu server bị XSS, header này k ngăn được mà sẽ bảo vệ người dùng cuối cùng đang sử dụng trình duyệt. Nếu trình duyệt hỗ trợ header này, nó sẽ chặn thực thi XSS trên trình duyệt của ngừoi dùng sau khi lấy data về từ server.
+=> X-XSS-Protection đã bị lỗi thời và không còn được sử dụng rộng rãi nữa, vì các trình duyệt hiện đại đã có các biện pháp bảo vệ XSS mạnh mẽ hơn như CSP.
+
+-> Content-Security-Policy(CSP): 1 header hiện đại thay thế rất nhiều header cũ như X-Frame-Options, X-XSS-Protection là 2 cấu hình không được bật theo mặc định. Nó chặn hàng loạt cuộc tấn công bao bằng cách kiểm soát các nguồn tài nguyên mà trang web có thể tải và chạy.
+VD: Chặn XSS bằng cách cản việc thực thi inline script. VD: Content-Security-Policy: script-src 'self' 'unsafe-inline' 'unsafe-eval'; sẽ cản hàm eval và cản inline script, nhưng vẫn cho thực hiện script cùng origin.
+URL: https://csp-evaluator.withgoogle.com/ => web test website có CSP an toàn không
+
+CSP có thể được add từ backend hoặc frontend với thẻ meta trong tag header: <meta http-equiv="Content-Security-Policy" content="default-src 'self'">
+Package helmet của nodejs tự động hỗ trợ cả CSP. Có thể setup thủ công trong server như nginx ez vì chỉ cần thêm header là được. 
+VD1: Content-Security-Policy: script-src 'self' https://viblo.asia => Mã JS ở trang của ta và trang viblo.asia có thể tải và chạy trong web của ta. Bất kỳ script nào không đến từ 2 nguồn đó sẽ bị chặn k cho thực thi.
+=> Header này vẫn chưa hoàn hảo, nó cản Reflected XSS và DOM-based XSS nhưng chưa cản được Stored XSS vì XSS kiểu này đến từ server của ta. Do đó vẫn cần kết hợp X-XSS-Protection kích hoạt 1 bộ lọc
+
+-> X-Permitted-Cross-Domain-Policies: none => Các header dùng cho cross domain request sẽ bị cấm. Tức là trình duyệt sẽ không thực hiện bất kỳ loại truy cập nào từ các tên miền khác, ngay cả khi chính sách cross-domain policy khác được thiết lập. Điều này cũng ảnh hưởng đến tính tương thích web của ta với các web khác.
+
+-> X-Download-Options: noopen => thiết lập này đi kèm với Content-Disposition: attachment khi người dùng download file về sẽ thiết lập là k mở file luôn.
+
+-> Referrer-Policy: same-origin => Header này xác định thông tin về nguồn gốc của yêu cầu (referer) sẽ chỉ được bao gồm nếu trang gửi và trang nhận cùng 1 origin. Tức nó ngăn chặn việc tiết lộ thông tin về nguồn gốc của yêu cầu khi trang web gửi yêu cầu đến các tên miền khác.
 
 
 
@@ -80,51 +148,7 @@ Phía server: - Vẫn check timestamp chưa quá 1p
 -> BlackList: Cho người dùng hoặc IP nào spam vào blacklist cấm luôn, Vd khi 1 người dùng gửi quá nhiều request trong 10s liên tiếp. Có thể lưu vào redis chẳng hạn.
 WhiteList: cấm mọi thứ trừ các IP và user trong whitelist
 
-
-
-# Header server bảo mật
--> Strict-Transport-Security:
-Vd: res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains'); => Chỉ dùng HTTPS với các domain chỉ định trong vòng 31536000s tiếp theo. includeSubDomains là mọi domain con đều dùng HTTPS
-Cần set lớn hơn thời hạn 1 năm (31,536,000 giây). Khi đã set thì phía server không thể xóa được thông tin setting đã được lưu 1 lần trên trình duyệt nên cần check kỹ rằng server k cần HTTP response mới dùng. 
-
-VD: res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload'); => Option preload cho phép bạn yêu cầu trang web của mình được bao gồm trong danh sách preload HSTS của trình duyệt. Với list này, trình duyệt sẽ biết để chỉ sử dụng HTTPS cho trang web đó, ngay cả khi đó là lần đầu tiên người dùng truy cập trang web.
-Cũng có thể xử lý khi request người dùng là http thì tự redirect tới https thay vì để browser báo lỗi
-
--> X-Frame-Options: Cho biết liệu 1 trang web khác có được nhúng trang web của ta để hiển thị trong <frame> <iframe> <object> hay không. 
-VD: res.setHeader("X-Frame-Options", "DENY");
-res.setHeader("X-Frame-Options", "SAMEORIGIN");
-res.setHeader("X-Frame-Options", "ALLOW-FROM https://example.com/");
-Nếu người dùng truy cập 1 website độc hại và 1 iframe nhúng web khác vô hình được cài sẵn. Thông tin của người dùng ở web đó có thể bị gửi tới server của hacker. Còn khi dùng 1 API với X-Frame-Options DENY, api này k thể được gọi từ 1 iframe
-
--> X-Content-Type-Options: nosniff => Kiểu lấy data từ server về và check đúng type response mới cho dùng ấy. 
-Mặc định trình duyệt đọc các loại MIME chỉ định trong tiêu đề và nếu header này trống thì sẽ tự hiển thị theo cách phù hợp nhất. VD: website cho phép người dùng tải lên 1 ảnh và xác nhận phân mở rộng là jpg và png nhưng tệp này lại chứa mã html độc hại. Nếu k đi kèm type thì như đã nói, trình duyệt tự động xác định type là html và thực thi là toang
-Để tăng bảo mật, ta nên set nosniff thì browser sẽ k tự xác định mà xử lý type theo đúng header X-Content-Type
-Người dùng gửi .exe trình duyệt -> server nhận lưu vào db -> người dùng request get lại -> server gửi lại type là png -> trình duyệt đọc exe như png nên k exec nên k sao
-
--> X-XSS-Protection: "1; mode=block" => Header kích hoạt bộ lọc XSS tích hợp trong các trình duyệt hiện đại. 
-Nó có 4 chế độ là 0(bộ lọc XSS vô hiệu hóa), 1(kích hoạt và bảo vệ trang nếu phát hiện tấn công), 1;modeblock(kích hoạt và ngăn chặn hiển thị trang nếu phát hiện tấn công), 1;report="https://<url>" (kích hoạt và báo cáo vi phạm vào url nào khi phát hiện tấn công) => có thể kết hợp 1;mode-block;report="<url>"
-Nó dùng trong header của response, không phải request. Nếu server bị XSS, header này k ngăn được mà sẽ bảo vệ người dùng cuối cùng đang sử dụng trình duyệt. Nếu trình duyệt hỗ trợ header này, nó sẽ chặn thực thi XSS trên trình duyệt của ngừoi dùng sau khi lấy data về từ server.
-=> X-XSS-Protection đã bị lỗi thời và không còn được sử dụng rộng rãi nữa, vì các trình duyệt hiện đại đã có các biện pháp bảo vệ XSS mạnh mẽ hơn như CSP.
-
--> Content-Security-Policy(CSP): 1 header hiện đại thay thế rất nhiều header cũ như X-Frame-Options, X-XSS-Protection là 2 cấu hình không được bật theo mặc định. Nó chặn hàng loạt cuộc tấn công bao bằng cách kiểm soát các nguồn tài nguyên mà trang web có thể tải và chạy.
-VD: Chặn XSS bằng cách cản việc thực thi inline script. VD: Content-Security-Policy: script-src 'self' 'unsafe-inline' 'unsafe-eval'; sẽ cản hàm eval và cản inline script, nhưng vẫn cho thực hiện script cùng origin.
-URL: https://csp-evaluator.withgoogle.com/ => web test website có CSP an toàn không
-
-CSP có thể được add từ backend hoặc frontend với thẻ meta trong tag header: <meta http-equiv="Content-Security-Policy" content="default-src 'self'">
-Package helmet của nodejs tự động hỗ trợ cả CSP. Có thể setup thủ công trong server như nginx ez vì chỉ cần thêm header là được. 
-VD1: Content-Security-Policy: script-src 'self' https://viblo.asia => Mã JS ở trang của ta và trang viblo.asia có thể tải và chạy trong web của ta. Bất kỳ script nào không đến từ 2 nguồn đó sẽ bị chặn k cho thực thi.
-=> Header này vẫn chưa hoàn hảo, nó cản Reflected XSS và DOM-based XSS nhưng chưa cản được Stored XSS vì XSS kiểu này đến từ server của ta. Do đó vẫn cần kết hợp X-XSS-Protection kích hoạt 1 bộ lọc
-
--> X-Permitted-Cross-Domain-Policies: none => Các header dùng cho cross domain request sẽ bị cấm. Tức là trình duyệt sẽ không thực hiện bất kỳ loại truy cập nào từ các tên miền khác, ngay cả khi chính sách cross-domain policy khác được thiết lập. Điều này cũng ảnh hưởng đến tính tương thích web của ta với các web khác.
-
--> X-Download-Options: noopen => thiết lập này đi kèm với Content-Disposition: attachment khi người dùng download file về sẽ thiết lập là k mở file luôn.
-
--> Referrer-Policy: same-origin => Header này xác định thông tin về nguồn gốc của yêu cầu (referer) sẽ chỉ được bao gồm nếu trang gửi và trang nhận cùng 1 origin. Tức nó ngăn chặn việc tiết lộ thông tin về nguồn gốc của yêu cầu khi trang web gửi yêu cầu đến các tên miền khác.
-
-
-
-# Server-Side Request Forgery (SSRF)
-Hacker khiến server gọi các request tới chính nó.
+-> Server-Side Request Forgery (SSRF): Hacker khiến server gọi các request tới chính nó.
 VD: Server có url http://localhost/admin cho người dùng input 1 url ảnh để nó fetch về. Hacker input luôn http://localhost/admin/delete, server lấy url về và thử fetch thì lại gọi hàm của chính nó. Do server tự gọi chính nó nên request thành công. 
 Tức hacker có thể khiến server gọi API thực hiện hành động gì tuỳ ý nó, hoặc khiến server gọi vào API khác mà nó có quyền để lấy data nhạy cảm về. Cuối cùng trả ra FE hiển thị dưới dạng ảnh nhưng thực chất là hiển thị thông tin nhạy cảm cho hacker.
 
@@ -157,41 +181,6 @@ Object.setPrototypeOf(__proto__, new Proxy(__proto__, {
 
 
 
-# Tool test
--> Jest: viết test case bằng JS để test cho FE. Nó tìm file test nằm trong thư mục __test__ or file có đuôi là .test.js
-
--> MounteBank: cung API có sẵn dạng ngân hàng => thà dùng json-server
-
--> Apache benchmark (ab): gửi nhiều request đồng thời tới 1 server để test performance => cài phức tạp, thay thế bằng autocannon
-
--> Autocannon: autocannon -c <> -p <> -d <> <url> 
--c là số lượng connection đồng thời, mặc định là 10 user cùng lúc
--p là đóng gói, bnh gói requests thì mặc định là 1
--d là số giây nó phản hồi lại, mặc định là 10
-VD: autocannon http://localhost:5000/ thì sẽ check 1 gói 10 user chạy cùng lúc trong 10 giây thì mỗi giây có bnh request xử lý được thành công
-
-Với server bth test sẽ thấy nó cho average 900 request trong 1s, tức 9k request trong 10s với máy 4 threads. Khi xử lý mã hóa tốc độ nó giảm 10 lần
-
-
-
-# Dùng PM2
-Tool chạy nhiều instance của server, performance tăng tuỳ vào số cores trong máy. VD có thể chạy 4 cluster server độc lập: pm2 start <file.js> -i 4
-Tuỳ ý kiểm soát từng process, giám sát resource (monit), tự động reload khi đổi như nodemon (--watch), xem log.
-pm2 deploy production setup / pm2 deploy staging setup => lần đầu chạy nó sẽ pull code từ git về và setup, các lần sau chỉ cần: pm2 deploy production/staging update
-Có thể dùng file ecosystem.config.js để thiết lập cấu hình cho pm2 stable 
-
-Khi chạy, nó tạo ra 1 process master lắng nghe ở cổng mà ta xác định trong file server. 
-Ta có thể tuỳ chỉnh. VD: NODE_PORT=3002 pm2 start -i 1 app.js => rồi trong file app.js lấy với process.env.NODE_PORT (thực chất là cung 1 biến env). Sau đó VD ta chạy 2 instance thì nó sinh ra 2 worker process để xử lý, nhưng thực ra chỉ có process master lắng nghe ở 1 cổng. 
-
-Khi máy có nhiều CPU cores, PM2 sẽ tự tối ưu hóa bằng cách chạy mỗi process trên 1 core để tối ưu. Khi đó, PM2 tự dùng round robin để phân bố request cho các instance khác nhau. Còn nếu máy chỉ có 1 cores, việc chạy nhiều instance sẽ k có ích gì vì dùng chung core đó.
-Khi server crash, pm2 sẽ auto restart nó, nên khi deploy sẽ kbh bị sập vì lỗi lạ.
-
--> option --no-daemon: 
-Daemon là 1 loại chương trình trên các hệ điều hành like-unix hoạt động ẩn trong background. Các tiến trình daemon thg kết thúc bằng d như inetd, httpd, sshd, ipd. Các tiến trình daemon không thể bị gián đoạn và chỉ hoạt động khi có đầu vào, tách ra khỏi quá trình cha mẹ và thiết bị đầu cuối.
-Nhiều tiến trình khi chạy phải thêm --no-daemon như câu lệnh pm2 start. VD khi dùng với docker thì nên có vì nếu chạy "pm2 start index.json" thì docker dừng luôn vì nó tưởng tiến trình đã kết thúc, chạy phát là dừng do nó ở trạng thái daemon và k có đầu vào nên k hoạt động.
-
-
-
 # Bảo mật với SSH key
 Kết hợp với tường lửa và firewall để bảo mật server cực mạnh
 Vì dev thường không code thẳng trên server mà luôn phải truy cập vào bằng SSH bảo mật tốt hơn mật khẩu thông thường.
@@ -201,20 +190,22 @@ Cơ chế: Dev sinh cặp private và public key, gửi pubkey lưu ở server. 
 
 
 
-# Về require, import, module.export và export, dynamic import trong nodejs:
-Có 2 type là module và commonjs, có thể xem type trong file package.json, mặc định là commonjs. Còn type module dùng để phát triển các gói module riêng bằng nodejs của ES6
-import/export dùng ở fe or type module, require và module.exports chỉ dùng trong commonjs
-Thực tế trong Nodejs ta có thể dùng package đặc biệt như ESM cho phép dùng import, export ngay trong type commonjs.
-Cũng có dynamic import dùng được ở cả commonjs và ES6, phải import thông qua promise
+# 3 cách connect db:
+- K nên tạo 1 db connection global duy nhất dùng suốt dự án. Vì connection có thể đóng vì nhiều lý do mà ko biết như timeout hay lỗi mạng. Kể cả có setting reconnect hay sự kiện disconnect để gọi connect lại cũng k nên dùng
+- Mỗi lần query sẽ khởi tạo connection và đóng ở cuối. Thường dùng cho các dự án lớn, query phức tạp.
+- Connection pool là giải pháp tối ưu, query xong tự trả vào pool để tái sử dụng, setting config autoReconnect reconnectTries, tự đảm bảo connection k bị mất khi k sử dụng.
+Néu server khởi động thành công mà connect db lỗi thì nên dừng ct, có thể throw error để dùng.
 
 
 
 # Other
--> Google API convert text to speech
-Package openai giúp convert speech to text: https://towardsdatascience.com/build-a-speech-to-text-web-app-using-node-js-210f8c054d79
+-> Header khác thường dùng:
+Connection: 'keep-alive' => k đóng TCP connection mà tái sử dụng cho nhiều request sau. Thường kết hợp với header keep-alive.
+'keep-alive': 'timeout=5, max=100' => nếu k có yêu cầu nào mới trong 5s sẽ đóng connection, connection này chỉ xử lý max 100 request là đóng
 
--> Package:
-coveralls, travis CI, github CI/CD: test, deploy trực tiếp 
+-> Có package google API convert text to speech
+
+-> coveralls, travis CI, github CI/CD: test, deploy trực tiếp 
 daemon: 1 package biến script thành chương trình dạng daemon. 
 
 -> Ngoài ra còn có P3P là chuẩn bảo mật cũ hiện k còn được sử dụng trong trình duyệt hiện đại vì k đủ còn đủ bảo mật. 

@@ -14,7 +14,7 @@ Các website có thể có backdoor theo dõi người dùng đăng nhập và t
 
 # So sánh về memory giữa các ngôn ngữ, k xét tốc độ
 Rust tokio vẫn là ngôn ngữ tốn ít memory nhất so với mọi ngôn ngữ khác
-NodeJS tốn ít memory hơn C# khi có 100 ngàn task đồng thời nhưng khi lên mức quá nhiều là 1 triệu task thì C# bắt đầu tốn ít hơn NodeJS. Do đó dự án lớn ưu tiên dùng C#
+NodeJS tốn ít memory hơn C# khi có 100 ngàn task đồng thời, nhưng khi lên mức 1 triệu task thì C# tốn ít hơn NodeJS, hiẹu năng cũng cao hơn. Do đó dự án lớn ưu tiên dùng C#.
 Go thì tốn memory ít khi chạy ít task nhưng số lượng task đồng thời tăng nhanh sẽ khiến nó tốn lượng memory tăng vọt. Python cũng vậy.
 
 
@@ -28,7 +28,7 @@ Android: (Android) Java, Kotlin, SDK / (iOS) Objective-C, Swift / (Cross platfor
 
 
 
-# Event loop
+# Event loop của nodejs
 Event liên tục được bắt để add vào queue theo thứ tự: Timer event(timeout,interval) -> IO callback-> Idle(nội bộ k qt)-> Poll(Tìm kiếm sự kiện IO mới đang polling) -> Check(xử lý callback của setImmediate)-> Close Callbacks(xử lý các callback ngắt kết nối) -> quay lại Timer
 Khi có event -> gửi event cho C++ xử lý, xong thì sẽ gửi callback cần thực hiện vào event queue của JS. 
 
@@ -50,23 +50,6 @@ VD cụ thể: ấn nút gọi setTimeout gọi hàm fetch API xong callback in 
 
 
 
-# Vấn đề connect database
-Khi setup server ta muốn mọi thứ đồng bộ vì nếu thất bại ở 1 bước thì phải dừng ct luôn, nhưng các biến connect bh toàn bất đồng bộ thì phải xử lý.
-VD: server và database bất đồng bộ, server thành công nhưng connect database thất bại thì nên dừng ct.
-- Ta có thể thêm trycatch vào để xử lý thêm gì đó như tắt ct process.exit or gọi reconnect. Promise có thể convert heest về async await. Khi đó chạy tuần tự await từng cái nhưng lại gặp vấn đề k export ra ngoài sử dụng được global trong JS.
-- Ta có thể chỉ dùng async await, mỗi api sẽ thực hiện await connect kèm try catch, ở cuối finally sẽ gọi disconnect, tức export ra hàm connect. Mỗi request là 1 lần connect lại
-- Nếu có event với on cũng tương tự, đừng có bắt event lỗi là reconnect để tránh bị lặp vô tận. 
-
-Thực tế, nhiều loại connection thành công xong để quá lâu, nó tự bị tắt, tốt nhất là mỗi request 1 connection mới hoăc dùng global connection pool 
-K cần lo về lúc call api mà chưa complete db connection vì hàm connect chạy rất nhanh lúc setup, nếu có lỗi ta thấy ngay lúc start server rồi.
-
--> Lỗi export biến async trong JS
-Gọi hàm async, bên trong hàm gán giá trị cho 1 biến và k chờ nó, sau đó ta export biến ra trong file => Chắc chắn case này gây lỗi vì khi export, nó sẽ copy state hiện tại của các biến đó luôn (khi chưa thực hiện xong await) và bị sai. 
-Tương tự nhiều TH export biến trực tiếp bị sai vì các thành phân bên trong chưa init xong đã thực hiện copy rồi.
-=> Để fix ta phải export 1 hàm trong file trả về biến đó, thì mỗi lần lấy sẽ gọi lại hàm lấy biến đó. Biến này như 1 instance global set và lấy thoải mái.
-
-
-
 # So sánh cache redis
 Redis có ACID và hiệu suất cao hơn db bth. Nó chỉ k thể thay thế các db như mysql vì k hỗ trợ truy vấn phức tạp như nối table, hay phân quyền bảo mật. 
 Chú ý nếu k cần 2 tính năng đó cũng k nên lưu hết data vào cache vì redis dùng main memory nhỏ dễ bị tràn. 
@@ -75,4 +58,11 @@ Redis cung cấp nhiều tính năng như pub/sub, sự kiện, hỗ trợ kiể
 VD: Redis hỗ trợ HyperLogLog là một cấu trúc dữ liệu xác định xấp xỉ số lượng phần tử duy nhất trong một tập hợp lớn mà không cần lưu trữ tất cả các phần tử đó
 Memcached giống Redis nhưng thiếu nhiều tính năng, chỉ dùng với string, chỉ lưu trong memory restart là mất. Do đó nó cũng có hiệu suất cao hơn và tải công việc lớn hơn.
 => Ứng dụng nhỏ dùng memcached là được. Còn cần linh hoạt hay tính năng nâng cao thì dùng redis.
+
+
+
+# Other
+-> NodeJS xd trên nền tảng Javascript V8 Engine tốc độ cao, mã nguồn mở. Engine gồm heap và stack, tải NodeJS là tải engine này về
+Javascript engine là trình thông dịch mã js. Ngoài V8 thì cũng có các js engine khác như: SpiderMonkey(FireFox), Hermes(ReactNative), Chakra(IE), JavascriptCore(Safari),..
+
 

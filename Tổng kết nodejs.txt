@@ -1,35 +1,31 @@
-NodeJS xd trên nền tảng Javascript V8 Engine tốc độ cao, mã nguồn mở. Javascript engine là trình thông dịch mã js. Ngoài V8 thì cũng có các js engine khác như: SpiderMonkey(FireFox), Hermes(ReactNative), Chakra(IE), JavascriptCore(Safari),.. Engine gồm heap và stack, tải NodeJS là tải engine này về
-.NET có hiệu năng cao hơn nhưng NodeJS lại nhẹ và dễ dùng hơn
-
-
-
 # Basic
 -> Có sẵn cli: node -> http.STATUS_CODES / Date.now()
-
--> Install chuẩn phiên bản: npm install package-name@version --save
+Để update tool nvm quản lý phiên bản: ta phải tải lại từ github về file setup.exe và chạy mới lại
 Chạy ứng dụng license có thể dùng: MIT, ISC, GPL-3.0
-
-nvm là tool quản lý phiên bản của nodejs => Để update tool nvm: ta tải lại từ github về file setup.exe và chạy là mới là được
-
--> Trong NodeJS có biến global
+Install chuẩn phiên bản: npm install package-name@version --save
 Dùng import require cần tránh circular dependencies
-Biến môi trường: NODE_ENV=production node app.js -> lấy ra với process.env.NODE_ENV
 
 -> Dùng node-express-boilerplate => tạo dự án đủ mọi thứ
 
--> Có thể self sign tự ký cho chứng chỉ SSL
+
+
+# Dùng stream
+Cơ chế: chia file thành từng chunks và xử lý luôn, còn dùng bth sẽ load tất cả vào bộ nhớ và xử lý 1 lúc => nên dùng stream mọi lúc, trừ khi có nhu cầu đọc toàn bộ file 1 lúc
+Với các file lớn mấy GB, dùng stream xử lý giúp tối ưu bộ nhớ gấp trăm lần và tốc độ cũng nhanh hơn, k bị tràn buffer.
+VD đọc 1 file và ghi vào 1 file khác, fs.readFile(..., (err,data) => { fs.writeFile(...) }) nên thay thế bằng: (fs.createReadStream(...)).pipe(fs.createWriteStream(...));
+
+Xem mem của 1 process nodejs trong win: chạy server như bth -> vào Task Manager tab Details -> tìm process tên là "node". Mỗi request sẽ thấy memory tiêu thụ tăng lên để xử lý 
+
+-> Mỗi stream trong nodejs đều là 1 event emitter cho phép bắt sự kiện. 4 sự kiện có sẵn là data(đọc), end(hết dữ liệu để đọc), error, finish(khi hoàn thành)
+Các stream trong NodeJS đều là chuỗi or buffer. Chuyển sang chế độ object mode của stream giúp nó thao tác với các kiểu giá trị khác của JS k là dạng buffer hay chuỗi
 
 
 
 # Built-in module trong nodejs
 URL tổng hợp: https://www.w3schools.com/nodejs/ref_modules.asp
 
--> Dùng buffer:
-Chỉ dùng buffer khi cần dùng binary data từ file hay mạng, không phải chuỗi văn bản bth
+-> Dùng buffer: Chỉ dùng khi cần dùng binary data từ file hay mạng, không phải chuỗi văn bản bth
 NodeJS dùng 1 buffer pool chứa các buffer k còn được sử dụng. Khi cần dùng buffer sẽ lấy từ pool ra, nếu k có mới tạo mới 1 biến buffer khác. VD 1 buffer ta sử dụng lâu dài xuyên suốt mà k muốn được quản lý bởi pool thì có thể dùng Buffer.allocUnsafeSlow(<size>); thì biến đó sẽ k ảnh hưởng bởi pool hay garbage collector gì hết
-
--> Dùng fs: Thao tác với file
-Điều đặc biệt là nó có thể watch sự thay đổi của 1 file, điều mà database k làm được
 
 -> Dùng child_process: thư viện hỗ trợ thao tác đa luồng trong nodejs
 Dùng process.send trong nodejs có thể gửi data từ process con sang process cha.
@@ -40,21 +36,8 @@ Dùng thư viện @rauschma/stringio bổ trợ cho việc dùng child_process
 --> Dùng execFile: chạy lệnh nào trên 1 tiến trình con và trả ra cho buffer
 --> Dùng fork: gọi fork 1 phát là file đó được thực hiện luôn trên 1 tiến trình riêng
 
--> Dùng os: Chrome V8 của google là 1 js engine có thư viện libuv viết bằng C++ giúp tương tác với phần cưng và thực hiện các task nặng. Thư viện này giúp tương tác với libuv đó
-VD: Có thể tận dụng tối đa CPU cho server thông qua việc set giá trị biến môi trường process.env.UV_THREADPOOL_SIZE, có thể tăng tốc cho NodeJS đến 3 lần, nếu máy chạy server cùi chỉ có 4 thread thì đừng hy vọng
-
-
-
-# Dùng stream
-Cơ chế: chia file thành từng chunks và xử lý luôn, còn dùng bth sẽ load tất cả vào bộ nhớ và xử lý 1 lúc => nên dùng stream mọi lúc, trừ khi có nhu cầu đọc toàn bộ file 1 lúc
-Với các file lớn mấy GB, dùng stream xử lý giúp tối ưu bộ nhớ gấp trăm lần và tốc độ cũng nhanh hơn, k bị tràn buffer.
-
-VD đọc 1 file và ghi vào 1 file khác, fs.readFile(..., (err,data) => { fs.writeFile(...) }) nên thay thế bằng: (fs.createReadStream(...)).pipe(fs.createWriteStream(...));
-C# hay bất cứ ngôn ngữ nào đều có class thao tác với stream.
-Xem mem của 1 process nodejs trong win: chạy server như bth -> vào Task Manager tab Details -> tìm process tên là "node". Mỗi request sẽ thấy memory tiêu thụ tăng lên để xử lý 
-
--> Dùng stream: Mỗi stream đều là 1 event emitter cho phép bắt sự kiện. 4 sự kiện có sẵn là data(đọc), end(hết dữ liệu để đọc), error, finish(khi hoàn thành)
-Các stream trong NodeJS đều là chuỗi or buffer. Chuyển sang chế độ object mode của stream giúp nó thao tác với các kiểu giá trị khác của JS k là dạng buffer hay chuỗi
+-> Dùng os: Chrome V8 của gg là 1 js engine dùng thư viện libuv viết bằng C++ giúp tương tác với phần cứng và thực hiện các task nặng.
+VD: Có thể tận dụng tối đa CPU cho server thông qua việc set giá trị biến môi trường process.env.UV_THREADPOOL_SIZE, có thể tăng tốc cho NodeJS đến 3 lần, còn nếu máy chạy server cùi chỉ có 4 thread thì đừng hy vọng
 
 
 
@@ -83,38 +66,38 @@ Dùng clear: xóa terminal
 -> Dùng ab: thư viện apache benchmark test rất mạnh
 -> Dùng colors: thư viện hàng đầu khi cần in màu console.log trong terminal cho dễ nhìn 
 
--> Dùng rimraf: thư viện hỗ trợ xóa file và thư mục
-Trong linux và window đều có lệnh xóa file và rimraf tương thích với mọi nền tảng.
-Cũng có thể import thành biến để xóa file, folder nhưng kiểu này chỉ dùng cho dự án NodeJS bth chứ k dùng cho react. 
-
--> Dùng mv: move file tới bất cứ đâu. 
-Mạnh hơn fs vì fs bị giới hạn bởi quyền, bản chất là nó xoá file vị trí cũ và create new file ở vị trí mới
 
 -> Dùng winston: thư viện logger mạnh nhất nodejs.
 Trong hệ thống lớn quan trọng về tốc độ, việc ghi log tốn thời gian thì thường chỉ push message vào buffer, rồi chạy 1 thread riêng lấy ra ghi.
-=> Lưu ý chỉ optimize khi có performance issue. K nên làm code phức tạp để optimize cho các thứ k cần thiết.
 
 -> Dùng module-alias: import module relative url gọn
 
--> Dùng apollo-server và graphql: Xây 1 graphQL server
+
+
+# Dựng graph server
+Dùng lib apollo-server và graphql để xây 1 graphQL server
 
 
 
-# Xử lý upload file
--> Dùng formidable: Xử lý files upload từ client
-Phức tạp, tốc độ cao, chiếm ít bộ nhớ, bị hạn chết vài tính năng
+# Thao tác với file
+Nên dùng stream, buffer
 
--> Dùng express-formidable: thay thế cho formidable khi dùng trong express
-Nó khác với multer là k lưu lại gì vào server cả, tức k thể lưu file lại.
+-> Dùng fs: Thao tác với file => ***Điều đặc biệt là nó có thể watch sự thay đổi của 1 file, điều mà database k làm được
+Dùng lib rimraf: thư viện hỗ trợ xóa file và thư mục tương thích mọi hđh => chỉ be vì fe kbh cho xoá file
+Dùng lib mv: move file tới bất cứ đâu. Mạnh hơn fs vì fs bị giới hạn bởi quyền, bản chất là nó xoá file vị trí cũ và create new file ở vị trí mới
 
--> Dùng multer: Cung cấp đầy đủ options và tính năng, code đơn giản.
---> Dùng kết hợp cloudinary: Thư viện giúp lưu ảnh lên cloud
-Dùng multer-storage-cloudinary cho dễ
+-> Upload file lên server
+- Dùng formidable: Xử lý files upload từ client. Phức tạp, tốc độ cao, chiếm ít bộ nhớ, bị hạn chế tính năng
+- Dùng express-formidable: thay thế cho formidable khi dùng trong express. Nó khác với multer là k lưu lại gì vào server cả, tức k thể lưu file lại.
+- Dùng multer: Cung cấp đầy đủ options và tính năng, code đơn giản. 
+Có thể kết hợp cloudinary => Dùng luôn multer-storage-cloudinary cho dễ
+
 FE nên gửi ảnh qua FormData, tương đương với <form action="/action_page_binary.asp" method="post" enctype="multipart/form-data"> trong html thuần.
-Bên cạnh đó ảnh ta cũng cần phải lọc request như thế nào k thể để ai cũng DDoS đăng ảnh lên server đươc => chưa làm được
+Bên cạnh đó ảnh ta cũng cần phải lọc request như thế nào k thể để ai cũng DDoS đăng ảnh lên server đươc
 
 
 
+//!!!!!!!!
 # Dùng ExpressJS
 -> Dùng middleware
 Hàm use của express là sử dụng 1 middleware. Khi có request thì các middleware chung kxđ rõ url dùng use mà đc ưu tiên chạy đầu tiên rồi mới đến các middleware riêng của url đó
@@ -275,6 +258,11 @@ Dùng cross-env: có thể dùng quyết định môi trường nào ngay trong 
 
 -> Dùng nodemon: thay thế với node --watch => chỉ watch ở development
 Dùng concurrently: khi cần chạy song song client và server trong 1 dự án cùng lúc chỉ bằng 1 lệnh
+
+
+
+# Dùng biến môi trường
+Có sẵn biến môi trường: NODE_ENV=production node app.js -> lấy ra với process.env.NODE_ENV
 
 
 
@@ -466,3 +454,50 @@ runSleep(); function getX(){ return x; }
 module.exports = { getX: getX };
 
 Hoặc thêm: let client = {}; client.x = x; module.exports = client; => nó sẽ cache client copy ngay, trường x của nó vẫn giữ vùng nhớ, khi nào async chạy xong sẽ gán giá trị vào vùng nhớ đó là có thôi
+
+
+
+# Tool test
+-> Jest: viết test case bằng JS để test cho FE. Nó tìm file test nằm trong thư mục __test__ or file có đuôi là .test.js
+
+-> MounteBank: cung API có sẵn dạng ngân hàng => thà dùng json-server
+
+-> Apache benchmark (ab): gửi nhiều request đồng thời tới 1 server để test performance => cài phức tạp, thay thế bằng autocannon
+
+-> Autocannon: autocannon -c <> -p <> -d <> <url> 
+-c là số lượng connection đồng thời, mặc định là 10 user cùng lúc
+-p là đóng gói, bnh gói requests thì mặc định là 1
+-d là số giây nó phản hồi lại, mặc định là 10
+VD: autocannon http://localhost:5000/ thì sẽ check 1 gói 10 user chạy cùng lúc trong 10 giây thì mỗi giây có bnh request xử lý được thành công
+
+Với server bth test sẽ thấy nó cho average 900 request trong 1s, tức 9k request trong 10s với máy 4 threads. Khi xử lý mã hóa tốc độ nó giảm 10 lần
+
+
+
+# Dùng PM2
+Tool chạy nhiều instance của server, performance tăng tuỳ vào số cores trong máy. VD có thể chạy 4 cluster server độc lập: pm2 start <file.js> -i 4
+Tuỳ ý kiểm soát từng process, giám sát resource (monit), tự động reload khi đổi như nodemon (--watch), xem log.
+pm2 deploy production setup / pm2 deploy staging setup => lần đầu chạy nó sẽ pull code từ git về và setup, các lần sau chỉ cần: pm2 deploy production/staging update
+Có thể dùng file ecosystem.config.js để thiết lập cấu hình cho pm2 stable 
+
+Khi chạy, nó tạo ra 1 process master lắng nghe ở cổng mà ta xác định trong file server. 
+Ta có thể tuỳ chỉnh. VD: NODE_PORT=3002 pm2 start -i 1 app.js => rồi trong file app.js lấy với process.env.NODE_PORT (thực chất là cung 1 biến env). Sau đó VD ta chạy 2 instance thì nó sinh ra 2 worker process để xử lý, nhưng thực ra chỉ có process master lắng nghe ở 1 cổng. 
+
+Khi máy có nhiều CPU cores, PM2 sẽ tự tối ưu hóa bằng cách chạy mỗi process trên 1 core để tối ưu. Khi đó, PM2 tự dùng round robin để phân bố request cho các instance khác nhau. Còn nếu máy chỉ có 1 cores, việc chạy nhiều instance sẽ k có ích gì vì dùng chung core đó.
+Khi server crash, pm2 sẽ auto restart nó, nên khi deploy sẽ kbh bị sập vì lỗi lạ.
+
+-> option --no-daemon: 
+Daemon là 1 loại chương trình trên các hệ điều hành like-unix hoạt động ẩn trong background. Các tiến trình daemon thg kết thúc bằng d như inetd, httpd, sshd, ipd. Các tiến trình daemon không thể bị gián đoạn và chỉ hoạt động khi có đầu vào, tách ra khỏi quá trình cha mẹ và thiết bị đầu cuối.
+Nhiều tiến trình khi chạy phải thêm --no-daemon như câu lệnh pm2 start. VD khi dùng với docker thì nên có vì nếu chạy "pm2 start index.json" thì docker dừng luôn vì nó tưởng tiến trình đã kết thúc, chạy phát là dừng do nó ở trạng thái daemon và k có đầu vào nên k hoạt động.
+
+
+
+# Về require, import, module.export và export, dynamic import trong nodejs:
+Có 2 type là module và commonjs, có thể xem type trong file package.json, mặc định là commonjs. Còn type module dùng để phát triển các gói module riêng bằng nodejs của ES6
+import/export dùng ở fe or type module, require và module.exports chỉ dùng trong commonjs
+Thực tế trong Nodejs ta có thể dùng package đặc biệt như ESM cho phép dùng import, export ngay trong type commonjs.
+Cũng có dynamic import dùng được ở cả commonjs và ES6, phải import thông qua promise
+
+-> Đã master export, chỉ có 1 TH duy nhất lỗi là: ta gọi hàm async gán giá trị cho biến trong file, export ra biến luôn sẽ lỗi.
+=> Để fix ta export 1 hàm trong file trả về biến đó, hoặc export cả class dùng biến đó là được
+
