@@ -2,16 +2,64 @@
 1 Cloud Server có nhiều Cluster, 1 cluster có nhiều database bên trong, 1 database bên trong có nhiều collections tên khác nhau, mỗi collection có nhiều documents bên trong. 
 Còn model hay schema trong code là tùy vào thư viện như mongoose sử dụng để định nghĩa ra cấu trúc của 1 collection.
 Mongodb lưu dữ liệu dạng BSON, tương tự JSON nhưng mạnh hơn.
+Mongodb phù hợp với data linh hoạt, thay đổi nhiều. VD thiết kế module comment thì mongodb sẽ phù hợp hơn mysql
 
 URL docs: https://mongoosejs.com/docs/
 URL tut: https://stackjava.com/huong-dan-mongodb-code-vi-du-java-mongodb
 
--> Cài đặt
-- Cloud mongodb server: Chọn tạo shared cluster. Sau khi tạo cần vào deployment để connect trong 1 cluster -> vào network access mục security cột bên trái, thêm IP address máy của ta hoặc (0.0.0.0 để accept mọi IP) và chọn connect qua driver sẽ lấy được connection string
-- Cài local docker
-Có lệnh backup db vào file
+-> Cài đặt: - Cài local docker
+- Cloud mongodb server: Dùng mongo atlas. Chọn tạo shared cluster. Sau khi tạo cần vào deployment để connect trong 1 cluster -> vào network access mục security cột bên trái, thêm IP address máy của ta hoặc (0.0.0.0 để accept mọi IP) và chọn connect qua driver sẽ lấy được connection string.
+- Tải mongo compass: Khi tải compass về sẽ tự tải mongodb server và được thêm vào services trong administrator tools của máy win, có thể tắt service này trong control panel. 
+Compass có thể connect vào service cổng 27017 (default) để dùng qua UI.
 
-Tạo replica: update 1 db sẽ tự update các db còn lại
+-> 2 kiểu connect mongodb có srv hoặc không
+DNS seed list connection format là 1 định dạng chuỗi IP or tên miền để kết nối trong mạng ngang hàng qua DNS, được chia bằng dấu phẩy hoặc xuống dòng. Viết tên miền hay IP đều được vì qua DNS thành IP hết. VD các địa chỉ seed này là ip để hệ thống mới kết nối vào các node có sẵn trong mạng khi khởi động.
+- mongodb: là kiểu kết nối truyền thống giúp connect tới 1 or nhiều instance của mongodb, phải liệt kê rõ ra. VD: 
+mongodb://username:password@host1:port1,host2:port2/databaseName?replicaSet=myReplicaSet => giúp kết nối tới 1 replica set với 2 máy chủ thành viên
+- mongodb+srv: là bản cải tiến đơn giản hơn để kết nối tới cluster. Chỉ cần truyền hostname là tên cluster, và mongodb sẽ tự động phân giải tất cả máy chủ thành viên thông qua DNS SRV record để connect (K cần liệt kê cụ thể host port từng máy mà tự động lấy qua DNS SRV record). DNS SRV records là một loại bản ghi DNS kiểu DNS seed list connection format mà ta phải setup cho bên ngoài connect vào.
+VD: mongodb+srv://username:password@myClusterName.mongodb.net/databaseName
+=> Để server mongodb hỗ trợ kiểu connect "mongodb+srv", có thể dùng mongodb atlas sẽ tự động setup (DNS SRV record) sẵn cho ta vì nó hosting hộ hết r. Nếu tự hosting, ta cần cấu hình DNS SRV record cho domain của ta, cần quyền truy cập và quản lý DNS khá phức tạp. Còn nếu chạy local thì nên dùng mongodb bth vì k hỗ trợ mongodb+srv
+
+
+
+# Đánh index
+Mongodb dùng BTree, còn MySQL dùng đa dạng nhiều kiểu Hash, B+ Tree tùy chọn lúc tạo index. BTree chỉ khác Binary tree là có >2 con
+Nhắc lại BTree lưu node cha có nhiều cục trỏ tới node con, node con lại trỏ tới node cháu được chia theo khoảng. 
+Thực tế nó làm như sau: Khóa - Contro 60 - Khóa - Contro 70 - Khóa - Contro 80 - Khóa. Tức số khóa bằng số contro + 1. Khóa sẽ trỏ tới node con, còn Contro lưu data. VD khóa giữa Contro70 và Contro80 sẽ trỏ tới node con >70 và <80
+
+-> VD mongosh đánh index:
+db.products.insert({productName: "Tips JS", categories: ["TShirt", "phone"], stock: {size: "L", color: "green", quantity: 100}}); 
+db.products.find(); 
+
+db.products.createIndex({ productName: 1 }) => đánh index cho trường productName
+db.products.createIndex({ "stock.quantity": 1 }) => đánh index cho trường stock.quantity
+db.products.getIndexes();
+db.products.createIndex({ "stock.quantity": 1, categories: 1 }); => compound index
+
+-> Phân tích truy vấn
+VD JS: var exp = db.products.explain(); exp.find({ productName: "Tips JS" }); => tìm trong db nhưng giải thích cả quy trình tìm, như có dùng index hay không 
+- Nếu k có index thì stage hiển thị COLLSCAN, có index sẽ hiển thị IXSCAN
+- isMultikey là true nếu ta đánh chỉ mục trên 1 trường mà giá trị của trường đó là 1 mảng. VD trường categories của products trên
+
+VD: db.collectionName.stats({ indexDetails: true }); 
+db.collectionName.stats({ indexDetails: {name: "indexName"} }); 
+=> Hiển thị thống kê chi tiết hơn như index nào chiếm dung lượng bao nhiêu vì nếu đánh quá nhiều index sẽ ảnh hưởng tới tốc độ ghi và giảm bộ nhớ.
+
+-> Mongodb vẫn dùng prefix rule là đánh index từ trái qua, đúng như cấu trúc của B-Tree. VD: db.test.createIndex({ a: 1, b: 1, c: 1 }) 
+=> Truy vấn dùng index là: db.test.find({c: "", a: ""}); db.test.find({b: "", a: ""}); => Vì có a nên chắc chắn có index, b a nhanh hơn c a
+
+
+
+# Mongodb injection
+VD: db.users.findOne({ username: { $gte: "" }, password: { $gte: "" } });
+=> Cản với mongo-santinize: db.users.findOne(santinize({ username: { $gte: "" }, password: { $gte: "" } }));
+
+
+
+# Backup replica
+-> Có thể backup db vào file, import vào db khác
+
+-> Tạo replica qua docker: update 1 db sẽ tự update các db còn lại
 docker network create mongo-replica-network => muốn chạy nhiều instance tương tác với nhau, phải tạo 1 mạng
 docker run -d -p 27017:27017 --name mongo1 --net mongo-replica-network mongo --replSet "rs0"
 docker run -d -p 27018:27017 --name mongo2 --net mongo-replica-network mongo --replSet "rs0"
@@ -24,20 +72,12 @@ rs.add("mongo3:27017") => thì mongo1 là primary db, mongo2 và mongo3 là seco
 docker exec -it mongo2 bash
 db.getMongo().setReadPref('secondary') => Mặc định mongodb chỉ cho đọc từ primary node trong 1 replica set vì nó đảm bảo read và write sẽ luôn đồng bộ. Ta phải set lệnh này thì secondary db có thể read, nhưng sẽ có delay giữa write và read. Ở đây chỉ có primary mới được write
 
-- Tải mongo compass
-Khi tải compass về sẽ tự tải mongodb server và nó được thêm vào services trong administrator tools. Ta có thể tắt service này đi trong control panel. 
-Compass có thể connect vào service cổng 27017 để dùng. Nó chỉ là 1 ứng dụng quản lý db bằng giao diện (như SSMS).
-
 
 
 # Dùng mongoose
-Object Data Modeling (ODM) là kỹ thuật ánh xạ dữ liệu từ db vào các đối tượng trong mã code. Mongoose là 1 ODM cho mongodb.
-Dùng kèm: 
-express-mongo-sanitize: package dùng cho express khi dùng mongodb có thể xử lý input tránh Injection
-mongoose-sequence: plugin hỗ trợ autoincrement 1 trường nào đó khi tương tác với mongoose
-mongoose-paginate-v2 plugin hỗ trợ phân trang cho mongoose
+Object Data Modeling (ODM) là kỹ thuật ánh xạ dữ liệu từ db vào các đối tượng trong mã code. Mongoose là 1 ODM cho mongodb. 
 
-Thêm static function cho schema 
+-> Thêm static function cho schema gọi global 
 Thêm các hàm cho 1 instance của schema
 Thêm custom query helper cho schema. Vd: Schema.query.byName. Trong mongoose cũng có sẵn các query helper cho các query phức tạp.
 
@@ -49,7 +89,15 @@ Dùng virtual tạo ra 1 thuộc tính ảo cho schema mà k cần lưu trong db
 Dùng validate để check trước giá trị các trường hiện tại có đúng hay không mà chưa cần update thực sự lên db.
 Dùng pre/port middleware cho schema để xử lý trước và sau khi thực hiện các thao tác. Mỗi thao tác thực chất cũng chạy lần lượt qua các middleware nếu đinh nghĩa. 
 
--> Hàng loạt transaction: findOneAndUpdate, findByIdAndDelete, findOneAndReplace, findOneAndRemove
+VD: Dùng ModelName.updateOne({ _id: doc._id }, { $set: { name: 'foo' } }) tương đương với ModelName.findOne tìm ra doc và gán trực tiếp doc.name = "foo" rồi doc.save();
+
+-> Dùng kèm lib: 
+express-mongo-sanitize: package dùng cho express khi dùng mongodb có thể xử lý input tránh Injection
+mongoose-sequence: plugin hỗ trợ autoincrement 1 trường nào đó khi tương tác với mongoose
+mongoose-paginate-v2 plugin hỗ trợ phân trang cho mongoose
+
+-> Dùng transaction:
+Hàm có sẵn: findOneAndUpdate, findByIdAndDelete, findOneAndReplace, findOneAndRemove
 Cũng có thể tự tạo transaction custom với startSession, startTransaction
 
 VD: Khi 1 người gọi hàm db.collection.updateMany() chẳng hạn thì nó chỉnh sửa nhiều document nhưng vc sửa đổi từng doc vẫn là atomic dù operation as a whole thì k atomic.
@@ -64,11 +112,12 @@ db.myCollection.findAndModify( {
   query: { a: 1 },
   update: { $inc: { b: 1 }, $set: { a: 2 } }
 } )
-Query 1 tìm thấy _id 0 sẽ lock lại và xử lý. Query 2 k chờ cái lock đó mà thực hiện tiếp sẽ tìm và xử lý với _id 1. Query 1 hoàn thành xử lý _id 0 sẽ mở lock. Query 2 hoàn thành cái _id 1 thì check _id 0 vẫn thoả mãn thì thực hiện, k thoả mãn nữa thì thôi.
+Query 1 tìm thấy _id 0 sẽ lock lại và xử lý. Query 2 k chờ cái lock đó mà thực hiện tiếp sẽ tìm và xử lý với _id 1 và hoàn thành. Query 1 hoàn thành xử lý _id 0 sẽ mở lock _id 0 và thực hiện _id 1, còn query 2 k recheck _id 0 mà bỏ qua luôn.
+=> Chú ý phạm vi lock là từng document, muốn lock toàn bộ thì tự tạo transaction riêng
 
 
 
-# Các option cho Schema
+# Code mẫu option cho Schema
 level1: new Schema({
   level2: new Schema({
     test: String
@@ -135,8 +184,7 @@ var commentSchema = new Schema({
   onModel: {type: String, enum: ["BlogPost", "Product"]} => bảng này ref tới 1 trong 2 bảng BlogPost và Product thông qua cột _id
 });
 => khi gọi .populate("on") thì nó chạy vào thấy refPath và nhảy vào trường onModel. Trong đây nó sẽ check trường onModel là gì và lấy type: ObjectId là ref "on" với _id của bảng đó, trùng thì lấy
-VD: Dùng ModelName.updateOne({ _id: doc._id }, { $set: { name: 'foo' } }) tương đương với ModelName.findOne tìm ra doc và gán trực tiếp doc.name = "foo" rồi doc.save();
 
--> mongoose-autopopulate là plugin hỗ trợ thêm 1 số tùy chọn SchemaType 
+-> Lib mongoose-autopopulate là plugin hỗ trợ thêm 1 số tùy chọn SchemaType 
 
 

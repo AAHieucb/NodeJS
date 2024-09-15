@@ -56,10 +56,6 @@ RANDOMKEY => lấy 1 key ngẫu nhiên
 "scan" "0" "MATCH" "*" "COUNT" "500" => lấy 500 phần tử đầu tiên, có phân trang và lấy từ 0
 EXISTS <key> => check sự tồn tại 1 key
 
-PSUBSCRIBE o* => lắng nghe mọi thông điệp gửi tới channel có tên thỏa mãn pattern o* là bắt đầu bằng ký tự o, giới hạn phụ thuộc vào bộ nhớ máy
-SUBSCRIBE redisChat => tạo và lắng nghe thông điệp gửi đến channel tên là redisChat
-PUBLISH redisChat "This is a message" => gửi thông điệp tới channel redis tên là redisChat
-
 expire mykey 10 => set expire time cho 1 key có sẵn tên là mykey hết hạn sau 10s
 ttl mykey => hiện expire time của mykey
 
@@ -163,6 +159,16 @@ CONFIG SET maxclients
 CONFIG GET * => lấy mọi cấu hình
 SLOWLOG help 
 SELECT <1 số từ 0 đến 15> => chuyển môi trường db
+
+-> Dùng redis pubsub
+PSUBSCRIBE o* => lắng nghe mọi thông điệp gửi tới channel có tên thỏa mãn pattern o* là bắt đầu bằng ký tự o, giới hạn phụ thuộc vào bộ nhớ máy
+SUBSCRIBE redisChat => tạo và lắng nghe thông điệp gửi đến channel tên là redisChat
+PUBLISH redisChat "This is a message" => gửi thông điệp tới channel redis tên là redisChat
+
+Redis pubsub chỉ là 1 cách giao tiếp giữa các services (tương đương kiểu gọi 1 API):
+- VD hàm A thay vì gọi API tới services B, A sẽ gửi message vào channel, tính cô lập logic cao. Subscriber và publisher k biết gì về nhau nên cũng dễ dàng thêm hàng loạt subscribers, còn gọi API thì phải biết, phải sửa hàm gọi
+- Chỉ dùng với hệ thống lượng request ít. VD 1000 user cùng request và bắn 1000 sự kiện 1 lúc, có thể bị mất message đó.
+- Độ tin cậy thấp, chỉ dùng khi giao tiếp nhanh và k cần xác nhận lấy kết quả. Đúng mô hình microservices push vào queue rồi trả về kết quả, kqt xử lý task thành công không.
 
 
 
@@ -301,6 +307,48 @@ subscribe giúp lắng nghe 1 channel cụ thể nào. VD: client.subscribe('use
 
 
 
+# 3 sự số cache
+Nếu 1 query gọi vào db để update lên cache thì k sao, nhưng hàng ngàn request cùng 1 lúc gọi thì k ổn. MySQL trung bình chỉ chịu được 2k request 1s.
+
+-> Cache avalanche: Set nhiều data hết hạn cùng lúc đẩy quá nhiều request đồng thời vào db làm nó sập. 
+Giải pháp là thêm randomize expiration cho data hoặc pre-warming cache, locking
+Pre-warming cache: đánh dấu các data quan trọng có nhiều người query -> giả sử set expire time của data là 2h, thời gian làm nóng là 15p -> Chạy 1 cronjob mỗi 5p, mỗi lần sẽ check thời gian làm nóng để làm mới cache -> Thêm tí randomize vào, càng gần expiration time thì xác suất làm mới càng tăng.
+Locking là kiểu giới hạn các hàm lấy db để làm mới cache, k cho quá nhiều request đồng thời. Có thể bắt người dùng chờ, báo lỗi yêu cầu retry or dùng tạm version cũ của data
+
+-> Cache breakdown: khi 1 key quan trọng trong cache có nhiều người query bị hết hạn khiến tất cả call vào db. VD như mã giảm giá, ta lưu hết vào db, nhưng riêng mã quá hot thì cho lên cache cho nhanh, nó hết 1 phát là call vào db cùng lúc làm sập. Hoặc khi cache sập hoặc somehow mất hết data k rõ nguyên nhân cũng khiến mọi request đổ vào db.
+Giải pháp: 
+- Implement tự động gạt cầu chì cho hệ thống khi số lượng request tới db cao quá ngưỡng. Khi đó có thể thông báo bảo trì, chạy job khôi phục cache là xong. Làm vậy tốt hơn là để tất cả chạy vào db làm hỏng db k thể khôi phục. 
+- Dùng distributed cache trong cache cluster để tăng tính chịu lỗi, 1 cache server sập thì cache server khác backup rồi.
+- Dùng mutex locking cho 1 lượng request call tới db làm mới cache thôi, các request khác phải chờ cache có thì mới đi tiếp. Nhưng quá nhiều request chờ có thể sập thì có thể implement hàng đợi or báo lỗi. Do đó các hệ thống lớn bỗng dưng hỏng cache or mất data rất khó để khắc phục, kể cả dùng cách trên thì request của ngừoi dùng vẫn đơ 1 thời gian dài cho đến khi cache khôi phục lại như cũ.
+=> Có thể implement mutex bằng khoá bi quan trong redis.
+VD: const getData = async get(key) => {
+    String value = redis.get(key);
+    if (value == null) { 
+        if (redis.setnx(key_mutex, 1, 3 * 60) == 1) { // Nếu key chưa tồn tại thì set cho nó, lưu max 3 phút thôi
+            value = db.get(key); // nên thêm try catch del mutex
+            redis.set(key, value, expiretime); // set cache
+            redis.del(key_mutex); // xoa mutex di
+        } else { // Nên giới hạn số lần gọi
+            sleep(50);
+            get(key);  // gọi recursive lại
+        }
+    } else {
+        return value;
+    }
+}
+
+-> Cache penetration: hacker cố tình tạo hàng triệu request với key rác cố tình k có trong cache khiến server query vào db để tìm. 
+Giải pháp: 
+- Lọc trước các yêu cầu k hợp lệ ở server => luôn làm
+- Khi có query thì gán cache value là null, query db có thì update lên cache, k có thì thôi. Để expires time ngắn tầm 1p để tránh sau này có key đó thật. Nếu bị nhiều thì chặn IP address của hacker luôn
+- Bloom Filter là kiểu DS giúp check nhanh sự tồn tại của 1 phần tử trong tập hợp, implement ở server để check trước khi call db. Nếu check là có thì có thể có hoặc không có trong db, nếu check là k thì chắc chắn k có trong db. 
+
+Cơ chế bloom filter là 1 dãy bit, mỗi ptu được hash qua k hàm băm lấy ra k bit bị lật. Nó cho ptu cần check qua k hàm băm lấy ra k bit rồi check với dãy bit gốc để biêt phần tử có thể xuất hiện trong db không.
+Bộ nhớ rẻ, check nhanh, xác suất càng chuẩn thì càng nhiều hàm băm. Nhược điểm là db có 1 triệu phần tử sẽ phải thêm cả triệu phần tử vào Bloom Filter khi chạy server, bị lâu nên phải làm ở task nền.
+Khi thêm hay xoá phần tử cũng phải update bloom filter. Nhưng khi xoá thì k update được nên phải dùng kiểu Counting Bloom Filter không lưu dãy bit mà lưu dãy số đếm mới được.
+
+
+
 # Other
 -> redis-benchmark tool test performance. URL: https://www.youtube.com/watch?v=dpDGXbe_LeE
 
@@ -343,31 +391,3 @@ const isGiamGia = async({userId}) => {
     // 1 người chỉ đươc 1 mã giảm giá
   }
 }
-
-
-
-//!!!!!!!!!
-# 3 sự số cache
--> Cache avalanche: nhiều data hết hạn cùng lúc đẩy toàn bộ truy cập vào db
-Có thể làm kiểu cho data trong cache expires vô hạn, như vậy sẽ có rất nhiều data. Nên vào buổi đêm ít người dùng th ta update cache trong background và xoá các data ít truy cập đi. Có thể viết 1 tool check số lần truy cập cache để biết data nào ít truy cập thì xóa khỏi cache.
-
-2) Cache breakdown: hot data hết hạn đẩy toàn bộ request vào db. Vd fix cụ thể bằng mutex:
-const getData = async get(key) => {
-    String value = redis.get(key);
-    if (value == null) { 
-        if (redis.setnx(key_mutex, 1, 3 * 60) == 1) { // Nếu key chưa tồn tại thì set cho nó, lưu max 3 phút thôi
-            value = db.get(key); // lay từ db
-            redis.set(key, value, expiretime); // set cache
-            redis.del(key_mutex); // xoa mutex di
-        } else {  // Lúc này có nghĩa là các luồng khác cùng lúc đã tải db và đặt lại vào bộ nhớ đệm, lúc này bạn hãy thử lấy lại giá trị trong cache
-            sleep(50);
-            get(key);  // gọi recursive lại
-        }
-    } else {
-        return value;
-    }
-}
-=> 1000 user cùng vào thì người sớm nhất chạy setnx sẽ block tất cả các người khác ở ngoài. Người 1 set xong và chạy xuống if, 999 người còn lại chạy vào else. Người 1 sẽ lấy db và update dữ liệu, 999 người còn lại chờ 50ms lúc đó người 1 đã xong r thì 999 người đó get được dữ liệu. Có người if (redis.setnx()) đúng lúc vừa del xong cũng chả sao
-
-3) Cache penetration: tạo nhiều request mà redis k có để vào hết db.
-Request tới nếu k có trong cache thì gán null luôn -> xong request databse -> database k có thì thôi -> database có thì update cache giá trị đó thế vào giá trị null ban đầu

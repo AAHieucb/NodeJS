@@ -198,6 +198,29 @@ Néu server khởi động thành công mà connect db lỗi thì nên dừng ct
 
 
 
+# Browser có sẵn cache
+Cache browser phụ thuộc vào trường Cache-Control trong response header
+
+- Header "Cache-Control" kiểm soát tài nguyên được cache như nào trong browser. Có thể kiểm soát có cache hay không, thời gian expires, lưu trữ cache trên proxy trung gian hay không => Nên set file css js ảnh là thời gian cực lâu, các api data đổi nhiều thì no-cache. 
+Có thể tuỳ biến set cả cho FE (server host nó) hoặc set cho API server nodejs. Thực ra React host lên tự động cache các files tĩnh cần thiết mặc định rồi. Các proxy server như nginx apache thường luôn custom header này. Bth nếu k set thì mặc định dùng setting của browser, thg là no-cache Thường họ chỉ dùng Ca
+- Header "Expires" trong response cũ hơn, nó xác định thời điểm cụ thể mà tài nguyên hết hạn trong cache.che-Control sẽ override bỏ qua trường Expires
+
+
+
+# Hệ phân tán nhiều server thì query cái nào
+Vấn đề muôn thuở của hệ phân tán: Khi dùng distributed cache, hoặc có nhiều api server và mỗi server dùng 1 cache riêng
+Client query 1 server cache lưu có data rồi nhưng request sau query server khác không có phải get lại dẫn đến 1 data lưu ở nhiều server. Do đó nên dùng pp Hashing hoặc Sticky Sessions thay vì dùng Round Robin, Least Connections. Hashing sẽ hash thông tin client để lấy ra 1 server khiến cho mọi request của client luôn tới 1 server duy nhất.
+
+Dùng Hashing gặp vấn đề khi server list biến động, lúc nào client cũng gọi vào server đó kể cả khi nó sập hay bị xoá rồi dẫn đến lỗi. Do đó họ dùng:
+- Consistent Hashing: 
+Dùng 1 hàm hash an toàn cho id của node và id của data record. Ra 1 giá trị thì nhét vào 1 vòng tròn. Mỗi key sẽ gắn với node gần nhất kề nó theo chiều kim. Vd:
+0 ---- A ---- key1 ---- B ---- key2 ---- E ---- key3 ---- C ---- key4 ---- D ---- 2^32-1
+Key 1 gắn node B, key 2 gắn node E. Nếu ngừoi dùng muốn query data có key 4 thì họ query vào cache server D. Thêm xoá server không sợ lỗi mà lại nhanh.
+- Rendezvous Hashing: 
+Muốn tìm node nào lưu record hiện tại, ta tính weight của data với từng node: weight(key, node) = hash(key of record + node_id) => Node có giá trị cao nhất sẽ lưu record đó.
+
+
+
 # Other
 -> Header khác thường dùng:
 Connection: 'keep-alive' => k đóng TCP connection mà tái sử dụng cho nhiều request sau. Thường kết hợp với header keep-alive.

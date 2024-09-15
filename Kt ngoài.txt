@@ -72,8 +72,54 @@ Restart lại server này: cmd computer management -> Services and Applications 
 
 
 
+# Cache memory trong máy tính
+Internal memory có 2 loại là cache và main memmory. External memory là CD hay hard drive
+Cache còn nhanh hơn cả RAM, nhưng bộ nhớ ít. cache L1: là 1 phần của microprocessor chip; cache L2: bên ngoài chip, lớn hơn L1. Có 2 loại instruction cache và data cache.
+Ứng dụng ban đầu lưu trên hard disk, mở lên sẽ lưu trong RAM, các tác vụ nhỏ sẽ lưu trên cache.
+
+VD cache có số lượng ô nhớ là 8 block. Mà data có nhiều thì ta lấy address của data block %8 sẽ biết cần lưu nó vào block nào. Cache chỉ cần lưu higher order bit là mọi bits trừ 3 bits cuối ở đây. Sau đó có thể tự compute ra full khi lấy với: [high order bit] + [3 bits cuối là index of block trong cache] 
+
+VD cache có 64 blocks và 1 block 16 bytes thì address 1200 sẽ ánh xạ đến block có thứ [1200/16]=75 vì 1 address refer đến 1 bytes mà. Block thứ 75 trong cache đâu có tồn tại nên nó phải refer đến cache block thứ 75%64=11 để biết hit hay miss
+
+Vấn đề đồng bộ cache với main memory:
+Write through: update cache với main mem đồng thời, sẽ bị chậm => thường dùng
+Write back: chỉ update cache, khi data trong cache bị replaced mới update vào mainmem => chỉ dùng khi cache size lớn, cần tốc độ cao mà update main mem bị chậm
+
+Multilevel cache: cache level1 chú trọng hit time ngắn, cache level2 lớn hơn chú trọng miss rate thấp để vừa có hit time ngắn và miss rate thấp. Nếu dùng 1 cache to đùng duy nhất rất khó đạt được điều này.
+
+Cache dùng SRAM tốc độ cao hơn và có giới hạn vì giá đắt. 
+
+-> 3 loại cache: Direct map, fullly associative, n way set associative
+- Direct map dùng 1 bảng hash hash và lưu theo hash để tìm tốc độ O(1)
+
+- Fully associative lưu mỗi cục block data là 1 cục block cache luôn, khi cần tìm sẽ search tuyến tính, lưu vị trí nào cũng được. VD cache có 8 entry thì 1 block có thể lưu vào bất cứ entry nào trong cache đó => Khi search sẽ ngốn O(n) với n là số entry trong cache, chậm hơn direct map O(1) nhưng ít miss hơn, cache size nên nhỏ thôi
+
+- n way set associative thì cache lưu nhiều set theo hash search O(1), rồi search tuyến tính từng entry trong set.
+VD: one way tức là số lượng set bằng số lượng entry và giống Direct map
+VD: ta nhìn ký hiệu Cache Level2 4-way => tưc cache level2 dùng 4 entry trong 1 sets, level 1 k có thông tin nhưng nếu miss thì sẽ search trong level2
+Với direct map ta chỉ có 1 cách để replace, còn với associative bắt đầu sinh ra nhiều PP để quyết định bỏ block nào khỏi cache khi 1 block mới cần được thêm vào. VD Dùng LRU là xóa bỏ cái k dùng đến trong ktg xa nhất => Nên dùng khi cần lưu lượng lớn data.
+
+
+
 # Other
 -> NodeJS xd trên nền tảng Javascript V8 Engine tốc độ cao, mã nguồn mở. Engine gồm heap và stack, tải NodeJS là tải engine này về
 Javascript engine là trình thông dịch mã js. Ngoài V8 thì cũng có các js engine khác như: SpiderMonkey(FireFox), Hermes(ReactNative), Chakra(IE), JavascriptCore(Safari),..
+
+-> Nếu tự implement cache key-val trong JS: 
+Nên dùng con trỏ yếu như WeakMap 
+Implement LRU cache, số lượng cố định, tràn tự xoá cái lâu nhất không dùng => tối ưu. Cũng có kiểu Least Frequently Used.
+
+-> Các loại cache có sẵn khác:
+--> Trong mạng internet cũng có DNS cache, ARP cache
+VD: CDN server cung static data cũng có cache. Khi user request data k có trong CDN cache thì CDN server mới request tài nguyên này trên server gốc để lưu vào Cache
+
+--> Load balancer tương tự cũng query từ server gốc lưu vào cache của nó. User khác cũng request same content thì có luôn
+Message broker như Kafka cũng cache hàng loạt message trên disk của nó cho người dùng lấy nhanh
+Full text search engine như Elastic search cũng dùng cache để cải thiện hiệu suất query của người dùng
+Database cũng có plan cache, buffer pool lưu kết quả truy vấn, transaction, replication log.
+
+-> In-Memory Cache là cache ngay trên các ứng dụng FE, Browser, DB, Server đang có
+Distributed Cache thì cache là server độc lập, có thể 1, replica or nhiều server phân tán, giúp tăng hiệu suất, khả năng chịu lỗi.
+Họ có thể chia cache nhiều tầng: dùng In-Memory Cache làm level 1, Distributed Cache cho level2. Khi restart API server thì In-Memory Cache mất, Distributed Cache vẫn ok.
 
 

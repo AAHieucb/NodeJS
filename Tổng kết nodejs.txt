@@ -37,7 +37,8 @@ Dùng thư viện @rauschma/stringio bổ trợ cho việc dùng child_process
 --> Dùng fork: gọi fork 1 phát là file đó được thực hiện luôn trên 1 tiến trình riêng
 
 -> Dùng os: Chrome V8 của gg là 1 js engine dùng thư viện libuv viết bằng C++ giúp tương tác với phần cứng và thực hiện các task nặng.
-VD: Có thể tận dụng tối đa CPU cho server thông qua việc set giá trị biến môi trường process.env.UV_THREADPOOL_SIZE, có thể tăng tốc cho NodeJS đến 3 lần, còn nếu máy chạy server cùi chỉ có 4 thread thì đừng hy vọng
+Biến môi trường process.env.UV_THREADPOOL_SIZE thiết lập kích thước threadpool mà libuv sử dụng cho các tác dụng async I/O. Defautl là 4 và có thể chỉnh để tận dụng tối đa số CPU cores của server. Còn nếu máy cùi ít cores thì tăng lên cũng v thôi.
+VD có thể tự động tận dụng tối đa CPU cho server thông qua việc set giá trị biến môi trường UV_THREADPOOL_SIZE, còn nếu máy chạy server cùi ít cores thì đừng hy vọng
 
 
 
@@ -101,8 +102,6 @@ Form HTMl chỉ hỗ trợ GET và POST từ thời xưa, để duy trì tính t
 Dùng concurrently: khi cần chạy song song client và server trong 1 dự án cùng lúc chỉ bằng 1 lệnh
 
 -> Dùng lib apollo-server và graphql để xây 1 graphQL server
-
--> mssql
 
 
 
@@ -362,23 +361,6 @@ VD với server bth test sẽ thấy nó cho average 900 request trong 1s, tức
 
 
 
-# Dùng PM2
-Tool chạy nhiều instance của server. Khi máy có nhiều CPU cores, PM2 sẽ tự tối ưu hóa bằng cách chạy mỗi process trên 1 core để tối ưu. Khi đó, PM2 tự dùng round robin để phân bố request cho các instance khác nhau. Còn nếu máy chỉ có 1 cores, việc chạy nhiều instance sẽ k có ích gì vì dùng chung core đó.
-Khi server crash, pm2 sẽ auto restart nó, nên khi deploy sẽ kbh bị sập vì lỗi lạ.
-Tuỳ ý kiểm soát từng process, giám sát resource (monit), tự động reload khi đổi như nodemon (--watch), xem log.
-Có thể dùng file ecosystem.config.js để thiết lập cấu hình cho pm2 stable 
-
-Khi chạy, nó tạo ra 1 process master lắng nghe ở cổng mà ta xác định trong file server. 
-Ta có thể tuỳ chỉnh. VD: NODE_PORT=3002 pm2 start -i 2 app.js => rồi trong file app.js lấy với process.env.NODE_PORT (thực chất là cung 1 biến env). Sau đó VD ta chạy 2 instance thì nó sinh ra 2 worker process để xử lý, thông qua 1 process master lắng nghe ở 1 cổng. 
-
-VD: pm2 deploy production/staging setup => lần đầu chạy nó pull code từ git về và setup, các lần sau chỉ cần: pm2 deploy production/staging update
-
--> option --no-daemon: 
-Daemon là 1 loại chương trình trên các hệ điều hành like-unix hoạt động ẩn trong background. Các tiến trình daemon thg kết thúc bằng d như inetd, httpd, sshd, ipd. Các tiến trình daemon không thể bị gián đoạn và chỉ hoạt động khi có đầu vào, tách ra khỏi quá trình cha mẹ và thiết bị đầu cuối.
-Nhiều tiến trình khi chạy phải thêm --no-daemon như câu lệnh pm2 start. VD khi dùng với docker thì nên có vì nếu chỉ chạy "pm2 start index.json" thì docker dừng luôn vì nó tưởng tiến trình đã kết thúc, chạy phát là dừng do nó ở trạng thái daemon và k có đầu vào nên k hoạt động.
-
-
-
 # Master require, import, module.export và export, dynamic import
 Dùng module.exports = { x: new Class() } + require ở nhiều file khác sẽ chỉ chạy qua file 1 lần rồi lưu object vào cache. Dù file có thay đổi động thì cũng k chạy lại. Cái export ra dùng như 1 singleton.
 Khi dùng async để khởi tạo biến, logic chạy như bth. Hàm async chạy xong thì require dùng dược biến, chưa chạy xong thì k dùng được.
@@ -459,5 +441,44 @@ new Promise((resolve, reject) => {
   };
   reader.readAsDataURL(file);
 });
+
+
+
+# Dùng PM2
+Tool chạy nhiều instance của server. Khi máy có nhiều CPU cores, PM2 sẽ tự tối ưu hóa bằng cách chạy mỗi process trên 1 core để tối ưu. Khi đó, PM2 tự dùng round robin để phân bố request cho các instance khác nhau. Còn nếu máy chỉ có 1 cores, việc chạy nhiều instance sẽ k có ích gì vì dùng chung core đó.
+Khi server crash, pm2 sẽ auto restart nó, nên khi deploy sẽ kbh bị sập vì lỗi lạ.
+Tuỳ ý kiểm soát từng process, giám sát resource (monit), tự động reload khi đổi như nodemon (--watch), xem log.
+Có thể dùng file ecosystem.config.js để thiết lập cấu hình cho pm2 stable 
+
+Khi chạy, nó tạo ra 1 process master lắng nghe ở cổng mà ta xác định trong file server. 
+Ta có thể tuỳ chỉnh. VD: NODE_PORT=3002 pm2 start -i 2 app.js => rồi trong file app.js lấy với process.env.NODE_PORT (thực chất là cung 1 biến env). Sau đó VD ta chạy 2 instance thì nó sinh ra 2 worker process để xử lý, thông qua 1 process master lắng nghe ở 1 cổng. 
+
+VD: pm2 deploy production/staging setup => lần đầu chạy nó pull code từ git về và setup, các lần sau chỉ cần: pm2 deploy production/staging update
+
+-> option --no-daemon: 
+Daemon là 1 loại chương trình trên các hệ điều hành like-unix hoạt động ẩn trong background. Các tiến trình daemon thg kết thúc bằng d như inetd, httpd, sshd, ipd. Các tiến trình daemon không thể bị gián đoạn và chỉ hoạt động khi có đầu vào, tách ra khỏi quá trình cha mẹ và thiết bị đầu cuối.
+Nhiều tiến trình khi chạy phải thêm --no-daemon như câu lệnh pm2 start. VD khi dùng với docker thì nên có vì nếu chỉ chạy "pm2 start index.json" thì docker dừng luôn vì nó tưởng tiến trình đã kết thúc, chạy phát là dừng do nó ở trạng thái daemon và k có đầu vào nên k hoạt động.
+
+-> Dùng PM2 có 2 chế độ là forkmode và cluster mode
+- Fork mode: Chạy 1 instance duy nhất với "pm2 start app.js --name my-api"
+Nếu muôn chạy nhiều instance thì chạy nhiều lần script đó. Mỗi instance là độc lập và hệ điều hành kiểm soát việc phân bổ vào CPU core nào, có thể là cùng cores.
+- Cluster mode: VD "pm2 start app.js -i 0" sẽ chạy ứng dụng với max số CPU cores
+Cluster mode sẽ tự phân bổ instance vào các cores khác nhau. PM2 cũng tự dùng cơ chế load balancing là round-robin
+
+
+
+# Tối ưu với cluster
+Cluster là 1 nhóm máy tính (nodes) làm việc cùng nhau để chia tải công việc, cùng cung ra 1 dịch vụ. VD 1 hệ thống có 1 chức năng cụ thể, ta mở rộng bằng cách triển khai chức năng đó trên nhiều máy khác nhau mà hoạt động như 1 máy duy nhất cung ra dịch vụ chức năng đó => chính là hệ phân tán
+Tương tự việc chạy nhiều instance cùng 1 chức năng trên 1 máy để tận dụng tối đa số CPU cores trong máy. Vì luôn muốn đủ máy xử lý lượng tải lớn và mỗi máy đều dùng tối ưu CPU
+
+Nếu cùng 1 máy, Các instance độc lập nhau về main memory, còn đĩa cứng với file thì vẫn chung
+Chỉ đúng với nodejs là ngôn ngữ đơn luồng, còn ASP.NET thông qua thread async await tự chia task tối ưu cho multicore CPU rồi.
+
+-> NodeJS cũng có sẵn package cluster chuyên chạy nhiều instance của server trên 1 máy: https://www.youtube.com/watch?v=_74_z2-uOys
+Cơ chế khi chạy sẽ tạo 1 instance isMaster, fork ra hàng loạt instance isWorker chạy dự án lại từ trên xuống. Master có thể dùng quản lý các instance worker. 
+Nó tự tận dụng mỗi core CPU là 1 process, mỗi process vẫn đơn luồng trong nodejs, sẽ chịu tải đồng thời tốt hơn. 
+Số instance k nên set là max số CPU cores mà nên trải qua thực nghiệm để tối ưu. VD máy 10 cores chạy được 20 instances thì chỉ nên chạy tầm 10 intances, còn lại dành cho task khác để tránh quá tải sẽ chậm hơn trước. Ta chạy chung 1 cổng và nó sẽ tự dùng cơ chế load balancing tối ưu của hđh để xử lý, thường là round robin, ta k cần đụng
+
+-> Dùng PM2 cũng tạo instance phân bố vào cores khác nhau tối ưu => nếu chả mất gì mà lại tăng performance thì tội gì k dùng.
 
 

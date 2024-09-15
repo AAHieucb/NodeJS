@@ -1,30 +1,32 @@
 # Basic
-mysql có thể cài qua xampp, dùng hosting cloud có sẵn của myasp.net, tải thẳng mysql về or cài qua docker
+-> Cài đặt:
+- Cài qua xampp 
+- Dùng hosting cloud, VD myasp.net
+- Tải thẳng db server mysql về 
 
--> Cài qua docker: docker pull mysql
-docker run --name testmyssql1.0.0 -p 3306:3306 -e MYSQL_ROOT_PASSWORD=passroot -d mysql --max_connections=1000
-=> chạy image mysql với max 1000 connections truy cập cùng lúc, password là passroot
+--> Qua docker: docker pull mysql => ref tới "Tool / Docker"
+docker run --name testmyssql1.0.0 -p 3306:3306 -e MYSQL_ROOT_PASSWORD=passroot -d mysql --max_connections=1000 => chạy image mysql với max 1000 connections truy cập cùng lúc, password là passroot
+docker exec -it testmyssql1.0.0 bash => vào bash
 
-Vào bash: docker exec -it testmyssql1.0.0 bash
 mysql => access denied vì user root cần password
 mysql -uroot -ppassroot => vào tương tác được với database mysql bằng cmd, nhập đúng username là root, password là passroot (nhớ tắt unikey)
-CREATE USER 'testuser'@'%' IDENTIFIED BY 'testpass'; => Tạo user mới là testuser với password là testpass
+
+-> Setup user: CREATE USER 'testuser'@'%' IDENTIFIED BY 'testpass'; => Tạo user mới là testuser với password là testpass, dùng cho server
 create database aliconcon;
 GRANT ALL PRIVILEGES ON aliconcon.* TO 'testuser'@'%'; => grant cho testuser mọi quyền của database aliconcon
 FLUSH PRIVILEGES;
 show processlist; => xem các connection hiện tại đang kết nối vào database
 show variables like "max_connections"; => xem max connection có thể có đồng thời vào database này, nếu quá sẽ báo lỗi
 
--> SQL Workbench là UI quản lý db mysql => dùng phpmyadmin của xampp để test dễ nhìn hơn
+-> SQL Workbench là UI quản lý db mysql => dùng xampp có phpmyadmin dễ nhìn hơn
 Tải MySQL Workbench -> Default Schema đặt là tên database, đặt username và password của user muốn đăng nhập, host 127.0.0.1 và port 3306 để connect vào bên mysql docker
 
 
 
 # Dùng mysql2 nodejs
--> Connect vào database với connection pool:
-- createConnection: mỗi lần gọi sẽ tạo ra 1 connection mới tới database. Ta phải chủ động createconnection rồi đóng ở cuối API => Kbh dùng
-- createPool (luôn dùng): gọi 1 lần createPool, nó sẽ tạo ra 1 list các connection tùy vào nhu cầu người dùng nhưng k được vượt quá max. Vd ta set max là 10 mà có 5 request độc lập tới db cùng lúc thì sẽ chỉ tạo 5 connection thôi, nếu có 20 requests cùng lúc thì sẽ tạo ra 10 connections truy xuất db xử lý 20 request đó. 
-Đóng connection thì nó k chỉ chuyển sang trạng thái sleep, khi có request mới, nó sẽ wakeup các connection đang sleep để tái sử dụng và truy cập tới db. 
+-> Connect db: 
+- createConnection: mỗi lần gọi sẽ tạo ra 1 connection mới tới database. Ta phải chủ động createconnection rồi đóng ở cuối API => bỏ
+- createPool (luôn dùng): gọi 1 lần createPool tạo 1 list các connection tùy vào nhu cầu người dùng nhưng k được vượt quá max. Vd ta set max là 10 mà có 5 request độc lập tới db cùng lúc thì sẽ chỉ tạo 5 connection thôi, nếu có 20 requests cùng lúc mới tạo tới max 10 connections. Đóng connection sẽ sleep để wakeup tái sử dụng về sau.
 
 
 
