@@ -1,3 +1,6 @@
+MySQL => ref tới "DatabaseAndSQL"
+
+
 # Basic
 -> Cài đặt:
 - Cài qua xampp 
