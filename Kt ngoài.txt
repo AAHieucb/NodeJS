@@ -101,6 +101,14 @@ Với direct map ta chỉ có 1 cách để replace, còn với associative bắ
 
 
 
+# Method OPTIONS 
+Khi client gửi OPTIONS tới server, server phản hồi với thông tin chứa các HTTP Method mà client có thể sử dụng cho url đó. 
+Trình duyệt tự động gửi preflight request như vậy khi FE và server ở 2 domain khác nhau để kiểm tra xem server có cho phép yêu cầu từ origin đó k, hoặc khi dùng method k an toàn như PATCH để update data. Cùng origin sẽ k gửi.
+Đây là bảo mật mặc định của trình duyệt, server phải xử lý và trả về các header cors như Access-Control-Allow-Origin, Access-Control-Allow-Methods, Access-Control-Allow-Headers. Nếu không sẽ báo lỗi cors. Nó giúp ngăn chặn các request không mong muốn từ các nguồn k đáng tin khi tự động gửi request đến 1 server k chấp nhận kiểu request đó.
+=> Đó là bản chất của same site policy. Khi cài package cors thì nodejs server tự xử lý điều đó cho ta thôi.
+
+
+
 # Other
 -> NodeJS xd trên nền tảng Javascript V8 Engine tốc độ cao, mã nguồn mở. Engine gồm heap và stack, tải NodeJS là tải engine này về
 Javascript engine là trình thông dịch mã js. Ngoài V8 thì cũng có các js engine khác như: SpiderMonkey(FireFox), Hermes(ReactNative), Chakra(IE), JavascriptCore(Safari),..
@@ -122,4 +130,4 @@ Database cũng có plan cache, buffer pool lưu kết quả truy vấn, transact
 Distributed Cache thì cache là server độc lập, có thể 1, replica or nhiều server phân tán, giúp tăng hiệu suất, khả năng chịu lỗi.
 Họ có thể chia cache nhiều tầng: dùng In-Memory Cache làm level 1, Distributed Cache cho level2. Khi restart API server thì In-Memory Cache mất, Distributed Cache vẫn ok.
 
-
+-> Sharp: thư viện xử lý tối ưu hoá ảnh mạnh cho nodejs. Input ảnh vào và lấy ra đủ loại kích thước muốn blur hay chất lượng giảm như nào tuỳ

@@ -188,3 +188,14 @@ var commentSchema = new Schema({
 -> Lib mongoose-autopopulate là plugin hỗ trợ thêm 1 số tùy chọn SchemaType 
 
 
+
+# Sharding trong mongodb
+Replica là sử dụng cluster, còn sharding là pp chia dữ liệu và phân phối vào các server khác nhau. Có thể cho mỗi shard 1 replica để tăng tính khả dụng của hệ thống
+Sharding không tăng tốc độ query, mà giúp tăng tính khả dụng khi 1 shard sập thì vẫn hoạt động, tránh quá tải 1 máy chủ duy nhất khi quá nhiều data.
+
+Chỉ cần cài mongodb trên các máy độc lập rồi setup shards phần nào của dữ liệu là xong. Cần chọn shardkey là chia data theo trường nào, có thể chia theo hash hoặc chia theo range. VD có thể chia theo range trường createdDate là mỗi năm data sẽ lưu vào 1 shard riêng.
+Khi thêm 1 shard mới vào, mongodb tự có cơ chế reshard chia data vào shard mới theo đúng rules
+Nếu 1 shard bị sập, mongodb tự động phát hiện dựa vào cơ chế heartbeat cũng chỉ là các shards gửi tín hiệu check lẫn nhau mỗi 2s. Sau đó có thể bầu replica của shard đó lên. Nếu chủ động xoá 1 shard mà k có replica, sẽ phải thủ công chuyển data từ đó ra các shards khác rồi xoá đi.
+Khi query db, query routing của mongodb tự check để biết shards nào có data mà query vào. Nếu query chỉ 1 shard, tốc độ sẽ nhanh hơn query nhiều shards.
+
+

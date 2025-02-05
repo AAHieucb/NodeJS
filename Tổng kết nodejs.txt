@@ -7,6 +7,13 @@ Dùng import require cần tránh circular dependencies
 
 -> Dùng node-express-boilerplate => tạo dự án đủ mọi thứ
 
+-> npm i -g http-server dựng http server nhanh serve file: 
+Trỏ đến đường dẫn thư mục muốn chạy http-server -> http-server -c-1 (-c-1 để disable cache) => thêm file html vào thư mục để serve nó
+
+-> file.mjs là ES module js
+file.cjs là file dùng common js
+VD trong nodejs dùng .js sẽ tự dùng commonjs, muốn dùng .js là es module phải thêm type module. Nhưng nếu dùng đúng đuôi file sẽ tự dùng chuẩn loại
+
 
 
 # Dùng stream
@@ -69,6 +76,7 @@ Dùng clear: xóa terminal
 
 -> Dùng winston: thư viện logger mạnh nhất nodejs.
 Trong hệ thống lớn quan trọng về tốc độ, việc ghi log tốn thời gian thì thường chỉ push message vào buffer, rồi chạy 1 thread riêng lấy ra ghi.
+Còn có winston-elasticsearch để kết hợp nó với tool elasticsearch (chat gpt ez)
 
 -> Dùng module-alias: import module relative url gọn
 
@@ -144,6 +152,12 @@ express.static(<>) nếu cần dùng các file static
 
 -> Dùng express-rate-limit: tránh ddos
 -> Dùng connect-timeout: sinh lỗi network nếu request lâu quá 5s
+
+-> app.set("trust proxy", true); => khi server nằm sau 1 proxy và cần lấy ip của user thì bth chỉ lấy được ip của proxy, muốn lấy ip user phải báo cho express biết. 
+true là tin tưởng mọi proxy, false k tin tuỏng.
+app.set("trust proxy", 5); => tin tưởng 5 proxy gần nhất
+app.set("trust proxy", '127.0.0.1, 192.168.0.1, 192.168.0.2'); => tin 3 proxy có ip cụ thể
+=> Khi đó server có thể lấy ip thực từ header x-forwarded-for
 
 
 
@@ -245,6 +259,7 @@ Preflighted request thì trước tiên sẽ gửi 1 request OPTIONS tới serve
 
 Access-Control-Allow-Origin là url nào được gọi vào server
 Access-Control-Allow-Credentials để là true thì được phép dùng cookies trong các request cors
+Access-Control-Expose-Headers: Header1, Header2 => cross-origin ngoài các header mặc định, còn lấy được các header nào. K set sẽ k xem được các header khác, còn tất cả thì để *
 
 
 
@@ -471,7 +486,7 @@ Cluster mode sẽ tự phân bổ instance vào các cores khác nhau. PM2 cũng
 Cluster là 1 nhóm máy tính (nodes) làm việc cùng nhau để chia tải công việc, cùng cung ra 1 dịch vụ. VD 1 hệ thống có 1 chức năng cụ thể, ta mở rộng bằng cách triển khai chức năng đó trên nhiều máy khác nhau mà hoạt động như 1 máy duy nhất cung ra dịch vụ chức năng đó => chính là hệ phân tán
 Tương tự việc chạy nhiều instance cùng 1 chức năng trên 1 máy để tận dụng tối đa số CPU cores trong máy. Vì luôn muốn đủ máy xử lý lượng tải lớn và mỗi máy đều dùng tối ưu CPU
 
-Nếu cùng 1 máy, Các instance độc lập nhau về main memory, còn đĩa cứng với file thì vẫn chung
+Nếu cùng 1 máy, các instance độc lập nhau về main memory, còn đĩa cứng với file thì vẫn chung
 Chỉ đúng với nodejs là ngôn ngữ đơn luồng, còn ASP.NET thông qua thread async await tự chia task tối ưu cho multicore CPU rồi.
 
 -> NodeJS cũng có sẵn package cluster chuyên chạy nhiều instance của server trên 1 máy: https://www.youtube.com/watch?v=_74_z2-uOys
@@ -482,3 +497,11 @@ Số instance k nên set là max số CPU cores mà nên trải qua thực nghi�
 -> Dùng PM2 cũng tạo instance phân bố vào cores khác nhau tối ưu => nếu chả mất gì mà lại tăng performance thì tội gì k dùng.
 
 
+
+# NodeJS v23
+mjs có thể import cjs nhưng cjs k thể import mjs. Giải pháp tạm thời là thế bằng dynamic import, khi đó phải wrap code có hàm import vào 1 hàm async và gọi hàm đó -> Node23 cho phép cjs import trực tiếp mjs
+Dùng top-level statement fetch api được.
+
+node --run <tên command script trong package json> => giúp chạy script trực tiếp trong cmd
+
+-> for await (const value of promises) { console.log(value); } => chờ lần lượt từng promies thực hiện xong
