@@ -431,7 +431,7 @@ Cũng có dynamic import dùng được ở cả commonjs và ES6, phải import
 X(a, callback); => khi hàm X thực hiện xong sẽ truyền kết quả vào hàm callback ở cuối để xử lý. 
 Thường hàm từ thư viện sẽ có sẵn phiên bản khác là async await. Vd: const x = await X(a); callback(x);
 
-Nếu không có phiên bản async await, buộc phải truyền callback vào bth. Nếu callback là async, nó sẽ đi tiếp luôn và thực hiện song song hàm callback. Có thể ép chờ:
+Nếu không có phiên bản async await, buộc phải truyền callback vào bth. Nếu callback là async, nó sẽ đi tiếp luôn và thực hiện song song hàm callback. Có thể ép chờ callback xong mới chạy xuống dưới:
 const x = await new Promise((resolve, reject) => {
   X(a, async (err, result) => {
     if(err) reject(err);

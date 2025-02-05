@@ -129,6 +129,7 @@ Người dùng vào thì gửi 1 random val lưu vào cookie (tạo mới random
 WebA call tới API webB thì nên nhớ dù gửi lại có cookie của webB thì vẫn k đọc được cookie đó là gì nên k thêm đúng trường như frontend chuẩn được (or dùng header X-CSRF-Token)
 
 --> Package csurf trong nodejs: tạo middleware chống crsf attack. Cơ chế nó gắn 1 token gửi tới client để client gửi lại r check thôi
+Token csrf đảm bảo reset sau mỗi phiên dùng của user. Nếu là react phải cung 1 API lấy token về trước.
 
 -> Dùng thư viện chống XSS: validator, xss, express-validator, xss-filter, DOMPurify. Bản chất nó sẽ validate regexp email, sanitize string, convert sang html entities.
 
