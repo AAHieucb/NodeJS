@@ -23,6 +23,8 @@ VD setup đổi port sang 6378: Chuẩn bị file redis.conf với "port 6378" �
 redis (docs chuẩn) hoặc ioredis (nên dùng, cú pháp y hư redis-cli) => để tương tác với redis rất mạnh dùng cho server
 redis-cli -> mở để thao tác với cmd: rdcli (phải chờ 1 lát)
 
+-> lazyConnect true khi connect redis sẽ chỉ khởi tạo connection khi cần dùng.
+
 
 
 # Xóa cache tối ưu
@@ -391,3 +393,12 @@ const isGiamGia = async({userId}) => {
     // 1 người chỉ đươc 1 mã giảm giá
   }
 }
+
+
+
+# Unix socket
+Là kiểu kết nối nhanh hơn kiểu TCP bth rất nhiều vì bỏ qua giao thức mạng. 
+Chỉ kết nối trên cùng 1 máy nên chỉ dùng cho máy chủ đơn, khi server BE và redis cùng 1 máy.
+VD: Tạo redis bằng docker rồi connect với server bằng unix socket cùng 1 máy ok.
+
+

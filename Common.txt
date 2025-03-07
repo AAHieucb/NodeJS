@@ -181,6 +181,125 @@ Muốn tìm node nào lưu record hiện tại, ta tính weight của data với
 
 
 
+# Chia file BE hệ thống lớn
+Mục tiêu là nhìn code biết module nào gọi API làm gì, nhìn API trong UI biết ngay nó gọi ở phần code module nào
+1) NodeJS: việc chia file khá hiển nhiên.
+src
+  api
+    v1
+    v2
+      routes
+        auth.route.js
+        blog.route.js
+      controllers
+        auth.controller.js
+        blog.controller.js
+        index.js
+      utils
+        staticvalidationhelper.js
+        staticutility.js
+      middlewares
+      models  
+        blog.js
+        bloguser.js
+      services
+        jwt.service.js
+        blog.service.js
+      validations
+      logs
+  config
+    database.config.js
+    redis.config.js
+    index.js
+tests
+.env.dev
+.env.prod
+database.js => connect db
+index.js => run main function
+server.js => start server nodejs
+test.http => test api
+
+Cách khác là tùy biến chia theo module để navigate tới các hàm liên quan nhanh chóng tùy ý => k nên
+src/api/v1/user
+  user.service.js
+  user.test.js
+  user.model.js
+  user.controller.js
+  user.handler.js
+
+2) ASP.NET hướng đối tượng phức tạp:
+Smp.Web (dự án chính)
+  Controllers (folder)
+    Voice (folder)
+      VoicePolicyController.cs
+      VoiceUserController.cs
+    Teams (folder)
+    HomeController.cs
+    EmailController.cs
+  Attributes (folder)
+    LicenseAttribute.cs
+    AuditorAttribute.cs
+  Middlewares (folder)
+  Models (folder) => model mà chỉ dùng trong Smp.Web
+  appsettings.Development.json
+  appsettings.Production.json
+  Program.cs => chạy hàm main
+  Startup.cs => file setup
+
+Voice (folder)
+  Voice.Service (library)
+    Actions (folder)
+      VoiceScanPolicyAction.cs
+      VoiceScanCallQueueAction.cs
+    Interface (folder)
+    Service (folder)
+      VoicePolicyService.cs
+      VoiceCallQueueService.cs
+
+PowerPlatform (folder)
+  PowerPlatform.Service (library)
+    Impl (folder)
+      PowerApps(folder)
+        PowerPlatformPowerAppsService.cs
+        PowerPlatformPowerAppsFromDBService.cs
+      Environment (folder)
+
+Common (folder)
+  Smp.Database.Core (library)
+  Smp.Common(library)
+    Job (folder)
+      IJobAction.cs
+      JobContext.cs
+    Helpers (folder)
+      CipherHelper.cs
+      LoginHelper.cs
+    Models (folder)
+      AuditorInfo.cs
+      ProcessCenterModel.cs
+  Smp.Service.Common (library)
+    GraphClient (folder)
+    Login (folder)
+      LoginService.cs
+      PrincipalService.cs
+    Storage (folder)
+      BlobStorageService.cs
+      TableStorageService.cs
+
+=> Ở cấp độ folder và dự án và library, dường như có thể chia tùy biến theo phạm vi trên nhìn rất rõ scope của từng phần.
+Best practice là chia theo tính năng rồi viết từng module bên trong, k ai chia module trước, tính năng sau cả:
+Tính năng của ngôn ngữ 1
+  Tính năng con của ngôn ngữ 1
+    Các folder chia theo từng module business (lại lồng nhau tiếp)
+      Classes.cs
+
+=> Nên tìm hiểu mỗi class thuộc kiểu gì, nằm ở đâu, và lấy ra dùng như thế nào, có 4 kiểu:
+Class là static => là class mà gọi ở bất cứ đâu trong dự án miễn có reference, gọi dùng các hàm utility, dùng extension method, có thể lưu state (singleton) hoặc chỉ xử lý logic mà k lưu gì cả
+Class là service => class service được DI vào bất cứ dự án server nào và lấy ra dùng trong các class khác
+Class chuẩn có sẵn của C# => class C# yêu cầu phải có chuẩn như controllers, appsettings, startup, config cho các dịch vụ như log4net, class Attribute
+Class thường => class kiểu để setup cho 1 thứ khác do ta định nghĩa. VD class chuyên lưu enum struct, class xử lý CreateMap để setup cho AutoMapper, class ánh xạ enum sang i18n. Class kiểu truyền thống, trong phạm vi nó được add reference, ta có thể khởi tạo với new và sử dụng các tính năng. VD class Repository khởi tạo new trong UnitOfWork, UnitOfWork khởi tạo new để sử dụng trong class Service được DI
+
+
+
 # Other
 -> Header khác thường dùng:
 Connection: 'keep-alive' => k đóng TCP connection mà tái sử dụng cho nhiều request sau. Thường kết hợp với header keep-alive.
