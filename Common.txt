@@ -56,47 +56,6 @@ URL OAuth2 với discord: https://discordjs.guide/oauth2/#a-quick-example
 
 
 
-# Tổng hợp header bảo mật server
--> Strict-Transport-Security:
-Vd: res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains'); => Chỉ dùng HTTPS với các domain chỉ định trong vòng 31536000s tiếp theo. includeSubDomains là mọi domain con đều dùng HTTPS
-Cần set lớn hơn thời hạn 1 năm (31,536,000 giây). Khi đã set thì phía server không thể xóa được thông tin setting đã được lưu 1 lần trên trình duyệt nên cần check kỹ rằng server k cần HTTP response mới dùng. 
-
-VD: res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload'); => Option preload cho phép bạn yêu cầu trang web của mình được bao gồm trong danh sách preload HSTS của trình duyệt. Với list này, trình duyệt sẽ biết để chỉ sử dụng HTTPS cho trang web đó, ngay cả khi đó là lần đầu tiên người dùng truy cập trang web.
-Cũng có thể xử lý khi request người dùng là http thì tự redirect tới https thay vì để browser báo lỗi
-
--> X-Frame-Options: Cho biết liệu 1 trang web khác có được nhúng trang web của ta để hiển thị trong <frame> <iframe> <object> hay không. 
-VD: res.setHeader("X-Frame-Options", "DENY");
-res.setHeader("X-Frame-Options", "SAMEORIGIN");
-res.setHeader("X-Frame-Options", "ALLOW-FROM https://example.com/");
-Nếu người dùng truy cập 1 website độc hại và 1 iframe nhúng web khác vô hình được cài sẵn. Thông tin của người dùng ở web đó có thể bị gửi tới server của hacker. Còn khi dùng 1 API với X-Frame-Options DENY, api này k thể được gọi từ 1 iframe
-
--> X-Content-Type-Options: nosniff => Kiểu lấy data từ server về và check đúng type response mới cho dùng ấy. 
-Mặc định trình duyệt đọc các loại MIME chỉ định trong tiêu đề và nếu header này trống thì sẽ tự hiển thị theo cách phù hợp nhất. VD: website cho phép người dùng tải lên 1 ảnh và xác nhận phân mở rộng là jpg và png nhưng tệp này lại chứa mã html độc hại. Nếu k đi kèm type thì như đã nói, trình duyệt tự động xác định type là html và thực thi là toang
-Để tăng bảo mật, ta nên set nosniff thì browser sẽ k tự xác định mà xử lý type theo đúng header X-Content-Type
-Người dùng gửi .exe trình duyệt -> server nhận lưu vào db -> người dùng request get lại -> server gửi lại type là png -> trình duyệt đọc exe như png nên k exec nên k sao
-
--> X-XSS-Protection: "1; mode=block" => Header kích hoạt bộ lọc XSS tích hợp trong các trình duyệt hiện đại. 
-Nó có 4 chế độ là 0(bộ lọc XSS vô hiệu hóa), 1(kích hoạt và bảo vệ trang nếu phát hiện tấn công), 1;modeblock(kích hoạt và ngăn chặn hiển thị trang nếu phát hiện tấn công), 1;report="https://<url>" (kích hoạt và báo cáo vi phạm vào url nào khi phát hiện tấn công) => có thể kết hợp 1;mode-block;report="<url>"
-Nó dùng trong header của response, không phải request. Nếu server bị XSS, header này k ngăn được mà sẽ bảo vệ người dùng cuối cùng đang sử dụng trình duyệt. Nếu trình duyệt hỗ trợ header này, nó sẽ chặn thực thi XSS trên trình duyệt của ngừoi dùng sau khi lấy data về từ server.
-=> X-XSS-Protection đã bị lỗi thời và không còn được sử dụng rộng rãi nữa, vì các trình duyệt hiện đại đã có các biện pháp bảo vệ XSS mạnh mẽ hơn như CSP.
-
--> Content-Security-Policy(CSP): 1 header hiện đại thay thế rất nhiều header cũ như X-Frame-Options, X-XSS-Protection là 2 cấu hình không được bật theo mặc định. Nó chặn hàng loạt cuộc tấn công bao bằng cách kiểm soát các nguồn tài nguyên mà trang web có thể tải và chạy.
-VD: Chặn XSS bằng cách cản việc thực thi inline script. VD: Content-Security-Policy: script-src 'self' 'unsafe-inline' 'unsafe-eval'; sẽ cản hàm eval và cản inline script, nhưng vẫn cho thực hiện script cùng origin.
-URL: https://csp-evaluator.withgoogle.com/ => web test website có CSP an toàn không
-
-CSP có thể được add từ backend hoặc frontend với thẻ meta trong tag header: <meta http-equiv="Content-Security-Policy" content="default-src 'self'">
-Package helmet của nodejs tự động hỗ trợ cả CSP. Có thể setup thủ công trong server như nginx ez vì chỉ cần thêm header là được. 
-VD1: Content-Security-Policy: script-src 'self' https://viblo.asia => Mã JS ở trang của ta và trang viblo.asia có thể tải và chạy trong web của ta. Bất kỳ script nào không đến từ 2 nguồn đó sẽ bị chặn k cho thực thi.
-=> Header này vẫn chưa hoàn hảo, nó cản Reflected XSS và DOM-based XSS nhưng chưa cản được Stored XSS vì XSS kiểu này đến từ server của ta. Do đó vẫn cần kết hợp X-XSS-Protection kích hoạt 1 bộ lọc
-
--> X-Permitted-Cross-Domain-Policies: none => Các header dùng cho cross domain request sẽ bị cấm. Tức là trình duyệt sẽ không thực hiện bất kỳ loại truy cập nào từ các tên miền khác, ngay cả khi chính sách cross-domain policy khác được thiết lập. Điều này cũng ảnh hưởng đến tính tương thích web của ta với các web khác.
-
--> X-Download-Options: noopen => thiết lập này đi kèm với Content-Disposition: attachment khi người dùng download file về sẽ thiết lập là k mở file luôn.
-
--> Referrer-Policy: same-origin => Header này xác định thông tin về nguồn gốc của yêu cầu (referer) sẽ chỉ được bao gồm nếu trang gửi và trang nhận cùng 1 origin. Tức nó ngăn chặn việc tiết lộ thông tin về nguồn gốc của yêu cầu khi trang web gửi yêu cầu đến các tên miền khác.
-
-
-
 # Bảo mật server thông dụng
 -> Self sign: là trang web sẽ dùng SSL với chứng chỉ tự ký, chưa đăng ký với CA. 
 Có thể dùng Let's script để có SSL free trong vài tháng. 
@@ -231,6 +190,3 @@ Connection: 'keep-alive' => k đóng TCP connection mà tái sử dụng cho nhi
 
 -> coveralls, travis CI, github CI/CD: test, deploy trực tiếp 
 daemon: 1 package biến script thành chương trình dạng daemon. 
-
--> Ngoài ra còn có P3P là chuẩn bảo mật cũ hiện k còn được sử dụng trong trình duyệt hiện đại vì k đủ còn đủ bảo mật. 
-Vd: res.setHeader('P3P', 'CP=NOI DSP COR NID ADM DEV PSA OUR IND UNI PUR COM NAV INT STA');
