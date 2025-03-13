@@ -1,0 +1,120 @@
+# SSH
+Khác với SSH TLS thì SSH dùng cặp khóa công khai id_rsa.pub và khóa riêng id_rsa. Thường 1 máy chỉ cần 1 cặp này duy nhất thôi.
+SSH dùng để xác thực, dùng cặp khóa SSH để login mà k cần nhập mk mỗi lần (github).
+SSH dùng để chuyển file 2 máy, máy này call tới máy khác để thực thi lệnh, tạo đường hầm bảo mật mã hóa kết nối khi truy cập từ xa.
+
+-> SSH dùng để đăng nhập vào máy chủ từ xa 1 cách an toàn
+
+- Lần đầu tiên login phải dùng mật khẩu.
+Để tránh MITM giả mạo server, server thường có cặp private key và public key duy nhất trong hệ thống, gửi public key cho client.
+Lần đầu tiên sẽ luôn hỏi user xác nhận ip của server để thêm vào known_hosts cùng public key được hashed: "The authenticity of host 'server.com (192.168.1.1)' can't be established. ECDSA key fingerprint is SHA256:abcd1234..."
+Các lần sau server luôn gửi lại public key, client check ip và hash key này khớp với known_hosts là ok. Server đổi key phải update vào client.
+Pubkey pivkey của máy hiện tại và máy khác mà máy này ssh tới đều lưu tại ~/.ssh với ~ đại diện cho thư mục home của user "/Users/<tên user>"
+
+Sau khi xác thực server, client và server phải thiết lập 1 khóa chung bằng Diffie-Hellman Key Exchange (DHKE) hoặc Elliptic Curve Diffie-Hellman (ECDH).
+VD DHKE: 
+-- client và server sinh 2 số random a và b.
+-- Client tính A = g^a mod p và gửi A cho server.
+-- Server tính B = g^b mod p và gửi B cho client.
+-- Client nhận B tính S=B^a mod p=(g^b)^a mod p
+-- Server nhận A tính S=A^b mod p=(g^a)^b mod p là khóa chung.
+=> Khóa này dùng để mã hóa mọi data truyền qua, nên sau đó password gõ trực tiếp để connect k bị lộ. Khóa cũng tạo mới mỗi lần connect.
+
+- Client và server thiết lập SSH key.
+Client dùng mật khẩu cũng được nhưng gặp vấn đề bảo mật từ key logger hoặc brute-force mật khẩu, khuyên tạo SSH key càng sớm càng tốt.
+Sau khi thiết lập khóa chung, client sinh cặp pivkey pubkey. Gửi pubkey tới server lưu lại.
+Khi connect tới server bằng SSH key. Server gửi 1 challenge tới client, client dùng pivkey ký challenge đó gửi lại, server dùng pubkey check chữ ký đúng là ok.
+Lần sau login, pivkey của client có sẵn trong máy tự lấy ra ký challenge là xong mà k cần nhập mk.
+
+- 2 bên tiếp tục tạo khóa chung bằng DHKE hoặc ECDH để mã hóa trao đổi message như thường
+Việc tạo khóa chung là thuật toán dùng trong nhiều hệ thống, kp chỉ riêng SSH. SSH chỉ là phần client xác thực server bằng pubkey của server. Server xác thực client bằng challenge gửi cho client thôi.
+
+-> SSH chỉ giúp connect vào terminal của 1 máy khác, nếu cần vào giao diện phải dùng giao thức RDP. 
+Máy server phải hỗ trợ SSH ở 1 port thường là cổng 22 để client connect vào. Chú ý cấu hình tường lửa.
+SSH k thể thay thế SSL mã hóa giao tiếp giữa client-server. SSL dùng chứng chỉ số cấp bởi CA. Còn SSH kết nối chậm, k hỗ trợ mã hóa cho https, api mà thường dùng cho kiểu connect git, tunneling.
+
+Lệnh: ssh <username>@<serverip> để connect vào server. Nếu setup pivkey r sẽ tự dùng, nếu k sẽ phải nhập mk.
+
+
+
+# RDP
+Là giao thức connect vào server và dùng cả giao diện.
+Giao thức này sẽ connect client vào cổng 3389 của server. Cơ chế thì giống SSH, vẫn nhập mk hoặc dùng 1 pivkey trong máy để xác thực.
+VD 1 VM server chạy trên máy window phải hỗ trợ RDP cho client connect chứ hỗ trợ SSH thôi thì chỉ vào được terminal của server đó.
+Phải dùng qua ứng dụng như Remote Desktop Connection, VSC hiện k có extension nào hỗ trợ RDP.
+
+
+
+# SSL/TLS
+-> VD có 1 server cung API, nhiều server khác có thể gọi tới API server đó lấy data. Tất cả server đều do ta quản lý.
+
+Cơ chế y hệt browser tương tác với web server, phải host FE lên để browser lấy về, host BE để FE tương tác. Khi đó chứng chỉ TLS được cấp bởi CA đáng tin cậy cho cả FE và BE. Nhưng ở đây chỉ có các server do ta tự quản lý nên phải tự tạo CA, tự tạo chứng chỉ vĩnh viễn cho các server xác thực nhau.
+Có 2 loại: chỉ server có chứng chỉ TLS để client xác thực server; cả client server đều có chứng chỉ (mTLS - Mutual TLS). Ở đây ta k muốn bất cứ client nào cũng gọi được mà chỉ 1 vài server chỉ định thôi nên dùng mTLS, cả 2 bên phải xác thực lẫn nhau mới được gọi. Còn web bth là TLS 1 chiều.
+
+- Tạo CA (cert authority):
+openssl genrsa -out ca-key.pem 2048 => Tạo khóa riêng cho CA (ca-key.pem) 
+Đuôi file có thể là .key cũng được; Kích thước 2048 đủ an toàn, để 4096 sẽ bảo mật hơn nhưng chậm hơn.
+
+openssl req -x509 -new -nodes -key ca-key.pem -sha256 -days 365 -out ca-cert.pem -subj "/CN=MyCA" => Tạo 1 chứng chỉ CA tự ký (ca-cert.pem).
+-nodes tức là chứng chỉ (ca-cert.pen) sẽ k được mã hóa bằng mật khẩu
+-sha256 dùng băm SHA-256, nếu k chỉ định thì openssl có thể dùng SHA-1 trên các phiên bản cũ.
+
+- Tạo chứng chỉ cho server cung API:
+openssl genrsa -out server-key.pem 2048 => Tạo khóa riêng cho serverA (server-key.pem)
+
+openssl req -new -key server-key.pem -out server-req.pem -subj "/CN=localhost"
+Tạo yêu cầu để CA ký chứng chỉ cho serverA (server-req.pem); Để .crt hay .pem đều được => dùng .pem hết cho dễ.
+K thể gửi pivkey tới CA trực tiếp được vì bảo mật, nên phải tạo ra CSR chứa đủ thông tin nhưng k chứa pivkey để gửi CA ký.
+
+openssl x509 -req -in server-req.pem -CA ca-cert.pem -CAkey ca-key.pem -CAcreateserial -out server-cert.pem -days 365
+CA ký chứng chỉ cho serverA là có chứng chỉ hoàn chỉnh (server-cert.pem); Đuôi .crt hay .pem đều được.
+
+openssl pkcs12 -export -out server.pfx -inkey server-key.pem -in server-cert.pem -certfile ca-cert.pem -passout pass:mypassword1
+Chuyển thành file pfx (server.pfx)
+
+- Tạo chứng chỉ cho client call api:
+openssl genrsa -out client-key.pem 2048
+openssl req -new -key client-key.pem -out client-req.pem -subj "/CN=Client"
+openssl x509 -req -in client-req.pem -CA ca-cert.pem -CAkey ca-key.pem -CAcreateserial -out client-cert.pem -days 365
+openssl pkcs12 -export -out client.pfx -inkey client-key.pem -in client-cert.pem -certfile ca-cert.pem -passout pass:mypassword
+
+- Tạo server phải dùng đến khóa riêng server-key.pem, chứng chỉ server-cert.pem, chứng chỉ CA ca-cert.pem.
+- Tạo client phải dùng đến khóa riêng client-key.pem, chứng chỉ client-cert.pem, chứng chỉ CA ca-cert.pem.
+
+- Note:
+Client và server giao tiếp dùng khóa riêng và chứng chỉ. Cách khác có thể dùng file pfx kèm password cũng được, nó gom 2 file lại cho gọn thôi.
+Dùng web server cũng tương tự nhưng CA là tổ chức bên thứ 3 uy tín. Server sẽ tạo khóa riêng rồi tạo ra yêu cầu server-req.pem gửi cho CA ký nhận về cert thôi.
+Cơ chế khi giao tiếp, 1 bên sẽ gửi chứng chỉ cert, bên còn lại sẽ check cert có tạo từ đúng CA này không, đã hết hạn chưa. Nếu là web server sẽ gửi qua api tới CA để check. Sau đó 2 bên tạo session key để giao tiếp, đầy pp như Diffie-Hellman (DH), TLS1.3 Key Share, bước này tự động mà ta k nhìn thấy.
+Hệ thống có nhiều server gọi API của 1 server, có thể tái sử dụng 1 key-cert cho nhiều server hoặc mỗi server có 1 key-cert riêng. 
+Việc dùng cert TLS là đủ để mã hóa và xác thực trong hệ thống luôn mà k cần bất cứ phương pháp gì thêm. Vì bên ngoài k thể có được CA, key, cert để call. Tương tự pp này cũng sử dụng khi connect vào DB hay bất cứ 1 thứ gì mà cần xác thực và mã hóa 2 bên.
+
+Tùy biến:
+Có options là chuẩn chung ở server có thể set là: rejectUnauthorized: true => từ chối request nếu client không có chứng chỉ hợp lệ
+req.socket.authorized trường check xem client có chứng chỉ hợp lệ hay không.
+Option rejectUnauthorized luôn có thể set ở client và server. Bản chất khi dựng 1 server self-sign truy cập qua browser thì sẽ hiện 1 trang cảnh báo vì key-cert từ server k đến từ 1 CA public nào cả, ấn continue chính là set rejectUnauthorized false để bỏ qua việc check mà vẫn tạo TLS connection bth.
+VD nếu server set rejectUnauthorized false thì client không cần gửi cert cũng được, server k cần có chứng chỉ CA để check nữa, request vẫn được server xử lý bình thường, kết nối TLS vẫn được thiết lập kể cả cert k hợp lệ. Khi đó client có thể bị giả mạo và tạo kết nối tới server.
+VD nếu client set rejectUnauthorized false thì client cũng k check cert đến từ server và server có thể bị giả mạo. Nhưng lưu ý là server vẫn phải gửi cert tới client, nếu k sẽ k thiết lập được connection TLS. Server luôn phải có cert để tạo TLS, k thì phải quay về http.
+
+=> Hệ thống này có cần thiết dùng TLS không? Có vì server nội bộ giao tiếp với nhau thì bên ngoài kb, nhưng nếu có nhân viên làm r nghỉ việc sẽ biết các API public k được bảo vệ. Nếu hiểu bản chất sẽ thấy có thể bỏ qua việc xác thực server ở client vì hệ thống nội bộ với url chuẩn thì khó mà giả mạo server kia được.
+
+
+
+# GPG trong git
+Cơ chế tạo 1 cặp key trong máy, máy lưu pivkey và dùng để ký commit, pubkey đăng lên git để xác thực chữ ký là của người đó và hiện "Verified".
+Nó cũng có thời hạn như bth. Xác minh rằng 1 người tạo 1 commit sẽ k thể chối việc đã tạo nó.
+
+
+
+## VSC
+
+
+
+# Dùng LiveShare
+Giúp nhiều người cùng vào code trên VSC, làm việc nhóm, tích hợp chat, audio, phân quyền, share terminal thời gian thực. 
+Tắt máy là tắt share
+
+
+
+# VSC có sẵn Remote Tunnel Access 
+
+

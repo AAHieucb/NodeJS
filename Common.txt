@@ -116,15 +116,6 @@ Object.setPrototypeOf(__proto__, new Proxy(__proto__, {
 
 
 
-# Bảo mật với SSH key
-Kết hợp với tường lửa và firewall để bảo mật server cực mạnh
-Vì dev thường không code thẳng trên server mà luôn phải truy cập vào bằng SSH bảo mật tốt hơn mật khẩu thông thường.
-
-Cơ chế: Dev sinh cặp private và public key, gửi pubkey lưu ở server. Khi connect, server gửi 1 challenge tới client, client dùng pivkey mã hoá và gửi lại. Server dùng pubkey giải mã, nếu ra đúng message challenge cũ thì đúng.
-=> Key lưu sẵn trong máy thì k cần gõ lại mk mỗi khi connect
-
-
-
 # 3 cách connect db:
 - K nên tạo 1 db connection global duy nhất dùng suốt dự án. Vì connection có thể đóng vì nhiều lý do mà ko biết như timeout hay lỗi mạng. Kể cả có setting reconnect hay sự kiện disconnect để gọi connect lại cũng k nên dùng
 - Mỗi lần query sẽ khởi tạo connection và đóng ở cuối. Thường dùng cho các dự án lớn, query phức tạp.
