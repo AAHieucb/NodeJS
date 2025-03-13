@@ -1,0 +1,39 @@
+Rate limit set up nhiều tầng, từ database, server, reverse proxy, tầng mạng
+Ở server thì các request khác nhau cũng phải có rate limit khác nhau. 
+request chưa xác thực cho ít vì dễ DDoS VD 10 request 1 phút 1 ip
+request đã xác thực cho 100 request 1 phút, VIP user 500 request 1 phút
+Request đặc biệt như reset password, đăng ký tk thì 3 lần 1 ngày
+Với các hệ thống cung API, có thể implement billing tài nguyên nào được requests nhiều, tài nguyên nào bị hạn chế.
+
+Trong nodejs có thể dùng express-rate-limit kết hợp redis để tạo middleware xử lý rate limit và set cho từng route khác nhau.
+Redis dùng để lưu trạng thái request của từng ip và userid để implement rate limit.
+VD lưu rate_limit:IP_1, rate_limit:user_123 
+Nếu hết times tự xóa khỏi redis, nếu request thì cộng lên, nếu full mà chưa hết time thì từ chối request
+=> Đó là yêu cầu trong các hệ thống cần ratelimit nhiều tầng phức tạp.
+
+ratelimit dựa vào khả năng tải của server. Nếu server chịu 100 request/s thì tổng rate limit của 1 api nên khoảng 80% khả năng tối đa.
+API được sử dụng để phân loại khách hàng, Vd user có api key premium sẽ được nhiều request hơn user thường.
+rate limit chia theo loại user thì phải tính. Vd server max 100 request 1s, trung bình 50 active user 1 lúc thì rate limit 1 user là 2 request 1s cho phép burst bùng nổ tạm thời lên 5-10 request 1s trong 1-2s rồi giảm về 2 request/1s
+Kỹ thuật slide window, thay vì reset cứng mỗi s là 5req/s thì cho phép 10req/2s ok hơn.
+Token bucket là thuật toán kiểm soát rate limit. Xô chứa max 10 token, cứ 1s 1 token thêm vào xô cho đến max là 10, 1 request sẽ lấy 1 token từ xô. Request tới mà xô hết token thì từ chối.
+Token bucket khác với rate limit bth là nó xử lý burst tạm thời trong thời gian ngắn. Vd nó cho trung bình 1 request 1s, nhưng nếu đột ngột lên 10req/1s vẫn xử lý được vì xô còn đủ token, rồi lại quay về 1 request 1s. Chờ 1 lát hồi sẽ lại cho burst 10req/1s.
+Thường implement thêm hàng đợi để 1 lượng đi vào chờ trước khi từ chối thẳng thừng. 
+1 xô có tốc độ rò rỉ. VD xô chứa max 100 ô, rò rỉ 10 ô 1s, nếu 200 gói tin đến thì 100 gói bị loại, 100 gói vào xô, sau 1s nữa xô mới trống 10 ô và cứ thế. Cũng giúp xử lý burst.
+
+Vd 1 user gửi 100 requests reset password cùng lúc. 
+- reset password là 1 api đặc biệt cho rate limit cực nhỏ thôi, xử lý độc lập các request như bth.
+- khi có 1 yêu cầu, gửi về mail và yêu cầu xác thực, nếu 1 yêu cầu tương tự cùng user mà mail chưa xác thực thì từ chối/
+- Nới lỏng hơn là mã trong mail phải 1h sau mới hết hiệu lực, nhưng 1p sau mà reset password thì vẫn được, ghi đè cái trong mail luôn. Rate limit để 1p 1 lần.
+- reset password mà k cần mail mủng gì cả thì làm kiểu server sinh password và show luôn cho người dùng, thì cho rate limit 5s 1 lần ok luôn.
+=> nếu spam forgot password thì k làm được như v.
+
+
+Rate limit với redis:
+1) Dùng background: lưu rate limit vào redis, và chạy 1 background song song để xóa key thừa.
+2) Dùng Lua script: Lua là 1 lang nhỏ gọn tích hợp vào redis cho phép thực thi script phức tạp ngay trên máy chủ redis. 
+VD dùng lua tăng giá trị 1 key: EVAL "return redis.call('INCR', KEYS[1])" 1 mykey => dùng như 1 ngôn ngữ lập trình chứ k chỉ giới hạn ở các cú pháp của redis-cli
+Redis cũng chỉ là lưu data của rate limit, nhưng Lua giúp thực hiện nhiều task phức tạp trong 1 transaction là 1 script, nhờ đó nhiều request cùng lúc đến xử lý rate limit data trong redis đều ok. Cũng chỉ là viết các logic check, tăng giảm value thôi.
+
+Có nhiều thư viẹn implement Token Bucket như rate-limiter-flexible
+
+
