@@ -27,13 +27,14 @@ Khi connect tới server bằng SSH key. Server gửi 1 challenge tới client, 
 Lần sau login, pivkey của client có sẵn trong máy tự lấy ra ký challenge là xong mà k cần nhập mk.
 
 - 2 bên tiếp tục tạo khóa chung bằng DHKE hoặc ECDH để mã hóa trao đổi message như thường
-Việc tạo khóa chung là thuật toán dùng trong nhiều hệ thống, kp chỉ riêng SSH. SSH chỉ là phần client xác thực server bằng pubkey của server. Server xác thực client bằng challenge gửi cho client thôi.
+Việc tạo khóa chung là thuật toán xdùng trong nhiều hệ thống, kp chỉ riêng SSH. SSH chỉ là phần client xác thực server bằng pubkey của server. Server xác thực client bằng challenge gửi cho client thôi.
 
 -> SSH chỉ giúp connect vào terminal của 1 máy khác, nếu cần vào giao diện phải dùng giao thức RDP. 
 Máy server phải hỗ trợ SSH ở 1 port thường là cổng 22 để client connect vào. Chú ý cấu hình tường lửa.
 SSH k thể thay thế SSL mã hóa giao tiếp giữa client-server. SSL dùng chứng chỉ số cấp bởi CA. Còn SSH kết nối chậm, k hỗ trợ mã hóa cho https, api mà thường dùng cho kiểu connect git, tunneling.
 
 Lệnh: ssh <username>@<serverip> để connect vào server. Nếu setup pivkey r sẽ tự dùng, nếu k sẽ phải nhập mk.
+Extension Remote SSH của VSC có thể connect vào server mở  thư mục ngay trên VSC hiện tại.
 
 
 
@@ -115,6 +116,11 @@ Tắt máy là tắt share
 
 
 
-# VSC có sẵn Remote Tunnel Access 
+# VSC có sẵn Remote Tunnel 
+Là cơ chế giúp 2 thiết bị truyền tải data an toàn trong 1 tunnel được mã hoá. Thao tác trên vscode client sẽ trực tiếp chạy lệnh trên máy remote. Điều này là do khi sử dụng, 1 vscode server sẽ được thiết lập trên máy remote.
+
+-> Connect remote vào mac:
+1) Sạc + dùng remote tunnel dạng service. Chọn option wake for network access chỉ hiệu quả khi sạc. Đặt thời gian tối màn hình 1p để tối ưu hoá pin. Giảm độ sáng màn hình tối thiểu. Bật low power mode. Tắt vscode để tự tối màn.
+2) Dùng SSH, bật chế độ nhận network outside, luôn phải sạc pin, tắt vscode được, gập màn hình được, nhưng phải cấu hình router forward port 22 cho ip của mac.s
 
 
