@@ -31,31 +31,6 @@ Cũng có thể dựng 1 proxy nginx server dùng HTTP2, khi đó sẽ k tận d
 
 
 
-# Bảo mật SSO và OAuth2
--> SSO: Đăng nhập 1 hệ thống, gửi token để truy cập được tất cả hệ thống con.
-Nếu ta thấy hệ thống domain X mở rộng thêm 1 ứng dụng mới domain Y sao cho những ai đăng nhập X đều có thể đăng nhập Y thì dùng SSO. Tuy nhiên trình duyệt luôn tuân theo same origin policy. Tức domainX k thể truy cập cookie của domainY để tự động đăng nhập. Buộc phải thêm 1 central domain xử lý xác thực.
-
-User vào bất cứ domain nào, nó đều redirect đến 1 authentication server để check thông tin đăng nhập:
-Đã đăng nhập -> redirect về trang trước
-Chưa đăng nhập -> phải đăng nhập -> lưu lại nếu là sessionid, không thì thôi -> gửi lại cho client lưu và redirect về trang trước -> session id có thể dùng để truy cập bất cứ app con nào trong phạm vi 1 session.
-
-SSO có thể kết hợp OAuth2 để xác thực cho các app khác dùng data của mình. VD như OpenID Connect, Facebook Connect, SAML, Microsoft Account.
-
--> OAuth 2.0: đơn giản hơn OAuth 1.0
-Custom thêm tính năng là ứng dụng bên ngoài có thể lấy thông tin người dùng trong ứng dụng gốc. VD game lấy thông tin danh sách bạn bè trên facebook để kết nối chẳng hạn. Cụ thể OAuth nó cho phép app truy cập thông tin mà chả cần đưa password vẫn xác thực được
-
-VD: Client access Game, đăng nhập qua facebook
-Chuyển hướng đến máy chủ xác thực facebook và login, cho phép Game dùng thông tin người dùng
-Máy chủ xác thực của facebook chuyển hướng về url của Game (url này do người làm game đăng ký vào máy chủ xác thực của facebook), trả kèm id game + mật khẩu game + tham số mã
-Người dùng trải nghiệm game bth
-Game chạy nền bằng cách dùng id game + mật khẩu game + tham số mã để đăng nhập facebook dưới quyền người dùng
-Máy chủ facebook trả về accesstoken
-Game dùng accesstoken truy cập thông tin người dùng do facebook cung cấp
-
-URL OAuth2 với discord: https://discordjs.guide/oauth2/#a-quick-example
-
-
-
 # Bảo mật server thông dụng
 -> Self sign: là trang web sẽ dùng SSL với chứng chỉ tự ký, chưa đăng ký với CA. 
 Có thể dùng Let's script để có SSL free trong vài tháng. 
@@ -297,6 +272,12 @@ Class là static => là class mà gọi ở bất cứ đâu trong dự án mi�
 Class là service => class service được DI vào bất cứ dự án server nào và lấy ra dùng trong các class khác
 Class chuẩn có sẵn của C# => class C# yêu cầu phải có chuẩn như controllers, appsettings, startup, config cho các dịch vụ như log4net, class Attribute
 Class thường => class kiểu để setup cho 1 thứ khác do ta định nghĩa. VD class chuyên lưu enum struct, class xử lý CreateMap để setup cho AutoMapper, class ánh xạ enum sang i18n. Class kiểu truyền thống, trong phạm vi nó được add reference, ta có thể khởi tạo với new và sử dụng các tính năng. VD class Repository khởi tạo new trong UnitOfWork, UnitOfWork khởi tạo new để sử dụng trong class Service được DI
+
+
+
+# Mã hoá 2 chiều 
+
+
 
 
 

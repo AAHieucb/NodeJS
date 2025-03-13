@@ -162,11 +162,6 @@ app.set("trust proxy", '127.0.0.1, 192.168.0.1, 192.168.0.2'); => tin 3 proxy c�
 
 
 # Dùng jsonwebtoken và bảo mật
-Tối thiểu server phải có bảo mật SSL, chống XSS, database Injection, rate limit chặn DDoS, connect timeout.
-
-AccessToken sinh từ {userid,role,timestamp,expiration} + secret key. Check password hợp lệ thì sinh accesstoken gửi cho client.
-Expire time nhét vào payload và được check ở server chứ k lưu ở 1 trường FE để người dùng đổi tùy tiện. Chú ý k lưu thông tin nhạy cảm vào payload vì ai cũng giải mã ra được (jwt.io), chỉ có phần secret key trong token là k thể giải.
-
 -> Dùng passport + passport-jwt kết hợp: sẽ dùng jwt như 1 strategy làm đơn giản code hơn
 Dùng passport-local nếu xác thực tk mk tự làm
 
@@ -175,6 +170,8 @@ Dùng passport-local nếu xác thực tk mk tự làm
 - Indexed DB (ít dùng): là 1 NoSQL DB, dùng khi cần lưu 1 lượng data lớn và global trong code. Lưu được file, blobs. High performance với indexed, hỗ trợ transactions. Thường 1 app chỉ tạo 1 db dù ta có thể tạo bnh db cũng đươc. Cũng phải tạo connection, tạo object, lưu và chờ như db bth.
 => localStorage thì phải chống XSS mọi nơi nên cookie httpOnly an toàn hơn, nhưng các framework FE giờ rất mạnh để chống XSS r nên k đáng kể.
 => SSR nên dùng cookie, CSR nên dùng localStorage. Chỉ dùng indexed db khi muốn lưu như localStorage nhưng cần memory > 5MB
+
+
 
 -> JWT cũng dùng khi quá trình verify bằng 1 pp bên ngoài mất nhiều tg thì chỉ cho làm 1 lần rồi sau đó dùng jwt xác thực cho nhanh. 
 VD: ký message trong web3 xong rồi dùng jwt để giao tiếp.
