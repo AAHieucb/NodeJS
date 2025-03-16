@@ -89,6 +89,14 @@ Tức hacker có thể khiến server gọi API thực hiện hành động gì 
 
 
 
+# Lỗi bảo mật input server
+Client lấy từ server 1 list url, r chọn 1 cái gửi cho server, server gọi url đó. 
+Éo ổn vì url có thể truyền sai rất nguy hiểm, cứ cho là truyền sai thì server k lấy được data. 
+Vd url http://xxxx:3000, hacker có thể truyền url và port ảo cho server gọi, dựa vào response time nhanh hay chậm mà đoán được server có port nào đang mở để tấn công.
+Do đó phải validate lại url truyền vào đúng là lấy từ list đó.
+
+
+
 # JSON Hijacking
 User vào web độc chứa mã: var script = document.createElement('script'); script.src = 'https://victim.com/data.json?callback=handleData'; document.body.appendChild(script); sẽ gửi request tới web đã đăng nhập fetch JSON data về. Fetch trực tiếp bị cản bởi SOP nên phải cho vào <script>
 Fetch bằng script k lấy được kết quả trả về, giải pháp là in ra rồi overwrite hàm in là được. VD overwirte hàm get của Object:
@@ -281,3 +289,30 @@ Connection: 'keep-alive' => k đóng TCP connection mà tái sử dụng cho nhi
 
 -> coveralls, travis CI, github CI/CD: test, deploy trực tiếp 
 daemon: 1 package biến script thành chương trình dạng daemon. 
+
+
+
+
+-> Nhược điểm của dedicated server là k thể horizontal scaling, buộc phải mua thêm server ở nơi khác để scaling.
+
+-> VD mua 1 VPS trên digital ocean và chạy server. Bh muốn scale lên 2 server ở Sing và Mỹ. 
+Các bước tối thiểu phải xử lý là:
+Dùng load balancer phân phối tải, ghi log các thứ. 
+Cấu hình DNS trỏ tới từng server hoặc trỏ tới 1 load balancer nếu dùng load balancer.
+Xử lý fail over, 1 server sập sẽ đổ traffic vào server còn lại
+
+-> Cách đơn giản hơn là dùng Cloudflare proxy làm load balancer. Nó có hàng trăm điểm phân phối toàn cầu, request tới nó trước rồi tự phân phối đến server gần nhất 
+Nó cũng có sẵn cache.
+
+-> Load balancer phân phối tải mà lại có 1 endpoint thì các request ở xa load balancer vẫn bị lâu như thường. Thực tế ta đang hiểu sai vai trò của load balancer. Nếu chỉ có vài khu vực, môi khu có 1 server thì chả cần LB làm gì. LB chỉ dùng khi 1 khu vực có nhiều server và cần route trong khu vực đó. Tức ta đã tăng số lượng server ở khu vực đó để nó chịu tải tốt hơn. 
+Chứ ít server thì dùng DNS-based routing trỏ đến các server được đã là đủ r.
+
+-> Nếu chỉ dùng 1 db duy nhất (ở sing) thì mọi request tới server ở Mỹ cũng cần gọi vào db ở sing để lấy bị lâu. 
+Read replica => ghi ít thì ok vì chỉ có 1 db ghi ở xa sẽ lâu khi update. 
+Chia độc lập customer => đảm bảo mọi user ở Mỹ sẽ kbh liên can đến data ở Sing. Nếu user đi từ Mỹ qua Sing thì query vẫn về Mỹ và bị lâu. 
+Multi-master replica => đọc ghi đều nhanh nhưng cấu hình phức tạp. Phải có cơ chế fail over, cơ chế đồng bộ giữa mọi database, cơ chế xử lý conflict. VD dùng safe writes để đảm bảo dữ liệu ghi được xác nhận từ ít nhất 2 node trước khi commit.
+Có thể dùng database proxy để điều hướng tới db gần nhất, két hợp cache.
+=> Thường công ty lớn dùng kiểu chia customer độc lập chứ multi-master rất ít khi dùng. Vì đọc ghi nhanh từ mọi nơi trên thế giới mà update nhiều dễ conflict thì rất hiếm.
+
+
+- Dự án k nặng thì deploy luôn database và server chung 1 VPS cho nhanh.
