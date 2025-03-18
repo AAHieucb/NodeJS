@@ -12,6 +12,36 @@ Nên thêm ratelimit và black list chặn ip truy cập bất thường. VD 1 I
 
 
 
+# Bảo mật server XSS và blind ssrf
+Khi server có 1 api nhận input của user làm params để call 1 external api khác rất nguy hiểm. 
+Ta phải tính mọi trường hợp input của user là bất cứ thứ gì, kể cả dạng raw # % / hoặc dạng url encoded %23 %27. 
+
+-> FE gửi cho BE phải nên encode nếu input của user là params.
+VD input "a#b"
+Nếu k encode sẽ gửi https://xxx/test?input=a#b => BE nhận input=a 
+Nếu encode sẽ gửi https://xxx/test?input=a%23b => BE nhận input=a#b
+=> Qtr là chặn ở BE vì hacker bỏ qua FE mà call luôn
+
+-> BE nhận input từ FE rồi call api. 
+Nếu external api kiểm soát được thì ta thường encode như FE rồi gửi tiếp đi thôi.
+Nếu external api bên thứ 3, thì kb họ có hỗ trợ hay không vì nhiều lúc truyền dạng encode, họ vẫn xử lý như path bình thường
+
+VD1: API bên thứ 3 https://xxx/test/{id}?input=a 
+User truyền id là ..%2f..%2fotherdata%2fconfiguration# 
+Server gọi vào API bên thứ 3: https://xxx/test/..%2f..%2fotherdata%2fconfiguration#?input=a
+Thế quái nào mà họ xử lý call sang api này: https//xxx/test/../../otherdata/configuration nên bị sai
+VD2: Server định gọi API https://xxx/test?input={input}&showPassword=false
+Server nhận input xxx&showPassword=true# xử lý thành https://xxx/test?input=xxx&showPassword=true#&showPassword=false
+
+=> Tức khi nhận params gọi API, phải tính mọi trường hợp rằng từng input có thể là bất cứ thứ gì và giải quyết:
+Dùng database thì luôn luôn dùng parameterize nên k sợ.
+Validate input, nếu là Guid, weburl, email phải đúng format. Nếu chọn từ 1 list giới hạn giá trị thì phải check tồn tại trong list đó.
+Server nhận userInput là a&b=1 thì đúng input là "a&b=1" chứ k xử lý sai
+Nếu tự xây API thì nên dùng regexp giới hạn các ký tự nào được sử dụng luôn. Nên chủ động lọc bỏ ký tự đặc biệt trong input ở cả FE và BE nếu được.
+Nếu call api bên thứ 3 thì test thử với trường hợp truyền #&% và truyền dạng % xem có bị sai không, nếu k rõ thì mặc định là có bị sai và cần check kỹ. Sẽ có trường hợp k thể fix được thì tuỳ xem api có lộ thông tin thực sự quan trọng không mà xử lý case cụ thể.
+
+
+
 # Dùng HTTP2 HTTP3
 HTTP1 thì mỗi yêu cầu là 1 connection TCP riêng.
 
@@ -270,13 +300,7 @@ Tính năng của ngôn ngữ 1
 Class là static => là class mà gọi ở bất cứ đâu trong dự án miễn có reference, gọi dùng các hàm utility, dùng extension method, có thể lưu state (singleton) hoặc chỉ xử lý logic mà k lưu gì cả
 Class là service => class service được DI vào bất cứ dự án server nào và lấy ra dùng trong các class khác
 Class chuẩn có sẵn của C# => class C# yêu cầu phải có chuẩn như controllers, appsettings, startup, config cho các dịch vụ như log4net, class Attribute
-Class thường => class kiểu để setup cho 1 thứ khác do ta định nghĩa. VD class chuyên lưu enum struct, class xử lý CreateMap để setup cho AutoMapper, class ánh xạ enum sang i18n. Class kiểu truyền thống, trong phạm vi nó được add reference, ta có thể khởi tạo với new và sử dụng các tính năng. VD class Repository khởi tạo new trong UnitOfWork, UnitOfWork khởi tạo new để sử dụng trong class Service được DI
-
-
-
-# Mã hoá 2 chiều 
-
-
+Class thường => class kiểu để setup cho 1 thứ khác do ta định nghĩa. VD class chuyên lưu enum struct, class xử lý CreateMap để setup cho AutoMapper, class ánh xạ enum sang i18n. Class kiểu truyền thống, trong phạm vi nó được add reference, ta có thể khởi tạo với new và sử dụng các tính năng. VD class Repository khởi tạo new trong UnitOfWork, UnitOfWork khởi tạo new để sử dụng trong class Service được DI 
 
 
 
@@ -316,3 +340,8 @@ Có thể dùng database proxy để điều hướng tới db gần nhất, ké
 
 
 - Dự án k nặng thì deploy luôn database và server chung 1 VPS cho nhanh.
+
+
+
+
+
