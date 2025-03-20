@@ -343,5 +343,7 @@ Có thể dùng database proxy để điều hướng tới db gần nhất, ké
 
 
 
-
+- Trong hệ thống lớn, khi nhiều service độc lập gọi lẫn nhau, mỗi log đến từ 1 request sẽ có cùng 1 traceId. 
+TraceId duy nhất của 1 request giúp debug dễ hơn, thậm chí được duy trì dù gọi qua nhiều services khác nhau. 
+Khi nhận 1 request và ghi log, sẽ lấy traceid được lưu trong request đó. Nếu k có mới tạo 1 Guid mới.
 
