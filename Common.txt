@@ -14,7 +14,7 @@ Nên thêm ratelimit và black list chặn ip truy cập bất thường. VD 1 I
 
 # Bảo mật server XSS và blind ssrf
 Khi server có 1 api nhận input của user làm params để call 1 external api khác rất nguy hiểm. 
-Ta phải tính mọi trường hợp input của user là bất cứ thứ gì, kể cả dạng raw # % / hoặc dạng url encoded %23 %27. 
+Khi call external api, phải tính input của user là bất cứ thứ gì, kể cả dạng raw # % / hoặc dạng url encoded %23 %27. 
 
 -> FE gửi cho BE phải nên encode nếu input của user là params.
 VD input "a#b"
@@ -24,7 +24,8 @@ Nếu encode sẽ gửi https://xxx/test?input=a%23b => BE nhận input=a#b
 
 -> BE nhận input từ FE rồi call api. 
 Nếu external api kiểm soát được thì ta thường encode như FE rồi gửi tiếp đi thôi.
-Nếu external api bên thứ 3, thì kb họ có hỗ trợ hay không vì nhiều lúc truyền dạng encode, họ vẫn xử lý như path bình thường
+Nếu external api bên thứ 3, thì kb họ có hỗ trợ hay không vì nhiều lúc truyền dạng encode, họ lại xử lý như path bình thường. Ta kb api bên thứ 3 làm gì, chỉ có cách call thử thôi. Có thể nó call tới db hoặc lại gọi cho bên thứ 4 nữa thì sao.
+Tấn công bằng cách nối đuôi #: Khi server concat nối url input của user có # ở cuối chặn mọi thứ, sẽ call vào url hack, việc chặn # chỉ xử lý mỗi case này.
 
 VD1: API bên thứ 3 https://xxx/test/{id}?input=a 
 User truyền id là ..%2f..%2fotherdata%2fconfiguration# 
@@ -32,13 +33,15 @@ Server gọi vào API bên thứ 3: https://xxx/test/..%2f..%2fotherdata%2fconfi
 Thế quái nào mà họ xử lý call sang api này: https//xxx/test/../../otherdata/configuration nên bị sai
 VD2: Server định gọi API https://xxx/test?input={input}&showPassword=false
 Server nhận input xxx&showPassword=true# xử lý thành https://xxx/test?input=xxx&showPassword=true#&showPassword=false
+VD3: user input url để server gọi, kể cả k gây hại gì nhưng user input host:port và dựa vào thời gian server trả lời sẽ biết ip nào có port nào mở, từ đó tấn công kiểu khác.
 
-=> Tức khi nhận params gọi API, phải tính mọi trường hợp rằng từng input có thể là bất cứ thứ gì và giải quyết:
-Dùng database thì luôn luôn dùng parameterize nên k sợ.
-Validate input, nếu là Guid, weburl, email phải đúng format. Nếu chọn từ 1 list giới hạn giá trị thì phải check tồn tại trong list đó.
-Server nhận userInput là a&b=1 thì đúng input là "a&b=1" chứ k xử lý sai
-Nếu tự xây API thì nên dùng regexp giới hạn các ký tự nào được sử dụng luôn. Nên chủ động lọc bỏ ký tự đặc biệt trong input ở cả FE và BE nếu được.
-Nếu call api bên thứ 3 thì test thử với trường hợp truyền #&% và truyền dạng % xem có bị sai không, nếu k rõ thì mặc định là có bị sai và cần check kỹ. Sẽ có trường hợp k thể fix được thì tuỳ xem api có lộ thông tin thực sự quan trọng không mà xử lý case cụ thể.
+=> Giải pháp khi server nhận input r gọi external api:
+Validate input, nếu là Guid, weburl, email phải đúng format. Nếu chọn từ 1 list giới hạn giá trị thì phải check tồn tại trong list đó => cách best practice
+Server nhận userInput là a&b=1 thì đúng value là "a&b=1" chứ k xử lý sai
+Input của user là 1 giá trị như username hay gì thì chỉ cần encode url format và gửi tới external server là xong, test thử nếu xử lý sai như VD1 thì phải dùng cách khác. 
+Nhưng nếu input của user là 1 phần của url kiểu "../sites" thì phải để nguyên như vậy. Khi đó chỉ cần lọc # thành %23 để tránh tấn công đổi url thôi. Hoặc xoá mọi % nếu input k thể chứa %
+Sẽ có case k thể fix được như khi api nhận cả các ký tự # / %, thì tuỳ vào độ ảnh hưởng, có modify data nhạy cảm không, có lộ thông tin của user khác không mà xử lý.
+Nhiều case api bên thứ 3 xử lý lỗi r, nhưng vẫn nên chặn ở server của ta nếu tìm thấy để tránh đổi api bị sai.
 
 
 
