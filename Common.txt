@@ -13,13 +13,12 @@ Nên thêm ratelimit và black list chặn ip truy cập bất thường. VD 1 I
 
 
 
-//!!!!!!!!
 # Dùng HTTP2 HTTP3
 HTTP1 thì mỗi yêu cầu là 1 connection TCP riêng.
 
 HTTP1.1 duy trì kết nối cho phép nhiều yêu cầu tới 1 server được xử lý trong cùng một kết nối TCP.
-Nó còn có HTTP pipelining cho phép gửi nhiều request đồng thời trên cùng 1 TCP connection mà không cần chờ request trước done, nhưng response trả về phải đúng thứ tự. Head-of-Line Blocking là hiện tượng response request trước quá lâu làm cho các requests sau bị blocked, nên tính năng này ít được sử dụng.
-Để đảm bảo k bị lỗi, browser duy trì nhiều TCP connection tới server và gửi song song, chứ k chỉ 1 connection.
+Head-of-Line Blocking là hiện tượng response request trước quá lâu làm cho các requests sau bị blocked. Http1.1 đỡ hơn vì có HTTP pipelining cho phép gửi nhiều request đồng thời trên cùng 1 TCP connection mà không cần chờ request trước done, nhưng response vẫn trả về phải đúng thứ tự trong 1 connection, nên HoL k đươc cản hoàn toàn.
+Để đảm bảo k bị lỗi đơ luôn, browser duy trì nhiều TCP connection tới server và gửi song song, chứ k chỉ 1 connection.
 
 HTTP2 dùng HTTP stream. Trong 1 TCP connection có thể gửi hàng loạt các stream request và các stream k cần đúng thứ tự nữa, giải quyết vấn đề Head-of-Line Blocking ở tầng application nhưng vẫn bị ở tầng transport với TCP: Client <--- 1 TCP connection [Stream1 header, stream2 header, stream1 data, stream3 header, ...] ---> Server
 Server push new data tới client khi có update mà k cần client phải poll liên tục, giảm sô request. Dùng HPACK nén giảm kích thước header. Dùng binary format nhanh hơn so với định dạng văn bản của HTTP/1.x.
@@ -28,12 +27,11 @@ HTTP3 dùng protocol QUIC, dựa trên UDP ở ngay tầng transport nhưng nó 
 Client <--- 1 QUIC/UDP connection [Stream1, stream2, stream3, ...] ---> Server
 QUIC cũng được dùng để đổi mạng trong điện thoại mà k bị lag vì dùng chung 1 connection id.
 
-=> Mặc định server thường dùng HTTP1.1, phải cấu hình thêm nếu muốn dùng HTTP2 HTTP3. 
-Cũng có thể dựng 1 proxy nginx server dùng HTTP2, khi đó sẽ k tận dụng hết dược sức mạnh của HTTP2: Client <-- HTTP2 --> Nginx <-- HTTP1.1 --> Server
+=> Cũng có thể dựng 1 proxy nginx server dùng HTTP2, khi đó sẽ k tận dụng hết dược sức mạnh của HTTP2: Client <-- HTTP2 --> Nginx <-- HTTP1.1 --> Server
 
 
 
-
+//!!!!!!!!
 # 3 cách connect db:
 - K nên tạo 1 db connection global duy nhất dùng suốt dự án. Vì connection có thể đóng vì nhiều lý do mà ko biết như timeout hay lỗi mạng. Kể cả có setting reconnect hay sự kiện disconnect để gọi connect lại cũng k nên dùng
 - Mỗi lần query sẽ khởi tạo connection và đóng ở cuối. Thường dùng cho các dự án lớn, query phức tạp.
