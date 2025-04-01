@@ -1,50 +1,19 @@
 # Tạo streaming server cho video
-Thực tế với video, người ta có thể nhúng từ link youtube hoặc đăng lên ipfs hay cdn cloud thay vì dựng hẳn 1 server vì rất tốn, trừ các web chuyên về video.
-Cơ chế: Người dùng click vào phần nào của video sẽ gửi http request nhận về 1 lượng bytes kể từ vị trí đó trở đi và tiếp tục cho đến hết video, thông tin này nằm trong header. Ở FE, video player của html5 hỗ trợ sẵn việc gửi request đi và xử lý response nhận về như nào rồi, server chỉ cần gửi lại đúng format response là được
+Dùng link youtube, ipfs, đăng lên cdn cloud tốt hơn là dựng hẳn 1 streaming server vì tốn, trừ các web chuyên về video k muốn phụ thuộc bên thứ 3.
+Cơ chế streaming server: Mỗi đoạn của video khi xem sẽ gửi http request nhận về 1 lượng bytes kể từ vị trí đó trở đi và tiếp tục cho đến hết video, thông tin này nằm trong header. Ở FE, video player của html5 hỗ trợ sẵn việc gửi request đi và xử lý response nhận về như nào rồi, server chỉ cần gửi lại đúng format response là được
 
 -> Cơ chế tính lượt view cho video không phải là số lần gọi request GET và cũng k yêu cầu phải lấy xem hết mọi bytes của video. 
 VD chọn 1 mốc 30s và chia khoảng 30s đó khắp video thay đổi vị trí random liên tục. Vd 10s đầu ở đoạn 1p->1p10s, 10s sau ở 2p->2p10s, 10s cuối ở 3p50s->4p => user phải xem đúng các đoạn đó mới +1 view. 
 
-VD 1 giải pháp chống spam view là lưu IP user vào trong cache tự hết hạn và bị xóa sau khoảng 5p. Mỗi khi định tăng view bởi 1 ip sẽ check ip vẫn có trong database thì k cộng view lên. Tức là người dùng refresh liên tục trong 5p sẽ k có tác dụng vì ip vẫn có trong DB. Tức max 1 người trong 5p chỉ được 1 view
-=> Thực ra lưu ip k ổn VD nhiều người cùng bắt VPN hay chung mạng LAN sẽ k chuẩn, ta có thể tạo 1 userid ảo dù chưa login và lưu 1 id vào cookies chứ kp lưu ip, mỗi request phải gửi kèm cookies lên để server lưu. 
+VD 1 giải pháp chống spam view là lưu IP user vào cache tự hết hạn và bị xóa sau khoảng 5p. Mỗi khi định tăng view bởi 1 ip sẽ check ip vẫn có trong database thì k cộng view lên. Tức là người dùng refresh liên tục trong 5p sẽ k có tác dụng vì ip vẫn có trong DB, video length > 5p. Tức max 1 người trong 5p chỉ được 1 view.
+=> Thực ra lưu ip k ổn VD nhiều người cùng bắt VPN hay chung mạng LAN sẽ k chuẩn, ta có thể tạo 1 userid ảo dù chưa login và lưu 1 id vào cookies chứ kp lưu ip, mỗi request phải gửi kèm cookies lên để server check.
+
 VD các nghệ sĩ nổi tiếng khi cộng lượt view tăng quá nhanh, chắc chắn DB k thể sử dụng MySQL hay MongoDB mà phải sử dụng cache như redis.
 Nên thêm ratelimit và black list chặn ip truy cập bất thường. VD 1 IP truy cập đồng thời tới cả nghìn lần 1p thì khá vô lý cho 1 mạng LAN thì sẽ bị chặn ngay. VD Dùng nginx làm reserve proxy có thể lấy được ip của user trong header trường X-Forwarded-For
 
 
 
-# Bảo mật server XSS và blind ssrf
-Khi server có 1 api nhận input của user làm params để call 1 external api khác rất nguy hiểm. 
-Khi call external api, phải tính input của user là bất cứ thứ gì, kể cả dạng raw # % / hoặc dạng url encoded %23 %27. 
-
--> FE gửi cho BE phải nên encode nếu input của user là params.
-VD input "a#b"
-Nếu k encode sẽ gửi https://xxx/test?input=a#b => BE nhận input=a 
-Nếu encode sẽ gửi https://xxx/test?input=a%23b => BE nhận input=a#b
-=> Qtr là chặn ở BE vì hacker bỏ qua FE mà call luôn
-
--> BE nhận input từ FE rồi call api. 
-Nếu external api kiểm soát được thì ta thường encode như FE rồi gửi tiếp đi thôi.
-Nếu external api bên thứ 3, thì kb họ có hỗ trợ hay không vì nhiều lúc truyền dạng encode, họ lại xử lý như path bình thường. Ta kb api bên thứ 3 làm gì, chỉ có cách call thử thôi. Có thể nó call tới db hoặc lại gọi cho bên thứ 4 nữa thì sao.
-Tấn công bằng cách nối đuôi #: Khi server concat nối url input của user có # ở cuối chặn mọi thứ, sẽ call vào url hack, việc chặn # chỉ xử lý mỗi case này.
-
-VD1: API bên thứ 3 https://xxx/test/{id}?input=a 
-User truyền id là ..%2f..%2fotherdata%2fconfiguration# 
-Server gọi vào API bên thứ 3: https://xxx/test/..%2f..%2fotherdata%2fconfiguration#?input=a
-Thế quái nào mà họ xử lý call sang api này: https//xxx/test/../../otherdata/configuration nên bị sai
-VD2: Server định gọi API https://xxx/test?input={input}&showPassword=false
-Server nhận input xxx&showPassword=true# xử lý thành https://xxx/test?input=xxx&showPassword=true#&showPassword=false
-VD3: user input url để server gọi, kể cả k gây hại gì nhưng user input host:port và dựa vào thời gian server trả lời sẽ biết ip nào có port nào mở, từ đó tấn công kiểu khác.
-
-=> Giải pháp khi server nhận input r gọi external api:
-Validate input, nếu là Guid, weburl, email phải đúng format. Nếu chọn từ 1 list giới hạn giá trị thì phải check tồn tại trong list đó => cách best practice
-Server nhận userInput là a&b=1 thì đúng value là "a&b=1" chứ k xử lý sai
-Input của user là 1 giá trị như username hay gì thì chỉ cần encode url format và gửi tới external server là xong, test thử nếu xử lý sai như VD1 thì phải dùng cách khác. 
-Nhưng nếu input của user là 1 phần của url kiểu "../sites" thì phải để nguyên như vậy. Khi đó chỉ cần lọc # thành %23 để tránh tấn công đổi url thôi. Hoặc xoá mọi % nếu input k thể chứa %
-Sẽ có case k thể fix được như khi api nhận cả các ký tự # / %, thì tuỳ vào độ ảnh hưởng, có modify data nhạy cảm không, có lộ thông tin của user khác không mà xử lý.
-Nhiều case api bên thứ 3 xử lý lỗi r, nhưng vẫn nên chặn ở server của ta nếu tìm thấy để tránh đổi api bị sai.
-
-
-
+//!!!!!!!!
 # Dùng HTTP2 HTTP3
 HTTP1 thì mỗi yêu cầu là 1 connection TCP riêng.
 
@@ -62,98 +31,6 @@ QUIC cũng được dùng để đổi mạng trong điện thoại mà k bị l
 => Mặc định server thường dùng HTTP1.1, phải cấu hình thêm nếu muốn dùng HTTP2 HTTP3. 
 Cũng có thể dựng 1 proxy nginx server dùng HTTP2, khi đó sẽ k tận dụng hết dược sức mạnh của HTTP2: Client <-- HTTP2 --> Nginx <-- HTTP1.1 --> Server
 
-
-
-# Bảo mật server thông dụng
--> Self sign: là trang web sẽ dùng SSL với chứng chỉ tự ký, chưa đăng ký với CA. 
-Có thể dùng Let's script để có SSL free trong vài tháng. 
-Dùng openssl để có key và cert tự ký: openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 => Sinh key và cert có hạn 365 ngày
-
--> CSRF (Cross site request forgery) là 1 vector đánh lừa trình duyệt thực hiện hành động không mong muốn trong ứng dụng người dùng đã đăng nhập.
-VD: B là 1 người muốn phá hủy 1 dự án mà A đang làm. B đăng tải 1 bài lên diễn đàn www.webapp.com nhưng kèm theo 1 đoạn code kiểu: <img height="0" width="0" src="http://www.webapp.com/project/1/destroy">. A vào đăng nhập vào diễn đàn như thường lệ và xem bài viết của B. Khi đó, browser của A đã cố gắng load ảnh nhưng thực tế lại gửi câu lệnh destroy vào địa chỉ này để xóa project có id là 1. Access token hợp lệ vì người dùng đã đăng nhập. Chú ý là request có thể đến từ cùng trang web hoặc từ 1 trang web khác.
-VD biến thể tinh vi hơn: hacker dùng 1 url rất mượt mà kiếu: <img height="0" width="0" src="http://www.ahackersite.com/abc.jpg"/> => xong cấu hình lại máy chủ: Redirect 302/abc.jpg http://www.webapp.com/project/1/destroy"/> thì người dùng k thể phát hiện ra được. Vấn đề này là phía người làm web cần phải xử lý.
-
---> Chặn bằng CRSF token trong form ẩn:
-Trong mỗi phiên làm việc sinh ra duy nhất 1 crsftoken mới và FE cho vào form ẩn để gửi kèm. VD action gửi tiền:
-<form action="http://bank.com/transfer.do" method="post">
-  <input name="amount" value="100000"/>
-  <input type="hidden" name="csrf_token" value="{{csrf_token}}">
-  <button type="submit">Submit</button>
-</form>
-Khi thực hiện action, server check có csrftoken hợp lệ mới cho thực hiện là được. Hacker k biết giá trị trường này sẽ k thể CSRF được.
-
---> Chặn bằng SameSite option của cookie
-SameSite là attribute của cookie quyết định việc gửi cookie cho cross site, ta cần đảm bảo request chỉ đến từ web của ta. Có 3 giá trị:
-Strict: ngăn hoàn toàn việc gửi cookie trong mọi cross-site. Vd A đăng nhập rồi, xong vào website ở 1 link khác sẽ báo là chưa đăng nhập vì cookie k được gửi kèm
-Lax: Tương tự nhưng vẫn gửi được cross-site với request GET, request POST sẽ bị chặn => mặc định 
-None
-=> Vượt qua Lax bằng cách pop up website và thực hiện. Khi ta thấy duyệt 1 site mà pop up lên 1 site khác và thông tin cá nhân bị đổi là hiểu vấn đề.
-
---> Double Submit Cookie: cách tốt nhất
-Người dùng vào thì gửi 1 random val lưu vào cookie (tạo mới random) -> các form trong web sẽ có hidden field gắn giá trị random đó (k fix cứng) -> thực hiện request thì server check random val trong cookie với trong hidden field giống nhau là được.
-WebA call tới API webB thì nên nhớ dù gửi lại có cookie của webB thì vẫn k đọc được cookie đó là gì nên k thêm đúng trường như frontend chuẩn được (or dùng header X-CSRF-Token)
-
---> Package csurf trong nodejs: tạo middleware chống crsf attack. Cơ chế nó gắn 1 token gửi tới client để client gửi lại r check thôi
-Token csrf đảm bảo reset sau mỗi phiên dùng của user. Nếu là react phải cung 1 API lấy token về trước.
-
--> Dùng thư viện chống XSS: validator, xss, express-validator, xss-filter, DOMPurify. Bản chất nó sẽ validate regexp email, sanitize string, convert sang html entities.
-
--> SSL chống MITTM nhưng vẫn bị replica attack. 2 pp:
-- Timestamp: VD ta cấm 1 request được lặp lại trong quá 1p bằng cách lưu dấu thời gian lại r check. Chú ý xử lý múi giờ khác nhau. 
-Nhược điểm là vẫn replicate được trong 1p đó, an toàn hơn là dùng nonce
-- Nonce: Cơ chế chống replicate attack. Client gửi request tới server thêm nonce cho server lưu và nếu 1 nonce từng được sử dụng sẽ lỗi luôn.
-Có thể dùng sessionid nếu nó thay đổi ở mỗi request. Server nên lưu redis.
-
-Để tránh redis phải lưu nonce quá tải thì dùng kèm cả 2 cách là tốt nhất. Vd: signature = md5(uid=1001&stime=19h00&nonce=sessionId-123456 + key)
-Phía server: - Vẫn check timestamp chưa quá 1p
-- Check nonce chưa có trong redis ok
-- if(redis.hasKey('sessionid-123456')) { return false; } else { redis lưu lại nonce vói expire time là 1p }
-=> Nhờ v sau 1p nonce bị xóa thì redis sẽ k tốn
-
--> Signature Generation: VD MITM bắt request chuyển tiền và sửa payload người nhận thành hacker. Điều này thực tế khó xảy ra vì các app quan trọng như ngân hàng, github thường gửi thẳng OTP về điện thoại, google authen. Giải pháp là ký payload bằng khóa của người dùng thì nếu hacker đổi payload sẽ k khớp với sig nữa. 
-=> Cơ chế cặp khoá ở đây có thể làm như SSH key. 
-
--> BlackList: Cho người dùng hoặc IP nào spam vào blacklist cấm luôn, Vd khi 1 người dùng gửi quá nhiều request trong 10s liên tiếp. Có thể lưu vào redis chẳng hạn.
-WhiteList: cấm mọi thứ trừ các IP và user trong whitelist
-
--> Server-Side Request Forgery (SSRF): Hacker khiến server gọi các request tới chính nó.
-VD: Server có url http://localhost/admin cho người dùng input 1 url ảnh để nó fetch về. Hacker input luôn http://localhost/admin/delete, server lấy url về và thử fetch thì lại gọi hàm của chính nó. Do server tự gọi chính nó nên request thành công. 
-Tức hacker có thể khiến server gọi API thực hiện hành động gì tuỳ ý nó, hoặc khiến server gọi vào API khác mà nó có quyền để lấy data nhạy cảm về. Cuối cùng trả ra FE hiển thị dưới dạng ảnh nhưng thực chất là hiển thị thông tin nhạy cảm cho hacker.
-
-
-
-# Lỗi bảo mật input server
-Client lấy từ server 1 list url, r chọn 1 cái gửi cho server, server gọi url đó. 
-Éo ổn vì url có thể truyền sai rất nguy hiểm, cứ cho là truyền sai thì server k lấy được data. 
-Vd url http://xxxx:3000, hacker có thể truyền url và port ảo cho server gọi, dựa vào response time nhanh hay chậm mà đoán được server có port nào đang mở để tấn công.
-Do đó phải validate lại url truyền vào đúng là lấy từ list đó.
-
-
-
-# JSON Hijacking
-User vào web độc chứa mã: var script = document.createElement('script'); script.src = 'https://victim.com/data.json?callback=handleData'; document.body.appendChild(script); sẽ gửi request tới web đã đăng nhập fetch JSON data về. Fetch trực tiếp bị cản bởi SOP nên phải cho vào <script>
-Fetch bằng script k lấy được kết quả trả về, giải pháp là in ra rồi overwrite hàm in là được. VD overwirte hàm get của Object:
-var stolenData = {};
-Object.defineProperty(stolenData, "user", {
-  get: function() {
-    alert('Đã lấy cắp dữ liệu: user'); // Gửi tới server của hacker
-    return 'john_doe';
-  }
-});
-Trình duyệt hiện đại đã fix điều này. VD ta tạo ra function Array đè lên JS được, nhưng sẽ k hoạt động với dấu [], mà chỉ được với new Array(1,2,3) k thể json hijacking.
-Nhưng biến thể hiện đại đã cho phép overwrite mọi thứ với Proxy. VD: 
-Object.setPrototypeOf(__proto__, new Proxy(__proto__, {
-  has: function(target, name) {
-    alert(name.replace(/./g, function(c) {
-      c = c.charCodeAt(0);
-      return String.fromCharCode(c >> 8, c & 0xff);
-    }));
-  }
-}));
-
--> Cách chống: 
-- Server cần dùng CORS, hoặc cấu hình CSP chuẩn nếu cho phép web khác gọi API, <script> qua mặt SOP nhưng k qua được CSP => nên giờ ít gặp kiểu tấn công này.
-- Thêm for(;;;); vào đầu response, lúc xử lý thì lọc bỏ đi là được. Thêm bất cứ thứ gì miễn k thể parse JSON trực tiếp thành object là được.
 
 
 
