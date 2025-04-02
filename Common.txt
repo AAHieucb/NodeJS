@@ -130,4 +130,3 @@ Common (folder)
       BlobStorageService.cs
       TableStorageService.cs
 
-

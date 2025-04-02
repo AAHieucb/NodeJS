@@ -575,3 +575,5 @@ VD3: 2 máy chủ vật lý độc lập chạy server ở 2 ip khác nhau, lúc
 
 
 Có package google API convert text to speech
+
+-> Sharp: thư viện xử lý tối ưu hoá ảnh mạnh cho nodejs. Input ảnh vào và lấy ra đủ loại kích thước muốn blur hay chất lượng giảm như nào tuỳ

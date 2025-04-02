@@ -33,6 +33,12 @@ Trình duyệt tự động gửi preflight request như vậy khi FE và server
 
 
 
+# Other
+-> NodeJS xd trên nền tảng Javascript V8 Engine tốc độ cao, mã nguồn mở. Engine gồm heap và stack, tải NodeJS là tải engine này về
+Javascript engine là trình thông dịch mã js. Ngoài V8 thì cũng có các js engine khác như: SpiderMonkey(FireFox), Hermes(ReactNative), Chakra(IE), JavascriptCore(Safari).
+
+
+
 //!!!!!!!!
 # Config SSMS kết nối được với mssql nodejs trên máy win (hoạt động tốt năm 2022)
 Để tạo tài khoản mật khẩu và sử dụng: rightClick vào server -> property -> secure -> SQL Server and Window Authentication mode vì tk mk thì phải dùng mode SQL Server.
@@ -73,15 +79,6 @@ VD: ta nhìn ký hiệu Cache Level2 4-way => tưc cache level2 dùng 4 entry tr
 Với direct map ta chỉ có 1 cách để replace, còn với associative bắt đầu sinh ra nhiều PP để quyết định bỏ block nào khỏi cache khi 1 block mới cần được thêm vào. VD Dùng LRU là xóa bỏ cái k dùng đến trong ktg xa nhất => Nên dùng khi cần lưu lượng lớn data.
 
 
-
-# Other
--> NodeJS xd trên nền tảng Javascript V8 Engine tốc độ cao, mã nguồn mở. Engine gồm heap và stack, tải NodeJS là tải engine này về
-Javascript engine là trình thông dịch mã js. Ngoài V8 thì cũng có các js engine khác như: SpiderMonkey(FireFox), Hermes(ReactNative), Chakra(IE), JavascriptCore(Safari),..
-
--> Nếu tự implement cache key-val trong JS: 
-Nên dùng con trỏ yếu như WeakMap 
-Implement LRU cache, số lượng cố định, tràn tự xoá cái lâu nhất không dùng => tối ưu. Cũng có kiểu Least Frequently Used.
-
 -> Các loại cache có sẵn khác:
 --> Trong mạng internet cũng có DNS cache, ARP cache
 VD: CDN server cung static data cũng có cache. Khi user request data k có trong CDN cache thì CDN server mới request tài nguyên này trên server gốc để lưu vào Cache
@@ -95,4 +92,7 @@ Database cũng có plan cache, buffer pool lưu kết quả truy vấn, transact
 Distributed Cache thì cache là server độc lập, có thể 1, replica or nhiều server phân tán, giúp tăng hiệu suất, khả năng chịu lỗi.
 Họ có thể chia cache nhiều tầng: dùng In-Memory Cache làm level 1, Distributed Cache cho level2. Khi restart API server thì In-Memory Cache mất, Distributed Cache vẫn ok.
 
--> Sharp: thư viện xử lý tối ưu hoá ảnh mạnh cho nodejs. Input ảnh vào và lấy ra đủ loại kích thước muốn blur hay chất lượng giảm như nào tuỳ
+-> Nếu tự implement cache key-val trong JS: 
+Nên dùng con trỏ yếu như WeakMap 
+Implement LRU cache, số lượng cố định, tràn tự xoá cái lâu nhất không dùng => tối ưu. Cũng có kiểu Least Frequently Used.
+
