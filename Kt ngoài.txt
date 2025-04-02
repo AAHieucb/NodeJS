@@ -1,66 +1,32 @@
-# Hiểu về backdoor
--> Backdoor bắt thông tin của người dùng gửi về server của hacker, VD hoạt động dưới dạng 1 middleware bắt request của user.
-VD: ta sử dụng 1 gói npm phổ biến A, trong gói A lại dùng package B, trong B có C nhưng thư viện C là 1 thư viện có backdoor mà chưa ai biết đến của hacker. Ta chỉ nên sử dụng các gói nổi tiếng, mã nguồn mở, sử dụng các công cụ giám sát các gói tin gửi đến máy chủ có gì lạ không
-
--> Backdoor là 1 cổng không public cho phép 1 người xâm nhập vào hệ thống. Dev có thể chủ động tạo ra, nếu không có mục đích xấu thì họ làm vậy để có thể tự mình xâm nhập vào hệ thống sửa lỗi và bảo dưỡng. Backdoor cũng có thể do dev cùi tạo ra app có backdoor ngoài ý muốn. 
-Nhiều nơi, chính quyền còn bắt các nhà phát hành dịch vụ tạo ra các điểm truy cập là backdoor nhưng hợp pháp để nếu nhà nước dùng nó tìm ra tội phạm. Dev cũng có thể chủ ý cài backdoor xong lừa công ty đối thủ dùng nó. 
-Nhiều loại backdoor nguy hiểm có thể tự nhân bản hay tự che giấu. VD các backdoor chạy tiến trình trùng tên với các tiến trình trong hệ thống để không bị phát hiện
-=> Không sử dụng phần mềm không đáng tin, nên chạy ứng dụng test trong môi trường đóng và cung cấp ít quyền nhất có thể.
-
-VD backdoor sử dụng với mục đích tốt: ta dùng anti virus sao nó báo cập nhập được. Thực tế, nó được cài phần mềm gián điệp liên tục gửi thông tin về version hiện tại cho server từ xa và server sẽ check phần mềm đó cần update không và người dùng nhận dược thông báo nếu có. Tương tự các phần mềm check bản quyền họ sẽ có chức năng kiểm tra xem người dùng có dùng sp có bản quyền không. Đương nhiên việc kiểm tra bắt buộc phải gửi request lên server r thì phải dùng backdoor.
-Các website có thể có backdoor theo dõi người dùng đăng nhập và thực hiện hành động thông báo nào đó kiểu "Bạn vừa đăng nhập ở 1 thiết bị lạ". Cx là để bảo vệ khách hàng thôi.
-
-
-
 # So sánh về memory giữa các ngôn ngữ, k xét tốc độ
 Rust tokio vẫn là ngôn ngữ tốn ít memory nhất so với mọi ngôn ngữ khác
 NodeJS tốn ít memory hơn C# khi có 100 ngàn task đồng thời, nhưng khi lên mức 1 triệu task thì C# tốn ít hơn NodeJS, hiẹu năng cũng cao hơn. Do đó dự án lớn ưu tiên dùng C#.
-Go thì tốn memory ít khi chạy ít task nhưng số lượng task đồng thời tăng nhanh sẽ khiến nó tốn lượng memory tăng vọt. Python cũng vậy.
-
-
-
-# Phân biệt 5 lĩnh vực:
-Front end: HTML, CSS, Javascript / Bootstrap, Material UI / Angular React Vue/ Webpack
-Backend: PHP, Python, NodeJS, Ruby on Rails, ASP.NET, DJANGO, Java(Spring)
-Database: (RDBMS) MsSQL, MySQL, Postgre / (No SQL) MongoDB, Cassandra, Elasticsearch, Redis, CouchDB / (Graph) Neo4J, ArangoDB / (Message Queues) Kafka, SQS, ZeroMQ, RabbitMQ / (Cloud) Oracle, Firebase
-DevOps: (Infrasstructure) AWS, Azure, NGINX / (Automation) Ansible, Chef, Jenkins / (Virtualization) Docker, BladeCenter, VMware, Vagrant, Kubernetes
-Android: (Android) Java, Kotlin, SDK / (iOS) Objective-C, Swift / (Cross platform) React Native, Ionic, Xamarin, Unity, PAW / Qt, QML
+Go cũng tốn memory ít khi chạy ít task nhưng số lượng task đồng thời tăng nhanh sẽ khiến nó tốn lượng memory tăng vọt. Python cũng vậy.
 
 
 
 # Event loop của nodejs
-Event liên tục được bắt để add vào queue theo thứ tự: Timer event(timeout,interval) -> IO callback-> Idle(nội bộ k qt)-> Poll(Tìm kiếm sự kiện IO mới đang polling) -> Check(xử lý callback của setImmediate)-> Close Callbacks(xử lý các callback ngắt kết nối) -> quay lại Timer
+Event liên tục được bắt để add vào queue theo thứ tự: Timer event (timeout, interval) -> IO callback -> Idle (nội bộ k qt) -> Poll (Tìm kiếm sự kiện IO mới đang polling) -> Check(xử lý callback của setImmediate)-> Close Callbacks(xử lý các callback ngắt kết nối) -> quay lại Timer
 Khi có event -> gửi event cho C++ xử lý, xong thì sẽ gửi callback cần thực hiện vào event queue của JS. 
 
 VD: ta gọi setImmediate và setTimeout 0s cạnh nhau coi là cùng lúc, thì thứ tự sẽ phụ thuộc vào cái loop thêm event vào queue kia đang ở giai đoạn Check hay Timer. 
-Nếu a cho setImmediate và setTimeout 0s vào vào 1 luồng IO/callback là fs.readFile thì chắc chắn setImmediate thực hiện trước setTimeout. NN là vì nó sang giai đoạn Check trước giai đoạn Timer kể từ IO/callback. setImmediate xử lý khi event queue chạy vào Check, còn setTimeout xử lý trong giai đoạn Timer.
-VD: Khi loop hiện tại kết thúc, trước khi vòng sau bắt đầu sẽ thực hiện theo thứ tự: callback của process.nextTick(callback) -> promise -> callback của setImmediate(callback)
+Nếu cho setImmediate và setTimeout 0s vào 1 luồng IO/callback là fs.readFile thì chắc chắn setImmediate thực hiện trước setTimeout. NN là vì nó sang giai đoạn Check trước giai đoạn Timer kể từ IO/callback. setImmediate xử lý khi event queue chạy vào Check, còn setTimeout xử lý trong giai đoạn Timer.
+VD: Khi loop hiện tại kết thúc, trước khi vòng sau bắt đầu sẽ thực hiện theo thứ tự: callback của process.nextTick (callback) -> promise -> callback của setImmediate
 
--> Phân tích
+-> Mã nguồn core của nodejs: gồm 2 thành phần là javascript và C++ => C++ bao gồm các xử lý tới các thư viện bên ngoài quan trọng như V8, libuv.
 stack: nơi chứa các lệnh nó chạy theo thứ tự LIFO từ code của ta, thực hiện hàm lần lượt gọi là call stack
 heap: nơi chứa các kết quả tạm phục vụ cho việc thực thi các hàm trong stack. Heap càng lớn thì tính toán càng nhanh. Trong C/C++ thì dùng nó là cấp phát động 
-JS engine: là nền tảng thông dịch mã JS bao gồm heap và stack. NodeJS xây dựng trên JS engine là V8 Chorme
+js engine: là nền tảng thông dịch mã JS bao gồm heap và stack. NodeJS xây dựng trên JS engine là V8 Chorme
 event: là thứ chứa các thông tin về sự kiện chờ xử lý
 callback function và listener: là cái bind cùng với event, là cái sẽ được thực hiện khi event đó được gọi. 
-EventLoop: event loop tồn tại trong Ct vĩnh viễn miễn CT chưa bị tắt. 
-Mã nguồn core của nodejs: gồm 2 thành phần là javascript và C++ => C++ bao gồm các xử lý tới các thư viện bên ngoài quan trọng như V8, libuv.
+eventLoop: event loop tồn tại trong Ct vĩnh viễn miễn CT chưa bị tắt. 
 
--> Cơ chế: Mã nguồn của ta thực hiện tuần tự trong V8, gặp hàm thì đưa vào stack và thực hiện, dữ liệu hàm trả ra lưu vào heap. Nếu k có hàm bất đồng bộ thì sẽ thực hiện tuần tự r kết thúc. Nếu có hàm bất động bộ như callback, sự kiện,.. thì lời gọi đó như 1 request xử lý trong OS hoặc thực thi các WebAPI(quản lý bởi libuv của C++), lúc này stack kia vẫn thực hiện bth còn cái request kia đồng thời bị đẩy ra ngoài độc lập như v nhờ WebAPIs. Request này sẽ được core của CPU thực hiện, cái này do C++ dùng thread pool xử lý nên các tác vụ ở đây được xử lý đồng thời rồi mới đưa vào event queue(VD nếu ta dùng setTimeout 5s thì WebAPIs sẽ k gửi ngay mà 5s sau mới gửi hàm cho queue, nếu ta fetch API thì multithread của CPU sẽ xử lý). CV tốn thời gian đó sẽ được xử lý trên C++ Thread Pool, tức là xử lý multithread và còn cho phép ta tương tác với database, file system,.. Cái nào xong trước thì callback của nó sẽ được đưa vào event queue. Event loop kiểm tra nếu stack trống thì kiểm tra callback queue, stackqueue k có sự kiện thì loop vẫn có nhưng chả làm gì, nếu event queue có sự kiện thì nó sẽ xử lý. Nó sẽ xử lý yêu cầu và xác định hàm callback của yêu cầu đó gửi vào callstack để xử lý. Nếu callstack vẫn có dữ liệu thì eventqueue sẽ k làm gì cả, chờ stack thực hiện callback event đó xong trống mới vô đc, do đó nếu đưa vào event queue mà k đc thực hiện ngay vì trong queue đó có các thứ khác thì thời gian thực hiện có thể lâu hơn dẫn đến setTimeout chỉ là thời gian tối thiểu công việc chạy chứ kp thời gian chính xác.
+-> Cơ chế: Mã nguồn của ta thực hiện tuần tự trong V8, gặp hàm thì đưa vào stack và thực hiện, dữ liệu hàm trả ra lưu vào heap. Nếu k có hàm bất đồng bộ thì sẽ thực hiện tuần tự r kết thúc. Nếu có hàm bất động bộ như callback, sự kiện,.. thì lời gọi đó như 1 request xử lý trong OS hoặc thực thi các WebAPI(quản lý bởi libuv của C++), lúc này stack kia vẫn thực hiện bth còn cái request kia đồng thời bị đẩy ra ngoài độc lập như v nhờ WebAPIs. Request này sẽ được core của CPU thực hiện, cái này do C++ dùng thread pool xử lý nên các tác vụ ở đây được xử lý đồng thời rồi mới đưa vào event queue (VD nếu ta dùng setTimeout 5s thì WebAPIs sẽ k gửi ngay mà 5s sau mới gửi hàm cho queue, nếu ta fetch API thì multithread của CPU sẽ xử lý). CV tốn thời gian đó sẽ được xử lý trên C++ Thread Pool, tức là xử lý multithread và còn cho phép ta tương tác với database, file system,.. Cái nào xong trước thì callback của nó sẽ được đưa vào event queue. Event loop kiểm tra nếu stack trống thì kiểm tra callback queue, stackqueue k có sự kiện thì loop vẫn có nhưng chả làm gì, nếu event queue có sự kiện thì nó sẽ xử lý. Nó sẽ xử lý yêu cầu và xác định hàm callback của yêu cầu đó gửi vào callstack để xử lý. Nếu callstack vẫn có dữ liệu thì eventqueue sẽ k làm gì cả, chờ stack thực hiện callback event đó xong trống mới vô đc, do đó nếu đưa vào event queue mà k đc thực hiện ngay vì trong queue đó có các thứ khác thì thời gian thực hiện có thể lâu hơn dẫn đến setTimeout chỉ là thời gian tối thiểu công việc chạy chứ kp thời gian chính xác.
 VD cụ thể: ấn nút gọi setTimeout gọi hàm fetch API xong callback in ra màn hình. Compile đến sự kiện -> web APIs lưu nó -> emitter phát sự kiện -> web APIs bắt sự kiện -> đưa cho C++ thread pool xử lý, lúc này nó chả làm gì mà gửi luôn call back của sự kiện cho event queue. Trong lúc này Ct vẫn chạy đồng thời các sự kiện khác và bất đồng bộ thì vẫn đưa vào C++ thread pool xử lý, cái này với cái kia, cái nào xong trước thì gửi vào event queue trước thôi. Event loop lấy nó gửi sang stack. Stack thực hiện nó lại thấy 1 hàm bất đồng bộ là setTimeout lại gửi sang cho WebAPIs. Còn các hàm đồng bộ khác bên trong nó thì vẫn thực hiện tiếp. WebAPIs gửi nó cho thread pool xử lý. Sau ktg set Timeout pool đó sẽ đưa hàm callback của setTimeout vào queue r vào stack nếu stack trống r thực hiện -> thực hiện thì lại bắt gặp hàm fetch API -> lại đưa sang WebAPIs, nó lại đưa vào pool xử lý bất đồng bộ. Lúc này stack trống và có thể thực hiện tiếp các hàm khác. Pool thực hiện xong sẽ lại đưa callback của hàm đó vào event queue -> event loop lại lấy ra đưa vào stack để thực hiện nếu stack trống, lúc này sẽ thực hiện in ra màn hình
 
 
 
-# So sánh cache redis
-Redis có ACID và hiệu suất cao hơn db bth. Nó chỉ k thể thay thế các db như mysql vì k hỗ trợ truy vấn phức tạp như nối table, hay phân quyền bảo mật. 
-Chú ý nếu k cần 2 tính năng đó cũng k nên lưu hết data vào cache vì redis dùng main memory nhỏ dễ bị tràn. 
-
-Redis cung cấp nhiều tính năng như pub/sub, sự kiện, hỗ trợ kiểu dữ liệu phức tạp, có chế độ cluster, lưu data bền bỉ trong đĩa cứng, đơn luồng (nên mỗi lệnh là atomic)
-VD: Redis hỗ trợ HyperLogLog là một cấu trúc dữ liệu xác định xấp xỉ số lượng phần tử duy nhất trong một tập hợp lớn mà không cần lưu trữ tất cả các phần tử đó
-Memcached giống Redis nhưng thiếu nhiều tính năng, chỉ dùng với string, chỉ lưu trong memory restart là mất. Do đó nó cũng có hiệu suất cao hơn và tải công việc lớn hơn.
-=> Ứng dụng nhỏ dùng memcached là được. Còn cần linh hoạt hay tính năng nâng cao thì dùng redis.
-
-
-
+//!!!!!!!!
 # Config SSMS kết nối được với mssql nodejs trên máy win (hoạt động tốt năm 2022)
 Để tạo tài khoản mật khẩu và sử dụng: rightClick vào server -> property -> secure -> SQL Server and Window Authentication mode vì tk mk thì phải dùng mode SQL Server.
 Vào SQL bằng window authentication(là nơi tạo ra các user) -> security -> rightclick login -> new login -> SQL Server authentication -> gõ password; server roles -> mặc định có public tức là tài khoản cho mọi người -> ta nên dùng tài khoản cho người và chỉ có 1 user tên là sa có quyền sysadmin mà thoi; User mapping: chọn các database muốn truy cập bởi user này -> check các quyền db_datawriter và db_datareader là các quyền cơ bản nhất đọc và viết với database, để 2 quyền đó hoạt động thì phải là chủ của database tức check thêm db_owner(k check sẽ lỗi); Status: grant và enabled; 

@@ -502,3 +502,76 @@ Dùng top-level statement fetch api được.
 node --run <tên command script trong package json> => giúp chạy script trực tiếp trong cmd
 
 -> for await (const value of promises) { console.log(value); } => chờ lần lượt từng promies thực hiện xong
+
+
+
+# Scaling:
+
+# Hệ phân tán nhiều server thì query cái nào
+Vấn đề muôn thuở của hệ phân tán: Khi dùng distributed cache, hoặc có nhiều api server và mỗi server dùng 1 cache riêng
+Client query 1 server cache lưu có data rồi nhưng request sau query server khác không có phải get lại dẫn đến 1 data lưu ở nhiều server. Do đó nên dùng pp Hashing hoặc Sticky Sessions thay vì dùng Round Robin, Least Connections. Hashing sẽ hash thông tin client để lấy ra 1 server khiến cho mọi request của client luôn tới 1 server duy nhất.
+
+Dùng Hashing gặp vấn đề khi server list biến động, lúc nào client cũng gọi vào server đó kể cả khi nó sập hay bị xoá rồi dẫn đến lỗi. Do đó họ dùng:
+- Consistent Hashing: 
+Dùng 1 hàm hash an toàn cho id của node và id của data record. Ra 1 giá trị thì nhét vào 1 vòng tròn. Mỗi key sẽ gắn với node gần nhất kề nó theo chiều kim. Vd:
+0 ---- A ---- key1 ---- B ---- key2 ---- E ---- key3 ---- C ---- key4 ---- D ---- 2^32-1
+Key 1 gắn node B, key 2 gắn node E. Nếu ngừoi dùng muốn query data có key 4 thì họ query vào cache server D. Thêm xoá server không sợ lỗi mà lại nhanh.
+- Rendezvous Hashing: 
+Muốn tìm node nào lưu record hiện tại, ta tính weight của data với từng node: weight(key, node) = hash(key of record + node_id) => Node có giá trị cao nhất sẽ lưu record đó.
+
+
+
+
+-> Nhược điểm của dedicated server là k thể horizontal scaling, buộc phải mua thêm server ở nơi khác để scaling.
+
+-> VD mua 1 VPS trên digital ocean và chạy server. Bh muốn scale lên 2 server ở Sing và Mỹ. 
+Các bước tối thiểu phải xử lý là:
+Dùng load balancer phân phối tải, ghi log các thứ. 
+Cấu hình DNS trỏ tới từng server hoặc trỏ tới 1 load balancer nếu dùng load balancer.
+Xử lý fail over, 1 server sập sẽ đổ traffic vào server còn lại
+
+-> Cách đơn giản hơn là dùng Cloudflare proxy làm load balancer. Nó có hàng trăm điểm phân phối toàn cầu, request tới nó trước rồi tự phân phối đến server gần nhất 
+Nó cũng có sẵn cache.
+
+-> Load balancer phân phối tải mà lại có 1 endpoint thì các request ở xa load balancer vẫn bị lâu như thường. Thực tế ta đang hiểu sai vai trò của load balancer. Nếu chỉ có vài khu vực, môi khu có 1 server thì chả cần LB làm gì. LB chỉ dùng khi 1 khu vực có nhiều server và cần route trong khu vực đó. Tức ta đã tăng số lượng server ở khu vực đó để nó chịu tải tốt hơn. 
+Chứ ít server thì dùng DNS-based routing trỏ đến các server được đã là đủ r.
+
+-> Nếu chỉ dùng 1 db duy nhất (ở sing) thì mọi request tới server ở Mỹ cũng cần gọi vào db ở sing để lấy bị lâu. 
+Read replica => ghi ít thì ok vì chỉ có 1 db ghi ở xa sẽ lâu khi update. 
+Chia độc lập customer => đảm bảo mọi user ở Mỹ sẽ kbh liên can đến data ở Sing. Nếu user đi từ Mỹ qua Sing thì query vẫn về Mỹ và bị lâu. 
+Multi-master replica => đọc ghi đều nhanh nhưng cấu hình phức tạp. Phải có cơ chế fail over, cơ chế đồng bộ giữa mọi database, cơ chế xử lý conflict. VD dùng safe writes để đảm bảo dữ liệu ghi được xác nhận từ ít nhất 2 node trước khi commit.
+Có thể dùng database proxy để điều hướng tới db gần nhất, két hợp cache.
+=> Thường công ty lớn dùng kiểu chia customer độc lập chứ multi-master rất ít khi dùng. Vì đọc ghi nhanh từ mọi nơi trên thế giới mà update nhiều dễ conflict thì rất hiếm.
+
+
+- Dự án k nặng thì deploy luôn database và server chung 1 VPS cho nhanh.
+
+
+
+- Trong hệ thống lớn, khi nhiều service độc lập gọi lẫn nhau, mỗi log đến từ 1 request sẽ có cùng 1 traceId. 
+TraceId duy nhất của 1 request giúp debug dễ hơn, thậm chí được duy trì dù gọi qua nhiều services khác nhau. 
+Khi nhận 1 request và ghi log, sẽ lấy traceid được lưu trong request đó. Nếu k có mới tạo 1 Guid mới.
+
+
+
+# NodeJS
+-> Vấn đề về process và hiệu suất
+Trong C# khi tạo 1 process chạy độc lập từ 1 process khác, ta k thể kiểm soát bộ nhớ max mà 1 process có thể sử dụng
+
+--> Dùng PM2:
+Dùng PM2 chạy nhiều instance song song tận dụng đa lõi CPU, nếu máy đã lõi mà chạy node bình thường thì hiệu suất PM2 sẽ cao hơn.
+Tự động restart instance khi bị crash. Khi 1 instance gặp sự cố thì các instance khác vẫn xử lý giúp giảm downtime. Tài nguyên độc lập k chia sẻ.
+Kiểm soát tài nguyên thoải mái. VD pm2 start app.js --name "my-app" --max-memory-restart 100M => giúp 1 instance dùng max bộ nhớ 100MB, nếu quá sẽ tự restart lại. Quản lý log, tự động cân bằng tải giữa các instance, giám sát hiệu suất.
+
+Nodemon chỉ giúp đổi code thì tự restart trong môi trường dev, dùng PM2 thì k cần nodemon nữa và dùng cho prod được.
+
+Phân biệt PM2 là dùng để tối ưu hiệu suất cho 1 máy. Còn Nginx cấu hình load balancer giữa các server độc lập. 
+VD1: máy local chạy 2 instance PM2 tại cùng 1 port thì nginx chả có vai trò gì ở đây
+VD2: máy local chạy 2 instance server tại 2 port trên cùng 1 máy thì là 2 ứng dụng độc lập, nginx có thể phân phối tải cho ứng dụng nào xử lý. Nhưng điều này k đem lại lợi ích gì vì khả năng xử lý k tăng, PM2 đã tự load balancer rồi.
+VD3: 2 máy chủ vật lý độc lập chạy server ở 2 ip khác nhau, lúc này là mở rộng chiều ngang thì nginx có thể load balancing giữa các máy là đúng vai trò của nó.
+
+---> Cluster mode là gì? Là kiểu chia ra nhiều cụm instance không chia sẻ tài nguyên. Nếu duy trì biến toàn cục dùng chung các thứ thì k dùng cluster mode
+
+
+
+Có package google API convert text to speech

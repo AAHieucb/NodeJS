@@ -199,3 +199,78 @@ Nếu 1 shard bị sập, mongodb tự động phát hiện dựa vào cơ chế
 Khi query db, query routing của mongodb tự check để biết shards nào có data mà query vào. Nếu query chỉ 1 shard, tốc độ sẽ nhanh hơn query nhiều shards.
 
 
+
+
+
+
+# 3 cách connect db:
+- K nên tạo 1 db connection global duy nhất dùng suốt dự án. Vì connection có thể đóng vì nhiều lý do mà ko biết như timeout hay lỗi mạng. Kể cả có setting reconnect hay sự kiện disconnect để gọi connect lại cũng k nên dùng
+- Mỗi lần query sẽ khởi tạo connection và đóng ở cuối. Duwj asn lowsn
+- Connection pool là giải pháp tối ưu, query xong tự trả vào pool để tái sử dụng, setting config autoReconnect reconnectTries, tự đảm bảo connection k bị mất khi k sử dụng.
+Néu server khởi động thành công mà connect db lỗi thì nên dừng ct, có thể throw error để dùng.
+
+
+
+
+# Mongodb
+-> Comment Schema: Cần thiết kế sao cho lấy comment phân trang tốc độ cao theo từng level, ở mỗi level lại lấy phân trang tốc độ cao cho từng level con
+
+- Thuật toán nested comment của joey celko: https://www.youtube.com/watch?v=PE6f66u7KBQ&t=1s
+Add: Comment lưu left, right, parentid. Left right đánh số theo prefix traversal
+Add 1 comment mới toanh thì left = max right hiện tại của sản phẩm, right = left + 1
+Add 1 comment reply phải update left + 2 mọi bản ghi có left > parent left, update right + 2 mọi bản ghi có right > parent right
+=> Số lượng không nhiều vì chỉ thao tác trong phạm vi nested 1 comment
+
+Search comment con từ parentcommentid. VD Search 1 comment là con của comment [2,8] ta chỉ cần tìm comment có left > 2 và right < 8. Có thể lưu thêm level để lấy từng level hoặc lấy hết con
+
+Khi xóa 1 comment, ta có thể dùng trường isDeleted. Với hệ thống lớn, ta nên move qua 1 db mới cho các tác vụ cần hoàn tác hay restore.
+Xóa comment có left >= comment left, right =< comment right
+Update mọi comment có left > comment right với 1 lượng trừ đi width = right - left + 1. Tương tự update right > comment right với - width = right - left + 1
+
+- ref tới "Project / BlogWeb"
+1 cách đơn giản hơn là comment ta chỉ lưu thêm parentid với timestamp. Khi đó việc lấy và thêm comment rất đơn giản vì chỉ thao tác với 1 bản ghi. Việc delete comment nếu làm 1 bản ghi sẽ bị lưu thừa data, nên nếu xóa tất cả phải for loop rất mệt
+=> Cái này phù hợp với hệ thống nhỏ như comment của shopee chỉ có max 1 level. Còn thuật toán joey celko có thể nói là độ phức tạp tương đương nhưng phù hợp hệ thống lớn khi có thể lồng rất nhiều cấp độ. Có thể truy vấn 1 phát mọi nested sets con luôn chứ k cần truy vấn từng cấp độ
+
+- Cải tiến: https://www.youtube.com/watch?v=i8WLvdbF_W8&list=PLw0w5s5b9NK5SUfrJ8rjIMYitT9K8WB8W&index=48
+Có 1 pp khác cải tiến đơn giản hơn là dùng slug (là id), parentslug và timestamp. slug của 1 comment = "slug comment cha của cha/slug comment cha/slug comment hiện tại", cứ lồng vào thì slug lại lồng tiếp
+Khi thêm sẽ lồng slug cha vào con đơn giản. Có thể lấy tất cả comment con của 1 comment cha với RegExp "slug cha/*", hoặc con ở cụ thể cấp độ 2 với "slug cha/*/*$". Khi xóa cũng dùng RegExp đơn giản, có thể đánh index.
+
+Để phân trang: Các giải pháp trước ta có thể phân trang theo kiểu chỉ phân trang các comment ở node gốc. Còn con của 1 comment có thể lấy hết mọi cấp hoặc lấy hết theo từng level, hoặc phân trang ở từng level.
+
+- Subset pattern
+Ở mỗi database bài viết gốc, ta lưu 1 trường topFiveComment, khi người dùng xem thêm mới load cho họ thôi từ 1 bảng Comment độc lập và chắc chắn bảng đó phải đánh index rồi
+Để có topFiveComment, mỗi comment sẽ lưu thêm score, với mỗi request tương tác với comment đó càng nhiều sẽ cộng score lên và ưu tiên show ra
+
+- Bucket pattern:
+Giải pháp tối ưu hóa bản ghi vì 1 bản ghi có thể dài tới 16MB nên việc lưu 1 comment = 1 record rất tốn. Ta nên lưu 1 records = 1 list comment con của 1 comment trong 1 sản phẩm với giới hạn 1000.
+VD bucket có parent id là null sẽ chứa comment gốc. Bucket có parent id là 1 comment sẽ chứa 1000 comment con của comment đó, nếu lớn hơn 1000 sẽ lưu ở bucket có parentid tương tự nhưng sang page 2.
+Khi thêm chỉ update vào bucket đơn giản. Khi lấy sẽ lấy theo bucket parentid và page. Khi xóa thì cần xác định rõ bucketid là gì và comment nào, nên nhớ để xóa thì người dùng phải chọn nó đồng nghĩa frontend phải truyền lại bucketid cho backend xóa chứ backend k thể search trong toàn bộ bucket được.
+
+Chính vì comment k có filter phức tạp nên làm v là ổn. Trong thực tế, việc thiết kế phụ thuộc vào frontend sẽ lấy nó như nào để tối ưu. VD Nếu frontend lấy 1 comment thì cần lấy hết các comment con mọi cấp độ thì dùng joey celko là chuẩn nhất.
+
+-> Notification system: Giải quyết vấn đề 1 triệu shop gửi notification, 1 triệu user nhận được notification cùng lúc. Tốc độ cao và nhanh. Chắc chắn phải push notification tới user. Chỉ có MQ là đảm bảo tốc độ cao và không mất dữ liệu, không duplicate dữ liệu, đúng thứ tự.
+
+Shop -> new product -> MessageQueue 1 -> User id từ 0 tới 1000
+                    -> MessageQueue 2 -> User id từ 1000 tới 2000
+=> Phân chia đảm bảo tốc độ push notification đạt tối đa khi có nhiều user
+
+Phân tích:
+Shop -> new product -> system.center.notification -> MQ -> 1,000,000 users
+
+Về business: Notification center là database sẽ lưu tất cả notification của mọi shop. Trong 1 triệu user, user nào thường xuyên online, ta sẽ push notification tới cho họ. User nào online ít thì khi nào online, họ phải tự vào notification center mà pull về. Riêng trường hợp mã giảm giá hay tin quan trọng, sẽ phải push tới mọi user.
+
+CrawlJob: Tại sao lại dùng 1 crawljob lấy data từ db của system.center.notification gửi tới MQ mà không gửi mẹ từ shop tới MQ luôn? 
+Ta cần tính toán tới việc phân tác các case khi crash hệ thống. Trong trường hợp này cần đảm bảo khi 1 shop gửi notification tới user thành công, chắc chắn notification đó k bị mất khi crash hệ thống, nếu crash thì phải là chưa gửi chứ không phải là gửi thành công nhưng lại crash. Bởi vì việc gửi tới 1 triệu user phải làm từ từ, không thể chờ gửi hết 1 triệu mới báo thành công được. Do đó thành công ở đây là lưu thành công vào system.center.notification. Sau đó cần có 1 crawljob lấy từ db ra gửi vào MQ. 
+Lại phải đảm bảo ở từng bước này, hệ thống crash tiếp nhưng khi khởi động lại vẫn chạy tiếp từ chỗ cũ. CrawlJob chỉ cần check trường isSent = false thì gửi tiếp thôi.
+
+Việc phân phối trực tiếp từ system.center.notification tới database của user, so với gửi vào MQ và MQ gửi tới 1 triệu user có điểm lợi gì?
+MQ cung khả năng đảm bảo tin nhắn không bị mất, mỗi thông báo chắc chắn sẽ được gửi đi ngay cả khi hệ thống lỗi. Ví dụ ta đang chạy for loop duyệt 1 triệu user để update db, chẳng may sập server phát sẽ mất. Để đảm bảo thì mỗi lần gửi user ta lại phải update database là đã gửi rồi, khởi động lại hệ thống sẽ check k gửi lại user đó nữa sẽ rất phức tạp nếu tự impleemnt. Nhưng MQ thì sập, khởi động lại sẽ tiếp tục từ chỗ dừng lại lần trước.
+MQ cung khả năng xử lý tùy biến, ta có thể thêm workder để xử lý tin nhắn từ queue mà không cần thay đổi cơ sở hạ tầng của MQ. Kiểm soát số lượng tin nhắn worker xử lý song song, VD nếu CPU tốn quá thì giảm đi 1 chút để hoạt động trơn tru. Tách biệt quá trình tạo thông báo và gửi thông báo. Nếu server crash, MQ vẫn hoạt động bth, vẫn gửi tiếp các tin nhắn trong queue tới user.
+MQ cung khả năng xử lý song song, nên nhớ chạy for loop sẽ xử lý tuần tự, k dùng MQ ta sẽ phải tự implement bất đồng bộ việc này khá mệt
+
+Implement database cho noti.center -> implement MQ -> implement crawljob -> Implement server gửi từ MQ sang db user
+
+-> Aggregate trong mongodb:
+Nó giúp combine lấy bất thứ gì từ 1 databasse mongodb, lấy mạnh giống như làm với graphql v
+
+

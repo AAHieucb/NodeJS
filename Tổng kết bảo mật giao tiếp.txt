@@ -252,3 +252,16 @@ Object.setPrototypeOf(__proto__, new Proxy(__proto__, {
 - Server cần dùng CORS, hoặc cấu hình CSP chuẩn nếu cho phép web khác gọi API, <script> qua mặt SOP nhưng k qua được CSP => nên giờ ít gặp kiểu tấn công này.
 - Thêm for(;;;); vào đầu response, lúc xử lý thì lọc bỏ đi là được. Thêm bất cứ thứ gì miễn k thể parse JSON trực tiếp thành object là được.
 
+
+
+# Hiểu về backdoor
+-> Backdoor bắt thông tin của người dùng gửi về server của hacker, VD hoạt động dưới dạng 1 middleware bắt request của user.
+VD: ta sử dụng 1 gói npm phổ biến A, trong gói A lại dùng package B, trong B có C nhưng thư viện C là 1 thư viện có backdoor mà chưa ai biết đến của hacker. Ta chỉ nên sử dụng các gói nổi tiếng, mã nguồn mở, sử dụng các công cụ giám sát các gói tin gửi đến máy chủ có gì lạ không
+
+-> Backdoor là 1 cổng không public cho phép 1 người xâm nhập vào hệ thống. Dev có thể chủ động tạo ra, nếu không có mục đích xấu thì họ làm vậy để có thể tự mình xâm nhập vào hệ thống sửa lỗi và bảo dưỡng. Backdoor cũng có thể do dev cùi tạo ra app có backdoor ngoài ý muốn. 
+Nhiều nơi, chính quyền còn bắt các nhà phát hành dịch vụ tạo ra các điểm truy cập là backdoor nhưng hợp pháp để nếu nhà nước dùng nó tìm ra tội phạm. Dev cũng có thể chủ ý cài backdoor xong lừa công ty đối thủ dùng nó. 
+Nhiều loại backdoor nguy hiểm có thể tự nhân bản hay tự che giấu. VD các backdoor chạy tiến trình trùng tên với các tiến trình trong hệ thống để không bị phát hiện
+=> Không sử dụng phần mềm không đáng tin, nên chạy ứng dụng test trong môi trường đóng và cung cấp ít quyền nhất có thể.
+
+VD backdoor sử dụng với mục đích tốt: ta dùng anti virus sao nó báo cập nhập được. Thực tế, nó được cài phần mềm gián điệp liên tục gửi thông tin về version hiện tại cho server từ xa và server sẽ check phần mềm đó cần update không và người dùng nhận dược thông báo nếu có. Tương tự các phần mềm check bản quyền họ sẽ có chức năng kiểm tra xem người dùng có dùng sp có bản quyền không. Đương nhiên việc kiểm tra bắt buộc phải gửi request lên server r thì phải dùng backdoor.
+Các website có thể có backdoor theo dõi người dùng đăng nhập và thực hiện hành động thông báo nào đó kiểu "Bạn vừa đăng nhập ở 1 thiết bị lạ". Cx là để bảo vệ khách hàng thôi.

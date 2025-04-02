@@ -1,0 +1,4 @@
+# Package k dùng
+daemon: 1 package biến script thành chương trình dạng daemon. 
+
+
