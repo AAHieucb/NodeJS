@@ -26,6 +26,13 @@ VD cụ thể: ấn nút gọi setTimeout gọi hàm fetch API xong callback in 
 
 
 
+# Method OPTIONS 
+Khi client gửi OPTIONS tới server, server phản hồi với thông tin chứa các HTTP Method mà client có thể sử dụng cho url đó. 
+Trình duyệt tự động gửi preflight request như vậy khi FE và server ở 2 domain khác nhau để kiểm tra xem server có cho phép yêu cầu từ origin đó k, hoặc khi dùng method k an toàn như PATCH để update data. Cùng origin sẽ k gửi.
+Đây là mặc định bảo mật của trình duyệt, ta cũng k cần code thêm gì ở server. Server tự xử lý và trả về các header cors như Access-Control-Allow-Origin, Access-Control-Allow-Methods, Access-Control-Allow-Headers. Nó giúp chặn các request không mong muốn mà server k chấp nhận.
+
+
+
 //!!!!!!!!
 # Config SSMS kết nối được với mssql nodejs trên máy win (hoạt động tốt năm 2022)
 Để tạo tài khoản mật khẩu và sử dụng: rightClick vào server -> property -> secure -> SQL Server and Window Authentication mode vì tk mk thì phải dùng mode SQL Server.
@@ -64,14 +71,6 @@ Cache dùng SRAM tốc độ cao hơn và có giới hạn vì giá đắt.
 VD: one way tức là số lượng set bằng số lượng entry và giống Direct map
 VD: ta nhìn ký hiệu Cache Level2 4-way => tưc cache level2 dùng 4 entry trong 1 sets, level 1 k có thông tin nhưng nếu miss thì sẽ search trong level2
 Với direct map ta chỉ có 1 cách để replace, còn với associative bắt đầu sinh ra nhiều PP để quyết định bỏ block nào khỏi cache khi 1 block mới cần được thêm vào. VD Dùng LRU là xóa bỏ cái k dùng đến trong ktg xa nhất => Nên dùng khi cần lưu lượng lớn data.
-
-
-
-# Method OPTIONS 
-Khi client gửi OPTIONS tới server, server phản hồi với thông tin chứa các HTTP Method mà client có thể sử dụng cho url đó. 
-Trình duyệt tự động gửi preflight request như vậy khi FE và server ở 2 domain khác nhau để kiểm tra xem server có cho phép yêu cầu từ origin đó k, hoặc khi dùng method k an toàn như PATCH để update data. Cùng origin sẽ k gửi.
-Đây là bảo mật mặc định của trình duyệt, server phải xử lý và trả về các header cors như Access-Control-Allow-Origin, Access-Control-Allow-Methods, Access-Control-Allow-Headers. Nếu không sẽ báo lỗi cors. Nó giúp ngăn chặn các request không mong muốn từ các nguồn k đáng tin khi tự động gửi request đến 1 server k chấp nhận kiểu request đó.
-=> Đó là bản chất của same site policy. Khi cài package cors thì nodejs server tự xử lý điều đó cho ta thôi.
 
 
 
