@@ -1,21 +1,12 @@
 # Basic
--> Có sẵn cli: node -> http.STATUS_CODES / Date.now()
-Để update tool nvm quản lý phiên bản: ta phải tải lại từ github về file setup.exe và chạy mới lại
-Chạy ứng dụng license có thể dùng: MIT, ISC, GPL-3.0
-Install chuẩn phiên bản: npm install package-name@version --save
-Dùng import require cần tránh circular dependencies
+Luôn dùng nvm: Để update nvm lên version mới, phải tải lại từ github về file setup.exe và chạy mới lại
 
--> Dùng node-express-boilerplate => tạo dự án đủ mọi thứ
-
--> npm i -g http-server dựng http server nhanh serve file: 
-Trỏ đến đường dẫn thư mục muốn chạy http-server -> http-server -c-1 (-c-1 để disable cache) => thêm file html vào thư mục để serve nó
-
--> file.mjs là ES module js
-file.cjs là file dùng common js
-VD trong nodejs dùng .js sẽ tự dùng commonjs, muốn dùng .js là es module phải thêm type module. Nhưng nếu dùng đúng đuôi file sẽ tự dùng chuẩn loại
+-> node cli: 
+node -> http.STATUS_CODES / Date.now()
 
 
 
+//!!!!!!!!
 # Dùng stream
 Cơ chế: chia file thành từng chunks và xử lý luôn, còn dùng bth sẽ load tất cả vào bộ nhớ và xử lý 1 lúc => nên dùng stream mọi lúc, trừ khi có nhu cầu đọc toàn bộ file 1 lúc
 Với các file lớn mấy GB, dùng stream xử lý giúp tối ưu bộ nhớ gấp trăm lần và tốc độ cũng nhanh hơn, k bị tràn buffer.
@@ -81,6 +72,9 @@ Còn có winston-elasticsearch để kết hợp nó với tool elasticsearch (c
 -> Dùng module-alias: import module relative url gọn
 
 -> Dùng Joi: thư viện validate type của object, email, password, not null => ref tới "Projects / BlogWeb"
+
+-> -> npm i -g http-server dựng http server nhanh serve file: 
+Trỏ đến đường dẫn thư mục muốn chạy http-server -> http-server -c-1 (-c-1 để disable cache) => thêm file html vào thư mục để serve nó
 
 
 
@@ -377,6 +371,8 @@ VD với server bth test sẽ thấy nó cho average 900 request trong 1s, tức
 Dùng module.exports = { x: new Class() } + require ở nhiều file khác sẽ chỉ chạy qua file 1 lần rồi lưu object vào cache. Dù file có thay đổi động thì cũng k chạy lại. Cái export ra dùng như 1 singleton.
 Khi dùng async để khởi tạo biến, logic chạy như bth. Hàm async chạy xong thì require dùng dược biến, chưa chạy xong thì k dùng được.
 
+Dùng import require cần tránh circular dependencies
+
 -> Code
 const x = new Class(); 
 module.exports = x; hoặc module exports = { x }; hoặc module.exports = { x: new Class() };
@@ -502,6 +498,11 @@ Dùng top-level statement fetch api được.
 node --run <tên command script trong package json> => giúp chạy script trực tiếp trong cmd
 
 -> for await (const value of promises) { console.log(value); } => chờ lần lượt từng promies thực hiện xong
+
+-> file.mjs là ES module js
+file.cjs là file dùng common js
+VD trong nodejs dùng .js sẽ tự dùng commonjs, muốn dùng .js là es module phải thêm type module. Nhưng nếu dùng đúng đuôi file sẽ tự dùng chuẩn loại
+
 
 
 

@@ -1,3 +1,4 @@
+//!!!!!!!!
 # Basic
 1 Cloud Server có nhiều Cluster, 1 cluster có nhiều database bên trong, 1 database bên trong có nhiều collections tên khác nhau, mỗi collection có nhiều documents bên trong. 
 Còn model hay schema trong code là tùy vào thư viện như mongoose sử dụng để định nghĩa ra cấu trúc của 1 collection.
