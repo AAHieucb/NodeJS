@@ -1,5 +1,5 @@
 # SSH
-Khác với SSH TLS thì SSH dùng cặp khóa công khai id_rsa.pub và khóa riêng id_rsa. Thường 1 máy chỉ cần 1 cặp này duy nhất thôi.
+Khác với TLS thì SSH dùng cặp khóa công khai id_rsa.pub và khóa riêng id_rsa. Thường 1 máy chỉ cần 1 cặp này duy nhất thôi.
 SSH dùng để xác thực, dùng cặp khóa SSH để login mà k cần nhập mk mỗi lần (github).
 SSH dùng để chuyển file 2 máy, máy này call tới máy khác để thực thi lệnh, tạo đường hầm bảo mật mã hóa kết nối khi truy cập từ xa.
 
@@ -32,9 +32,8 @@ Việc tạo khóa chung là thuật toán xdùng trong nhiều hệ thống, kp
 -> SSH chỉ giúp connect vào terminal của 1 máy khác, nếu cần vào giao diện phải dùng giao thức RDP. 
 Máy server phải hỗ trợ SSH ở 1 port thường là cổng 22 để client connect vào. Chú ý cấu hình tường lửa.
 SSH k thể thay thế SSL mã hóa giao tiếp giữa client-server. SSL dùng chứng chỉ số cấp bởi CA. Còn SSH kết nối chậm, k hỗ trợ mã hóa cho https, api mà thường dùng cho kiểu connect git, tunneling.
-
 Lệnh: ssh <username>@<serverip> để connect vào server. Nếu setup pivkey r sẽ tự dùng, nếu k sẽ phải nhập mk.
-Extension Remote SSH của VSC có thể connect vào server mở  thư mục ngay trên VSC hiện tại.
+Extension Remote SSH của VSC có thể connect vào server mở thư mục ngay trên VSC hiện tại.
 
 
 
@@ -42,12 +41,12 @@ Extension Remote SSH của VSC có thể connect vào server mở  thư mục ng
 Là giao thức connect vào server và dùng cả giao diện.
 Giao thức này sẽ connect client vào cổng 3389 của server. Cơ chế thì giống SSH, vẫn nhập mk hoặc dùng 1 pivkey trong máy để xác thực.
 VD 1 VM server chạy trên máy window phải hỗ trợ RDP cho client connect chứ hỗ trợ SSH thôi thì chỉ vào được terminal của server đó.
-Phải dùng qua ứng dụng như Remote Desktop Connection, VSC hiện k có extension nào hỗ trợ RDP.
+Phải dùng qua ứng dụng như Remote Desktop Connection, VSC k có extension nào hỗ trợ RDP.
 
 
 
 # SSL/TLS
--> VD có 1 server cung API, nhiều server khác có thể gọi tới API server đó lấy data. Tất cả server đều do ta quản lý.
+VD có 1 server cung API, nhiều server khác có thể gọi tới API server đó lấy data. Tất cả server đều do ta quản lý.
 
 Cơ chế y hệt browser tương tác với web server, phải host FE lên để browser lấy về, host BE để FE tương tác. Khi đó chứng chỉ TLS được cấp bởi CA đáng tin cậy cho cả FE và BE. Nhưng ở đây chỉ có các server do ta tự quản lý nên phải tự tạo CA, tự tạo chứng chỉ vĩnh viễn cho các server xác thực nhau.
 Có 2 loại: chỉ server có chứng chỉ TLS để client xác thực server; cả client server đều có chứng chỉ (mTLS - Mutual TLS). Ở đây ta k muốn bất cứ client nào cũng gọi được mà chỉ 1 vài server chỉ định thôi nên dùng mTLS, cả 2 bên phải xác thực lẫn nhau mới được gọi. Còn web bth là TLS 1 chiều.
@@ -100,6 +99,7 @@ VD nếu client set rejectUnauthorized false thì client cũng k check cert đ�
 
 
 
+
 # GPG trong git
 Cơ chế tạo 1 cặp key trong máy, máy lưu pivkey và dùng để ký commit, pubkey đăng lên git để xác thực chữ ký là của người đó và hiện "Verified".
 Nó cũng có thời hạn như bth. Xác minh rằng 1 người tạo 1 commit sẽ k thể chối việc đã tạo nó.
@@ -107,9 +107,6 @@ Nó cũng có thời hạn như bth. Xác minh rằng 1 người tạo 1 commit 
 
 
 ## VSC
-
-
-
 # Dùng LiveShare
 Giúp nhiều người cùng vào code trên VSC, làm việc nhóm, tích hợp chat, audio, phân quyền, share terminal thời gian thực. 
 Tắt máy là tắt share
@@ -125,25 +122,22 @@ Là cơ chế giúp 2 thiết bị truyền tải data an toàn trong 1 tunnel �
 
 
 
-
-
-
-# Bảo mật server XSS và blind ssrf
+## Bảo mật server
+# XSS và blind ssrf
 Khi server có 1 api nhận input của user làm params để call 1 external api khác rất nguy hiểm. 
 Khi call external api, phải tính input của user là bất cứ thứ gì, kể cả dạng raw # % / hoặc dạng url encoded %23 %27. 
 
--> FE gửi cho BE phải nên encode nếu input của user là params.
+-> FE gửi cho BE phải encode nếu input của user là params.
 VD input "a#b"
 Nếu k encode sẽ gửi https://xxx/test?input=a#b => BE nhận input=a 
 Nếu encode sẽ gửi https://xxx/test?input=a%23b => BE nhận input=a#b
-=> Qtr là chặn ở BE vì hacker bỏ qua FE mà call luôn
 
--> BE nhận input từ FE rồi call api. 
-Nếu external api kiểm soát được thì ta thường encode như FE rồi gửi tiếp đi thôi.
+-> BE nhận input từ FE rồi call api buộc phải lọc vì hacker bỏ qua FE mà call luôn.
+Nếu external api kiểm soát được thì ta thường encode BE như FE rồi gửi tiếp đi thôi.
 Nếu external api bên thứ 3, thì kb họ có hỗ trợ hay không vì nhiều lúc truyền dạng encode, họ lại xử lý như path bình thường. Ta kb api bên thứ 3 làm gì, chỉ có cách call thử thôi. Có thể nó call tới db hoặc lại gọi cho bên thứ 4 nữa thì sao.
-Tấn công bằng cách nối đuôi #: Khi server concat nối url input của user có # ở cuối chặn mọi thứ, sẽ call vào url hack, việc chặn # chỉ xử lý mỗi case này.
 
-VD1: API bên thứ 3 https://xxx/test/{id}?input=a 
+VD tấn công khi gọi api bên thứ 3 bằng cách nối đuôi #: server concat nối url input của user có # ở cuối chặn mọi thứ, sẽ call vào url hack. Có thể cản ký tự # để chặn riêng case này.
+VD: API bên thứ 3 https://xxx/test/{id}?input=a 
 User truyền id là ..%2f..%2fotherdata%2fconfiguration# 
 Server gọi vào API bên thứ 3: https://xxx/test/..%2f..%2fotherdata%2fconfiguration#?input=a
 Thế quái nào mà họ xử lý call sang api này: https//xxx/test/../../otherdata/configuration nên bị sai
@@ -151,22 +145,24 @@ VD2: Server định gọi API https://xxx/test?input={input}&showPassword=false
 Server nhận input xxx&showPassword=true# xử lý thành https://xxx/test?input=xxx&showPassword=true#&showPassword=false
 VD3: user input url để server gọi, kể cả k gây hại gì nhưng user input host:port và dựa vào thời gian server trả lời sẽ biết ip nào có port nào mở, từ đó tấn công kiểu khác.
 
-=> Giải pháp khi server nhận input r gọi external api:
-Validate input, nếu là Guid, weburl, email phải đúng format. Nếu chọn từ 1 list giới hạn giá trị thì phải check tồn tại trong list đó => cách best practice
-Server nhận userInput là a&b=1 thì đúng value là "a&b=1" chứ k xử lý sai
-Input của user là 1 giá trị như username hay gì thì chỉ cần encode url format và gửi tới external server là xong, test thử nếu xử lý sai như VD1 thì phải dùng cách khác. 
+=> Chốt giải pháp khi server nhận input r gọi external api:
+Validate input, nếu là Guid, weburl, email phải đúng format. Nếu chọn từ 1 list giới hạn giá trị thì phải check tồn tại trong list đó => best practice
+Input của user là 1 giá trị như username hay gì thì chỉ cần encode url format và gửi tới external server là xong. VD server nhận userInput là a&b=1 thì đúng value là "a&b=1" chứ k xử lý sai. Test thử nếu xử lý sai như VD1 thì phải dùng cách khác. 
 Nhưng nếu input của user là 1 phần của url kiểu "../sites" thì phải để nguyên như vậy. Khi đó chỉ cần lọc # thành %23 để tránh tấn công đổi url thôi. Hoặc xoá mọi % nếu input k thể chứa %
-Sẽ có case k thể fix được như khi api nhận cả các ký tự # / %, thì tuỳ vào độ ảnh hưởng, có modify data nhạy cảm không, có lộ thông tin của user khác không mà xử lý.
-Nhiều case api bên thứ 3 xử lý lỗi r, nhưng vẫn nên chặn ở server của ta nếu tìm thấy để tránh đổi api bị sai.
+Sẽ có case k thể fix được như khi api nhận cả các ký tự # / %, thì tuỳ vào độ ảnh hưởng, có modify data nhạy cảm không, có lộ thông tin của user khác không mà xử lý. Nhiều case api bên thứ 3 xử lý lỗi r, nhưng vẫn nên chặn ở server của ta nếu tìm thấy để tránh đổi api bị sai.
 
 
 
 # Bảo mật server thông dụng
--> Self sign: là trang web sẽ dùng SSL với chứng chỉ tự ký, chưa đăng ký với CA. 
-Có thể dùng Let's script để có SSL free trong vài tháng. 
-Dùng openssl để có key và cert tự ký: openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 => Sinh key và cert có hạn 365 ngày
+-> Free SSL:
+C1 là tự sinh SSL bằng openssl và dùng luôn cho web
+VD "openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365" sinh key và cert có hạn 365 ngày.
+C2 dùng Let's script và Certbot:
+Let's script là tổ chức CA uy tín cung chứng chỉ free. Nên dùng kết hợp certbot là tool giúp cài và gia hạn chứng chỉ free từ Let's script.
 
--> CSRF (Cross site request forgery) là 1 vector đánh lừa trình duyệt thực hiện hành động không mong muốn trong ứng dụng người dùng đã đăng nhập.
+-> Dùng thư viện chống XSS: validator, express-validator, DOMPurify. Bản chất nó sẽ validate regexp email, sanitize string, convert sang html entities.
+
+-> CSRF (Cross site request forgery) là lừa trình duyệt thực hiện hành động không mong muốn trong ứng dụng người dùng đã đăng nhập.
 VD: B là 1 người muốn phá hủy 1 dự án mà A đang làm. B đăng tải 1 bài lên diễn đàn www.webapp.com nhưng kèm theo 1 đoạn code kiểu: <img height="0" width="0" src="http://www.webapp.com/project/1/destroy">. A vào đăng nhập vào diễn đàn như thường lệ và xem bài viết của B. Khi đó, browser của A đã cố gắng load ảnh nhưng thực tế lại gửi câu lệnh destroy vào địa chỉ này để xóa project có id là 1. Access token hợp lệ vì người dùng đã đăng nhập. Chú ý là request có thể đến từ cùng trang web hoặc từ 1 trang web khác.
 VD biến thể tinh vi hơn: hacker dùng 1 url rất mượt mà kiếu: <img height="0" width="0" src="http://www.ahackersite.com/abc.jpg"/> => xong cấu hình lại máy chủ: Redirect 302/abc.jpg http://www.webapp.com/project/1/destroy"/> thì người dùng k thể phát hiện ra được. Vấn đề này là phía người làm web cần phải xử lý.
 
@@ -179,21 +175,16 @@ Trong mỗi phiên làm việc sinh ra duy nhất 1 crsftoken mới và FE cho v
 </form>
 Khi thực hiện action, server check có csrftoken hợp lệ mới cho thực hiện là được. Hacker k biết giá trị trường này sẽ k thể CSRF được.
 
---> Chặn bằng SameSite option của cookie
-SameSite là attribute của cookie quyết định việc gửi cookie cho cross site, ta cần đảm bảo request chỉ đến từ web của ta. Có 3 giá trị:
-Strict: ngăn hoàn toàn việc gửi cookie trong mọi cross-site. Vd A đăng nhập rồi, xong vào website ở 1 link khác sẽ báo là chưa đăng nhập vì cookie k được gửi kèm
-Lax: Tương tự nhưng vẫn gửi được cross-site với request GET, request POST sẽ bị chặn => mặc định 
-None
+--> Chặn bằng SameSite option của cookie: Lax, Strict, None.
+SameSite là attribute của cookie quyết định việc gửi cookie cho cross site, ta cần đảm bảo request chỉ đến từ web của ta. 
 => Vượt qua Lax bằng cách pop up website và thực hiện. Khi ta thấy duyệt 1 site mà pop up lên 1 site khác và thông tin cá nhân bị đổi là hiểu vấn đề.
 
 --> Double Submit Cookie: cách tốt nhất
 Người dùng vào thì gửi 1 random val lưu vào cookie (tạo mới random) -> các form trong web sẽ có hidden field gắn giá trị random đó (k fix cứng) -> thực hiện request thì server check random val trong cookie với trong hidden field giống nhau là được.
 WebA call tới API webB thì nên nhớ dù gửi lại có cookie của webB thì vẫn k đọc được cookie đó là gì nên k thêm đúng trường như frontend chuẩn được (or dùng header X-CSRF-Token)
 
---> Package csurf trong nodejs: tạo middleware chống crsf attack. Cơ chế nó gắn 1 token gửi tới client để client gửi lại r check thôi
+--> Dùng package csurf trong nodejs: tạo middleware chống crsf attack. Cơ chế nó gắn 1 token gửi tới client để client gửi lại r check thôi
 Token csrf đảm bảo reset sau mỗi phiên dùng của user. Nếu là react phải cung 1 API lấy token về trước.
-
--> Dùng thư viện chống XSS: validator, xss, express-validator, xss-filter, DOMPurify. Bản chất nó sẽ validate regexp email, sanitize string, convert sang html entities.
 
 -> SSL chống MITTM nhưng vẫn bị replica attack. 2 pp:
 - Timestamp: VD ta cấm 1 request được lặp lại trong quá 1p bằng cách lưu dấu thời gian lại r check. Chú ý xử lý múi giờ khác nhau. 
@@ -210,25 +201,14 @@ Phía server: - Vẫn check timestamp chưa quá 1p
 -> Signature Generation: VD MITM bắt request chuyển tiền và sửa payload người nhận thành hacker. Điều này thực tế khó xảy ra vì các app quan trọng như ngân hàng, github thường gửi thẳng OTP về điện thoại, google authen. Giải pháp là ký payload bằng khóa của người dùng thì nếu hacker đổi payload sẽ k khớp với sig nữa. 
 => Cơ chế cặp khoá ở đây có thể làm như SSH key. 
 
--> BlackList: Cho người dùng hoặc IP nào spam vào blacklist cấm luôn, Vd khi 1 người dùng gửi quá nhiều request trong 10s liên tiếp. Có thể lưu vào redis chẳng hạn.
-WhiteList: cấm mọi thứ trừ các IP và user trong whitelist
-
 -> Server-Side Request Forgery (SSRF): Hacker khiến server gọi các request tới chính nó.
 VD: Server có url http://localhost/admin cho người dùng input 1 url ảnh để nó fetch về. Hacker input luôn http://localhost/admin/delete, server lấy url về và thử fetch thì lại gọi hàm của chính nó. Do server tự gọi chính nó nên request thành công. 
 Tức hacker có thể khiến server gọi API thực hiện hành động gì tuỳ ý nó, hoặc khiến server gọi vào API khác mà nó có quyền để lấy data nhạy cảm về. Cuối cùng trả ra FE hiển thị dưới dạng ảnh nhưng thực chất là hiển thị thông tin nhạy cảm cho hacker.
 
 
 
-# Lỗi bảo mật input server
-Client lấy từ server 1 list url, r chọn 1 cái gửi cho server, server gọi url đó. 
-Éo ổn vì url có thể truyền sai rất nguy hiểm, cứ cho là truyền sai thì server k lấy được data. 
-Vd url http://xxxx:3000, hacker có thể truyền url và port ảo cho server gọi, dựa vào response time nhanh hay chậm mà đoán được server có port nào đang mở để tấn công.
-Do đó phải validate lại url truyền vào đúng là lấy từ list đó.
-
-
-
 # JSON Hijacking
-User vào web độc chứa mã: var script = document.createElement('script'); script.src = 'https://victim.com/data.json?callback=handleData'; document.body.appendChild(script); sẽ gửi request tới web đã đăng nhập fetch JSON data về. Fetch trực tiếp bị cản bởi SOP nên phải cho vào <script>
+User vào web chứa mã độc: var script = document.createElement('script'); script.src = 'https://victim.com/data.json?callback=handleData'; document.body.appendChild(script); sẽ gửi request tới web đã đăng nhập fetch JSON data về. Fetch trực tiếp bị cản bởi SOP nên phải cho vào <script>
 Fetch bằng script k lấy được kết quả trả về, giải pháp là in ra rồi overwrite hàm in là được. VD overwirte hàm get của Object:
 var stolenData = {};
 Object.defineProperty(stolenData, "user", {
@@ -249,19 +229,65 @@ Object.setPrototypeOf(__proto__, new Proxy(__proto__, {
 }));
 
 -> Cách chống: 
-- Server cần dùng CORS, hoặc cấu hình CSP chuẩn nếu cho phép web khác gọi API, <script> qua mặt SOP nhưng k qua được CSP => nên giờ ít gặp kiểu tấn công này.
-- Thêm for(;;;); vào đầu response, lúc xử lý thì lọc bỏ đi là được. Thêm bất cứ thứ gì miễn k thể parse JSON trực tiếp thành object là được.
+- Thêm for(;;;); vào đầu response, lúc xử lý thì lọc bỏ đi là được. Hoặc thêm bất cứ thứ gì miễn k thể parse JSON trực tiếp thành object là được.
+- Server dùng CORS, hoặc cấu hình CSP chuẩn nếu cho phép web khác gọi API, <script> qua mặt SOP nhưng k qua được CSP => nên giờ ít gặp kiểu tấn công này.
 
 
 
 # Hiểu về backdoor
 -> Backdoor bắt thông tin của người dùng gửi về server của hacker, VD hoạt động dưới dạng 1 middleware bắt request của user.
-VD: ta sử dụng 1 gói npm phổ biến A, trong gói A lại dùng package B, trong B có C nhưng thư viện C là 1 thư viện có backdoor mà chưa ai biết đến của hacker. Ta chỉ nên sử dụng các gói nổi tiếng, mã nguồn mở, sử dụng các công cụ giám sát các gói tin gửi đến máy chủ có gì lạ không
+VD: ta sử dụng 1 gói npm phổ biến A, trong gói A lại dùng package B, trong B có C nhưng thư viện C là 1 thư viện có backdoor mà chưa ai biết đến của hacker. 
+=> Cách chống là chỉ nên sử dụng các gói nổi tiếng, mã nguồn mở, sử dụng các công cụ giám sát các gói tin gửi đến máy chủ có gì lạ không
 
--> Backdoor là 1 cổng không public cho phép 1 người xâm nhập vào hệ thống. Dev có thể chủ động tạo ra, nếu không có mục đích xấu thì họ làm vậy để có thể tự mình xâm nhập vào hệ thống sửa lỗi và bảo dưỡng. Backdoor cũng có thể do dev cùi tạo ra app có backdoor ngoài ý muốn. 
+-> Backdoor còn có thể là 1 cổng không public cho phép 1 người xâm nhập vào hệ thống. Dev có thể chủ động tạo ra, nếu không có mục đích xấu thì họ làm vậy để có thể tự mình xâm nhập vào hệ thống sửa lỗi và bảo dưỡng. Backdoor cũng có thể do dev cùi tạo ngoài ý muốn. 
 Nhiều nơi, chính quyền còn bắt các nhà phát hành dịch vụ tạo ra các điểm truy cập là backdoor nhưng hợp pháp để nếu nhà nước dùng nó tìm ra tội phạm. Dev cũng có thể chủ ý cài backdoor xong lừa công ty đối thủ dùng nó. 
-Nhiều loại backdoor nguy hiểm có thể tự nhân bản hay tự che giấu. VD các backdoor chạy tiến trình trùng tên với các tiến trình trong hệ thống để không bị phát hiện
-=> Không sử dụng phần mềm không đáng tin, nên chạy ứng dụng test trong môi trường đóng và cung cấp ít quyền nhất có thể.
+Nhiều loại backdoor nguy hiểm có thể tự nhân bản hay tự che giấu. VD các backdoor chạy tiến trình trùng tên với các tiến trình trong hệ thống để không bị phát hiện.
+=> Cách chống là k dùng phần mềm không đáng tin, nên chạy ứng dụng test trong môi trường đóng và cung cấp ít quyền nhất có thể.
 
-VD backdoor sử dụng với mục đích tốt: ta dùng anti virus sao nó báo cập nhập được. Thực tế, nó được cài phần mềm gián điệp liên tục gửi thông tin về version hiện tại cho server từ xa và server sẽ check phần mềm đó cần update không và người dùng nhận dược thông báo nếu có. Tương tự các phần mềm check bản quyền họ sẽ có chức năng kiểm tra xem người dùng có dùng sp có bản quyền không. Đương nhiên việc kiểm tra bắt buộc phải gửi request lên server r thì phải dùng backdoor.
+VD backdoor sử dụng với mục đích tốt: Các phần mềm tự thông báo cập nhật được vì nó được cài phần mềm gián điệp liên tục gửi thông tin về version hiện tại cho server từ xa và server sẽ check phần mềm đó cần update không và người dùng nhận dược thông báo nếu có. Tương tự các phần mềm check bản quyền họ sẽ có chức năng kiểm tra xem người dùng có license không. Đương nhiên việc kiểm tra bắt buộc phải gửi request lên server r thì phải dùng backdoor.
 Các website có thể có backdoor theo dõi người dùng đăng nhập và thực hiện hành động thông báo nào đó kiểu "Bạn vừa đăng nhập ở 1 thiết bị lạ". Cx là để bảo vệ khách hàng thôi.
+
+
+
+# Rate limit chống DDoS
+//!!!!!!!!!!
+Rate limit set up nhiều tầng, từ database, server, reverse proxy, tầng mạng
+Ở server thì các request khác nhau cũng phải có rate limit khác nhau. 
+request chưa xác thực cho ít vì dễ DDoS VD 10 request 1 phút 1 ip
+request đã xác thực cho 100 request 1 phút, VIP user 500 request 1 phút
+Request đặc biệt như reset password, đăng ký tk thì 3 lần 1 ngày
+Với các hệ thống cung API, có thể implement billing tài nguyên nào được requests nhiều, tài nguyên nào bị hạn chế.
+
+Trong nodejs có thể dùng express-rate-limit kết hợp redis để tạo middleware xử lý rate limit và set cho từng route khác nhau.
+Redis dùng để lưu trạng thái request của từng ip và userid để implement rate limit.
+VD lưu rate_limit:IP_1, rate_limit:user_123 
+Nếu hết times tự xóa khỏi redis, nếu request thì cộng lên, nếu full mà chưa hết time thì từ chối request
+=> Đó là yêu cầu trong các hệ thống cần ratelimit nhiều tầng phức tạp.
+
+ratelimit dựa vào khả năng tải của server. Nếu server chịu 100 request/s thì tổng rate limit của 1 api nên khoảng 80% khả năng tối đa.
+API được sử dụng để phân loại khách hàng, Vd user có api key premium sẽ được nhiều request hơn user thường.
+rate limit chia theo loại user thì phải tính. Vd server max 100 request 1s, trung bình 50 active user 1 lúc thì rate limit 1 user là 2 request 1s cho phép burst bùng nổ tạm thời lên 5-10 request 1s trong 1-2s rồi giảm về 2 request/1s
+Kỹ thuật slide window, thay vì reset cứng mỗi s là 5req/s thì cho phép 10req/2s ok hơn.
+Token bucket là thuật toán kiểm soát rate limit. Xô chứa max 10 token, cứ 1s 1 token thêm vào xô cho đến max là 10, 1 request sẽ lấy 1 token từ xô. Request tới mà xô hết token thì từ chối.
+Token bucket khác với rate limit bth là nó xử lý burst tạm thời trong thời gian ngắn. Vd nó cho trung bình 1 request 1s, nhưng nếu đột ngột lên 10req/1s vẫn xử lý được vì xô còn đủ token, rồi lại quay về 1 request 1s. Chờ 1 lát hồi sẽ lại cho burst 10req/1s.
+Thường implement thêm hàng đợi để 1 lượng đi vào chờ trước khi từ chối thẳng thừng. 
+1 xô có tốc độ rò rỉ. VD xô chứa max 100 ô, rò rỉ 10 ô 1s, nếu 200 gói tin đến thì 100 gói bị loại, 100 gói vào xô, sau 1s nữa xô mới trống 10 ô và cứ thế. Cũng giúp xử lý burst.
+
+Vd 1 user gửi 100 requests reset password cùng lúc. 
+- reset password là 1 api đặc biệt cho rate limit cực nhỏ thôi, xử lý độc lập các request như bth.
+- khi có 1 yêu cầu, gửi về mail và yêu cầu xác thực, nếu 1 yêu cầu tương tự cùng user mà mail chưa xác thực thì từ chối/
+- Nới lỏng hơn là mã trong mail phải 1h sau mới hết hiệu lực, nhưng 1p sau mà reset password thì vẫn được, ghi đè cái trong mail luôn. Rate limit để 1p 1 lần.
+- reset password mà k cần mail mủng gì cả thì làm kiểu server sinh password và show luôn cho người dùng, thì cho rate limit 5s 1 lần ok luôn.
+=> nếu spam forgot password thì k làm được như v.
+
+
+Rate limit với redis:
+1) Dùng background: lưu rate limit vào redis, và chạy 1 background song song để xóa key thừa.
+2) Dùng Lua script: Lua là 1 lang nhỏ gọn tích hợp vào redis cho phép thực thi script phức tạp ngay trên máy chủ redis. 
+VD dùng lua tăng giá trị 1 key: EVAL "return redis.call('INCR', KEYS[1])" 1 mykey => dùng như 1 ngôn ngữ lập trình chứ k chỉ giới hạn ở các cú pháp của redis-cli
+Redis cũng chỉ là lưu data của rate limit, nhưng Lua giúp thực hiện nhiều task phức tạp trong 1 transaction là 1 script, nhờ đó nhiều request cùng lúc đến xử lý rate limit data trong redis đều ok. Cũng chỉ là viết các logic check, tăng giảm value thôi.
+
+Có nhiều thư viẹn implement Token Bucket như rate-limiter-flexible
+
+BlackList: Cho người dùng hoặc IP nào spam vào blacklist cấm luôn, Vd khi 1 người dùng gửi quá nhiều request trong 10s liên tiếp. Có thể lưu vào redis chẳng hạn.
+WhiteList: cấm mọi thứ trừ các IP và user trong whitelist
