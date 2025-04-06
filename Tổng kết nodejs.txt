@@ -6,19 +6,18 @@ node -> http.STATUS_CODES / Date.now()
 
 
 
-//!!!!!!!!
 # Dùng stream
-Cơ chế: chia file thành từng chunks và xử lý luôn, còn dùng bth sẽ load tất cả vào bộ nhớ và xử lý 1 lúc => nên dùng stream mọi lúc, trừ khi có nhu cầu đọc toàn bộ file 1 lúc
-Với các file lớn mấy GB, dùng stream xử lý giúp tối ưu bộ nhớ gấp trăm lần và tốc độ cũng nhanh hơn, k bị tràn buffer.
+Bản chất việc chia chunk stream cũng như chia batch list data, là để xử lý từng phần và giải phóng bộ nhớ trước khi xử lý phần sau, giúp tiết kiệm bộ nhớ hoặc đỡ nặng khi call api. Chứ nếu chia batch xong vẫn lấy tất cả thì chả có ý nghĩa gì.
+Với các file lớn, dùng stream giúp tối ưu bộ nhớ gấp trăm lần và tốc độ cũng nhanh hơn, k bị tràn buffer => nên dùng stream mọi lúc, trừ khi có nhu cầu xử lý toàn bộ file 1 lúc
 VD đọc 1 file và ghi vào 1 file khác, fs.readFile(..., (err,data) => { fs.writeFile(...) }) nên thay thế bằng: (fs.createReadStream(...)).pipe(fs.createWriteStream(...));
-
-Xem mem của 1 process nodejs trong win: chạy server như bth -> vào Task Manager tab Details -> tìm process tên là "node". Mỗi request sẽ thấy memory tiêu thụ tăng lên để xử lý 
+VD xem memory của 1 process nodejs trong win: chạy server -> vào Task Manager tab Details -> tìm process tên là "node". Mỗi request sẽ thấy memory tiêu thụ tăng lên để xử lý 
 
 -> Mỗi stream trong nodejs đều là 1 event emitter cho phép bắt sự kiện. 4 sự kiện có sẵn là data(đọc), end(hết dữ liệu để đọc), error, finish(khi hoàn thành)
 Các stream trong NodeJS đều là chuỗi or buffer. Chuyển sang chế độ object mode của stream giúp nó thao tác với các kiểu giá trị khác của JS k là dạng buffer hay chuỗi
 
 
 
+//!!!!!!!!
 # Built-in module trong nodejs
 URL tổng hợp: https://www.w3schools.com/nodejs/ref_modules.asp
 
