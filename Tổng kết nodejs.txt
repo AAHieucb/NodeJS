@@ -3,6 +3,7 @@ Luôn dùng nvm: Để update nvm lên version mới, phải tải lại từ gi
 
 -> node cli: 
 node -> http.STATUS_CODES / Date.now()
+node --watch
 
 
 
@@ -17,17 +18,12 @@ Các stream trong NodeJS đều là chuỗi or buffer. Chuyển sang chế độ
 
 
 
-//!!!!!!!!
 # Built-in module trong nodejs
 URL tổng hợp: https://www.w3schools.com/nodejs/ref_modules.asp
 
--> Dùng buffer: Chỉ dùng khi cần dùng binary data từ file hay mạng, không phải chuỗi văn bản bth
-NodeJS dùng 1 buffer pool chứa các buffer k còn được sử dụng. Khi cần dùng buffer sẽ lấy từ pool ra, nếu k có mới tạo mới 1 biến buffer khác. VD 1 buffer ta sử dụng lâu dài xuyên suốt mà k muốn được quản lý bởi pool thì có thể dùng Buffer.allocUnsafeSlow(<size>); thì biến đó sẽ k ảnh hưởng bởi pool hay garbage collector gì hết
+-> Dùng crypto: dùng scrypt hash tốt hơn bcrypt. Dùng random salt để cùng password mà khác hash, lúc verify k cần truyền lại salt.
 
--> Dùng child_process: thư viện hỗ trợ thao tác đa luồng trong nodejs
-Dùng process.send trong nodejs có thể gửi data từ process con sang process cha.
-Dùng thư viện @rauschma/stringio bổ trợ cho việc dùng child_process
-
+-> Dùng child_process: hỗ trợ thao tác đa luồng trong nodejs. Dùng process.send trong nodejs có thể gửi data từ process con sang process cha.
 --> Dùng spawn: chạy 1 lệnh nào trên 1 tiến trình con và trả ra cho stdio
 --> Dùng exec: chạy lệnh nào trên 1 tiến trình con và bắt sự kiện
 --> Dùng execFile: chạy lệnh nào trên 1 tiến trình con và trả ra cho buffer
@@ -35,95 +31,59 @@ Dùng thư viện @rauschma/stringio bổ trợ cho việc dùng child_process
 
 -> Dùng os: Chrome V8 của gg là 1 js engine dùng thư viện libuv viết bằng C++ giúp tương tác với phần cứng và thực hiện các task nặng.
 Biến môi trường process.env.UV_THREADPOOL_SIZE thiết lập kích thước threadpool mà libuv sử dụng cho các tác dụng async I/O. Defautl là 4 và có thể chỉnh để tận dụng tối đa số CPU cores của server. Còn nếu máy cùi ít cores thì tăng lên cũng v thôi.
-VD có thể tự động tận dụng tối đa CPU cho server thông qua việc set giá trị biến môi trường UV_THREADPOOL_SIZE, còn nếu máy chạy server cùi ít cores thì đừng hy vọng
 
 
 
 # Các package backend NodeJS thường dùng
--> Dùng node-persist: thư viện giúp tạo 1 global store tạm, tắt là mất.
-
--> Dùng yargs: xử lý tham số từ dòng lệnh cmd. Chú ý người dùng cũng có thể gửi tới server command và server dùng lib này để xử lý data
-Dùng minimist đi kèm để parse process.argv thoải mái
-
--> crypto, crypto-js: sinh randomkey, mã hóa => thay bằng node:crypto có sẵn
--> Dùng bcrypt: thư viện hash. Có thể tùy chọn hash bao nhiêu vòng nhưng sẽ rất nặng
-MD5 k còn được sử dụng vì mỗi string giống nhau cho đầu ra giống nhau.
-Còn bcrypt sinh hash khác nhau với string giống nhau, nhờ dùng salt khi hash. Đb là khi verify lại k cần cái salt nữa mà vẫn check được password ban đầu là đúng với đoạn hash
-
+-> Dùng node-persist: giúp tạo 1 global store tạm, tắt là mất.
 -> Dùng cheerio: thư viện giúp parse DOM, tạo web crawler
+-> Dùng module-alias: import module relative url gọn
+-> Dùng Joi: thư viện validate type của object, email, password, not null => ref tới "Projects / BlogWeb"
+-> npm i -g http-server dựng http server nhanh: cd thư mục -> http-server -c-1 (-c-1 để disable cache) => thêm file html vào thư mục để serve nó
 
 -> Dùng chalk: package giúp style text trên console
 Dùng figlet: package in chữ khổng lồ trên console
 Dùng marked + marked-terminal: vẽ ngôn ngữ markdown lên terminal, có thể dùng kết hợp với chalk để custom style => chả bh dùng
-Dùng clear: xóa terminal
 => Thường chỉ dùng khi cần tạo thư viện
 
--> Dùng faker: thư viện tạo mock data cực nhanh
 -> Dùng node-mocks-http: mock http api 
 -> Dùng supertest: test nhanh http. Hoạt động với mọi test framework or test 1 mình k cùng framework nào cũng đươc
--> Dùng ab: thư viện apache benchmark test rất mạnh
--> Dùng colors: thư viện hàng đầu khi cần in màu console.log trong terminal cho dễ nhìn 
 
--> Dùng winston: thư viện logger mạnh nhất nodejs.
-Trong hệ thống lớn quan trọng về tốc độ, việc ghi log tốn thời gian thì thường chỉ push message vào buffer, rồi chạy 1 thread riêng lấy ra ghi.
+-> Dùng winston: lib logger mạnh nhất. Trong hệ thống qtr về tốc độ, việc ghi log tốn thời gian thì thường push message vào buffer r chạy 1 thread riêng lấy ra ghi.
 Còn có winston-elasticsearch để kết hợp nó với tool elasticsearch (chat gpt ez)
 
--> Dùng module-alias: import module relative url gọn
-
--> Dùng Joi: thư viện validate type của object, email, password, not null => ref tới "Projects / BlogWeb"
-
--> -> npm i -g http-server dựng http server nhanh serve file: 
-Trỏ đến đường dẫn thư mục muốn chạy http-server -> http-server -c-1 (-c-1 để disable cache) => thêm file html vào thư mục để serve nó
-
-
-
-# Các package chuyên dùng server
--> helmet: Tự thêm các header bảo mật cần thiết vào các request
-Khi dùng thì 1s số lượng request có thể xử lý bị giảm đi vài nghìn, đánh đổi security và performance
-
--> cookie-parser: tương tác cookies
-
--> Dùng localtunnel: như ngrok nhưng nếu dùng trong code thì nó tiện hơn nhiều
-
--> http-errors: module tạo ra error với các mã lỗi của website, dùng nó trong 1 middleware để pass nó tới error handler tiếp theo.
-
--> Dùng http-status: thư viện thao tác với các loại status http
-
--> Dùng validator: giúp santinize string để chống XSS. Vd giúp check có phải email hay không chẳng hạn, tập hợp các type check có sẵn
-Dùng xss-filter
-
--> Dùng express-flash + express-session: thư viện tạo flash message cho web nodejs
-Flash message là message lưu tạm trong session hiện tại, nó là 1 dòng thông báo tạm thời và có thể truy xuất ở request tiếp theo, sau đó sẽ bị xoá. 
-Tức là lib này cung cho server lưu 1 message vào session để truy xuất ở 1 request tiếp theo rồi tự xoá. Với CSR phía client tự lo nên chắc chỉ dùng cho SSR.
-
--> Dùng method-override:
-Form HTMl chỉ hỗ trợ GET và POST từ thời xưa, để duy trì tính tương thích thì điều này vẫn giữ nguyên. Package này giúp người dùng chỉ gửi POST và nó tự sẽ chuyển đổi sang PATCH PUT DELETE tuỳ ý để xử lý
-
--> Dùng nodemon: thay thế với node --watch => chỉ watch ở development
-Dùng concurrently: khi cần chạy song song client và server trong 1 dự án cùng lúc chỉ bằng 1 lệnh
-
--> Dùng lib apollo-server và graphql để xây 1 graphQL server
+-> helmet: tự thêm các header bảo mật cần thiết. Khi dùng thì 1s số lượng request có thể xử lý bị giảm đi vài nghìn, đánh đổi security và performance
+-> cookie-parser
+-> http-status: thao tác với các loại status http
+-> validator: giúp santinize string để chống XSS. Vd giúp check có phải email hay không chẳng hạn, tập hợp các type check có sẵn
+-> express-session: dùng session middleware trong express
+-> concurrently*: khi cần chạy song song client và server trong 1 dự án cùng lúc chỉ bằng 1 lệnh
+-> @apollo/server + graphql: để xây 1 graphql server
 
 
 
 # Thao tác với file
-Nên dùng stream, buffer
+Luôn dùng stream cho file
+Chỉ dùng buffer khi cần binary data từ file hay mạng, không phải chuỗi văn bản bth. NodeJS dùng 1 buffer pool chứa các buffer k còn được sử dụng. Khi cần buffer sẽ lấy từ pool ra, nếu k có mới tạo mới 1 biến buffer khác. VD Buffer.allocUnsafeSlow(<size>) để dùng 1 buffer lâu dài k cần quản lý bởi pool và gc
 
 -> Dùng fs: Thao tác với file => ***Điều đặc biệt là nó có thể watch sự thay đổi của 1 file, điều mà database k làm được
-Dùng lib rimraf: thư viện hỗ trợ xóa file và thư mục tương thích mọi hđh => chỉ be vì fe kbh cho xoá file
-Dùng lib mv: move file tới bất cứ đâu. Mạnh hơn fs vì fs bị giới hạn bởi quyền, bản chất là nó xoá file vị trí cũ và create new file ở vị trí mới
+Lib rimraf: thư viện hỗ trợ xóa file và thư mục tương thích mọi hđh
+Lib mv: move file tới bất cứ đâu. Mạnh hơn fs vì fs bị giới hạn bởi quyền, bản chất là nó xoá file vị trí cũ và create new file ở vị trí mới
 
 -> Upload file lên server
-- Dùng formidable: Xử lý files upload từ client. Phức tạp, tốc độ cao, chiếm ít bộ nhớ, bị hạn chế tính năng
-- Dùng express-formidable: thay thế cho formidable khi dùng trong express. Nó khác với multer là k lưu lại gì vào server cả, tức k thể lưu file lại.
-- Dùng multer: Cung cấp đầy đủ options và tính năng, code đơn giản. 
-Có thể kết hợp cloudinary => Dùng luôn multer-storage-cloudinary cho dễ
+- formidable: Xử lý files upload từ client. Phức tạp, tốc độ cao, chiếm ít bộ nhớ, bị hạn chế tính năng
+- express-formidable: thay thế cho formidable khi dùng trong express => bỏ
+- multer*: cung cấp đầy đủ options và tính năng, code đơn giản
 
 FE nên gửi ảnh qua FormData, tương đương với <form action="/action_page_binary.asp" method="post" enctype="multipart/form-data"> trong html thuần.
-Bên cạnh đó ảnh ta cũng cần phải lọc request như thế nào k thể để ai cũng DDoS đăng ảnh lên server đươc
+Để tránh DDoS upload file:
+- Chỉ user đã authen mới được đăng ảnh với rate limit và size limit xác định
+- Dùng lib clamscan: scan virus trước khi upload
+- Dùng bên thứ 3 lưu trữ file như S3, cloudinary
 
 
 
+//!!!!!!!!
 # Dùng ExpressJS
 -> Dùng middleware: khi có request thì các middleware chung k xđ url ưu tiên chạy trước rồi mới đến các middleware riêng của url đó
 1 middleware có thể truyền dữ liệu vào req cho middleware tiếp theo lấy. Các middleware có sẵn đều tự gọi next(), chỉ có middleware ta tự tạo mới phải gọi next thủ công
@@ -151,6 +111,26 @@ true là tin tưởng mọi proxy, false k tin tuỏng.
 app.set("trust proxy", 5); => tin tưởng 5 proxy gần nhất
 app.set("trust proxy", '127.0.0.1, 192.168.0.1, 192.168.0.2'); => tin 3 proxy có ip cụ thể
 => Khi đó server có thể lấy ip thực từ header x-forwarded-for
+
+
+
+# Dùng biến môi trường
+Có sẵn biến môi trường: NODE_ENV=production node app.js -> lấy ra với process.env.NODE_ENV
+NodeJS v18 hỗ trợ sẵn file .env k cần lib
+
+-> Dùng dotenv: Theo thống nhất khi lập trình nodejs thì file .env ko được commit lên host theo git, để trong .gitignore
+Dùng dotenv-expand: giúp tạo biến môi trường mà dựa trên biến môi trường khác
+Dùng cross-env: có thể dùng quyết định môi trường nào ngay trong command. Nó còn ghê gớm khi tự động lấy tên file chuẩn trong config
+
+
+
+# Nén data truyền qua API
+Tốc độ sẽ nhanh hơn nhưng tăng áp lực lên CPU => nên dùng mọi lúc trừ khi CPU server yếu
+
+compression: lib nén giảm lượng dữ liệu cần truyền qua mạng với gzip.
+shrink-ray-current: dùng thuật toán brotli mới của google còn giúp nén mạnh hơn nữa.
+
+Nhiều nền tảng như Cloudflare cũng hỗ trợ nén data: Client <---10KB--- Cloudflare <---100KB--- Origin server
 
 
 
@@ -250,26 +230,6 @@ Preflighted request thì trước tiên sẽ gửi 1 request OPTIONS tới serve
 Access-Control-Allow-Origin là url nào được gọi vào server
 Access-Control-Allow-Credentials để là true thì được phép dùng cookies trong các request cors
 Access-Control-Expose-Headers: Header1, Header2 => cross-origin ngoài các header mặc định, còn lấy được các header nào. K set sẽ k xem được các header khác, còn tất cả thì để *
-
-
-
-# Dùng biến môi trường
-Có sẵn biến môi trường: NODE_ENV=production node app.js -> lấy ra với process.env.NODE_ENV
-NodeJS v18 hỗ trợ sẵn file .env k cần lib
-
--> Dùng dotenv: Theo thống nhất khi lập trình nodejs thì file .env ko được commit lên host theo git, để trong .gitignore
-Dùng dotenv-expand: giúp tạo biến môi trường mà dựa trên biến môi trường khác
-Dùng cross-env: có thể dùng quyết định môi trường nào ngay trong command. Nó còn ghê gớm khi tự động lấy tên file chuẩn trong config
-
-
-
-# Nén data truyền qua API
-Tốc độ sẽ nhanh hơn nhưng tăng áp lực lên CPU => nên dùng mọi lúc trừ khi CPU server yếu
-
-compression: lib nén giảm lượng dữ liệu cần truyền qua mạng với gzip.
-shrink-ray-current: dùng thuật toán brotli mới của google còn giúp nén mạnh hơn nữa.
-
-Nhiều nền tảng như Cloudflare cũng hỗ trợ nén data: Client <---10KB--- Cloudflare <---100KB--- Origin server
 
 
 

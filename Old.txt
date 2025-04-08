@@ -1,4 +1,11 @@
 # Package k dùng
 daemon: 1 package biến script thành chương trình dạng daemon. 
+yargs: xử lý tham số từ dòng lệnh cmd. Kết hợp minimist để parse process.argv thoải mái
+ab: thư viện apache benchmark test
+http-errors: module tạo ra error với các mã lỗi của website, dùng nó trong 1 middleware để pass nó tới error handler tiếp theo.
+nodemon: thay thế với node --watch
+
+-> express-flash: Flash message là message lưu tạm trong session hiện tại, nó là 1 dòng thông báo tạm thời và có thể truy xuất ở request tiếp theo, sau đó sẽ bị xoá. 
+Tức là lib này cung cho server lưu 1 message vào session để truy xuất ở 1 request tiếp theo rồi tự xoá. Thường chỉ dùng cho SSR.
 
 
