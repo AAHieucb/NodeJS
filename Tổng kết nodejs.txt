@@ -120,6 +120,24 @@ shrink-ray-current*: dùng thuật toán brotli mới của google còn giúp n�
 
 
 
+# Dùng cors
+Same Origin Policy (SOP) tự có sẵn trên browser mặc địnhcản mọi truy vấn khác domain để tăng tính bảo mật cho website.
+
+-> Bản chất cors: Vào 1 website, mở F12 và fetch API thì origin là website đó. Nếu gõ url vào browser, dùng postman, call từ server thì origin là undefined.
+
+--> Các cấp độ để cấu hình cors:
+- Nếu ta k cấu hình cors thì mặc định nó dùng SOP, ta k thể truy vấn từ mọi origin website khác nhưng lại có thể truy vấn từ origin undefined or vào trang web của nó để tự call đến chính nó.
+Developer có thể disabled security mode trên trình duyệt or dùng các extension cho phép trình duyệt tự động có các header Allow-Access-Origin với các request là được.
+- Nếu ta cấu hình cors cho phía server có thể tùy biến cho phép origin xác định truy cập API, hoặc truyền 1 function check origin tùy biến. VD: facebook dùng cors cho chính nó và cũng allow call từ origin undefined vì app messenger cũng call api được.
+
+-> Để dùng cors có thể dùng lib cors.
+Hoặc tự set 3 headers:
+Access-Control-Allow-Origin là url nào được gọi vào server
+Access-Control-Allow-Credentials để là true thì được phép dùng cookies trong các request cors
+Access-Control-Expose-Headers: Header1, Header2 => cross-origin khi client nhận về ngoài các header mặc định, còn lấy được các header nào thì truyền vào. Để * là tất cả.
+
+
+
 //!!!!!!
 # Dùng jsonwebtoken và bảo mật
 -> Dùng passport + passport-jwt kết hợp: sẽ dùng jwt như 1 strategy làm đơn giản code hơn
@@ -196,33 +214,6 @@ store: new MongoStore ({
 -> cookie-parser: giúp đọc và lưu cooke tùy ý
 -> express-session: khi dùng sẽ có thêm req.session có thể tùy ý get và set chỉ ở server, bản chất nó lưu vào cookie và sign với secret, chỉ tồn tại trong 1 session, tắt đi bật lại là mất.
 Nếu chỉ cần cookie lưu session thì dùng express-session, còn không thì cookie-parser tùy ý lưu được session hoặc permanent mà.
-
-
-
-
-# Dùng cors
-Same Origin Policy (SOP) tự có sẵn trên browser cản mọi truy vấn khác domain để tăng tính bảo mật cho website. Mặc định server k set gì thêm thì sẽ bị cản, gây khó khăn cho dev. Do đó setup Cross Origin Resource Sharing(CORS) ở server sẽ cho phép cụ thể url nào khác domain nhưng vẫn được phép gọi
-VD CSR truy cập vào API của 1 server từ frontend thì khi hosting frontend lên 1 domain thì server chỉ cần grant access cho domain đó.
-
--> Bản chất cors:
-Nếu call API 1 server từ 1 domain của 1 website khác, vd vào 1 website bất kỳ mở F12 console lên gọi method GET tới 1 website khác thì origin là thứ lưu đường link của website client, đó là url trên thanh địa chỉ của website đó. Nếu ta call API từ ứng dụng hoặc đơn giản mở tên trang web trên browser bth thì origin ở đây là undefined
-
---> Các cấp độ để cấu hình cors:
-- Nếu ta k cấu hình cors thì mặc định nó dùng SOP, ta k thể truy vấn từ mọi origin website khác nhưng lại có thể truy vấn từ origin undefined or vào trang web của nó để tự call đến chính nó. Còn vào 1 trang web lovehands mà call tới facebook thì k được.
-Developer có thể disabled security mode trên trình duyệt or dùng các extension cho phép trình duyệt tự động có các header Allow-Access-Origin với các request là được.
-- Nếu ta cấu hình cors cho phía server thì chỉ các trang web ta cho phép hoặc origin undefined mới truy cập đc vào API, cấm cả cùng domain cũng được. K cầm được origin undefined. VD: facebook dùng cách này đó, ta vẫn request nó được ở khi undefined, phải như v nó mới làm ra cái app messenger được chứ.
-- Nếu ta dùng origin là 1 function như cách bên trên cors(<object có origin là 1 function>) thì ta có thể chơi kiểu lọc origin là gì nên quản lý đc kể cả origin là undefined ta cx cấm đc tùy ý ta
-
--> Có 2 loại request tới cors: simple request là các request k trigger cors preflight; preflighted request là các request có trigger cors preflight. 
-Preflighted request thì trước tiên sẽ gửi 1 request OPTIONS tới server cần gọi, server sẽ gửi response tương ứng lại với request này chứa các thông tin cơ bản sau đó mới gửi request thật sự ta cần, kiểu check trước ấy => k đi sâu
-
--> Để dùng cors:
-- Tự thêm header vào là xong nếu chỉ cần mỗi access-control-allow-origin 
-- Dùng lib cros
-
-Access-Control-Allow-Origin là url nào được gọi vào server
-Access-Control-Allow-Credentials để là true thì được phép dùng cookies trong các request cors
-Access-Control-Expose-Headers: Header1, Header2 => cross-origin ngoài các header mặc định, còn lấy được các header nào. K set sẽ k xem được các header khác, còn tất cả thì để *
 
 
 
