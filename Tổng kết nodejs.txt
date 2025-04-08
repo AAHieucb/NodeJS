@@ -47,9 +47,8 @@ Còn có winston-elasticsearch để kết hợp nó với tool elasticsearch (c
 -> concurrently*: khi cần chạy song song client và server trong 1 dự án cùng lúc chỉ bằng 1 lệnh
 -> @apollo/server + graphql: để xây 1 graphql server
 -> express-rate-limit: tránh ddos
-
--> connect-timeout: sinh lỗi network nếu request lâu quá 5s
-Cơ chế là setTimeout 5s thì send error và bắt sự kiện request close thì clearTimeout thôi
+-> connect-timeout: sinh lỗi network nếu request lâu quá 5s. Cơ chế là setTimeout 5s thì send error và bắt sự kiện request close thì clearTimeout thôi
+-> mysql2: connect mysql chuẩn
 
 
 
@@ -135,6 +134,24 @@ Hoặc tự set 3 headers:
 Access-Control-Allow-Origin là url nào được gọi vào server
 Access-Control-Allow-Credentials để là true thì được phép dùng cookies trong các request cors
 Access-Control-Expose-Headers: Header1, Header2 => cross-origin khi client nhận về ngoài các header mặc định, còn lấy được các header nào thì truyền vào. Để * là tất cả.
+
+
+
+# Dùng socketio
+Cơ chế Socket.io xây dựa trên Engine.io. Đầu tiên chạy long-polling để tạo kết nối, rồi dùng websocket để truyền tin.
+Có thể bắt sự kiện giữa socket client và server, broadcast event, tạo kênh và phòng, tự động kết nối lại, phát hiện ngắn kết nối, tạo channel nén dữ liệu khi gửi.
+
+VD: socket.volatile.emit("event_name", data); => volatile thì socket sẽ không cần đảm bảo rằng tin nhắn đã được nhận, giúp giảm độ trễ, gửi là xong luôn. Nếu dùng nó thì đang gửi mà disconnect thì bỏ luôn, còn nếu k dùng thì message được lưu lại tạm thời và khi reconnect sẽ gửi lại.
+
+Socket đắt nên ta thường tối ưu kiểu tạo phòng như battle hand, thay vì connect luôn, nếu k vào phòng thì chưa cần kết nối socket. Nên cho options user enable chứ k luôn tạo socket mỗi khi vào web
+Cách tốt nhất là code theo luồng. VD tưởng tượng tạo phòng, rồi mn vào thì có data rồi làm gì thì có data gì, ta sẽ dễ dàng biết cái nào phát sự kiện và làm gì. VD lúc connect thì phát sự kiện nhận về data 
+Phía client hay server đều có thể tách file riêng cho export ra cái socket để thao tác, cô lập module. VD cần gửi data cho 1 list socket thoả mãn đk: tạo singleton lưu list socket export từ file riêng; trong hàm on cũng có thể lấy list socket với io.sockets.sockets => ref tới project "Battlehand"
+
+-> Polling: query liên tục xem có thay đổi không. Duration càng ngắn, càng tốn tài nguyên.
+Long-polling khắc phục nhược điểm của polling với ý tưởng: client gửi 1 request và server giữ lại request đó và sẽ response khi có 1 sự kiện tương ứng diễn ra. Nếu request client bị timeout, khi hết timeout nhưng vẫn chưa có sự kiện mong đợi nào thì server buộc trả về 1 response mà chả có dữ liệu nào, vẫn tốt hơn short-polling nhiều rồi.
+Để tránh việc client bị treo hay ảnh hưởng hiệu suất của tác vụ khác, khi sử dụng long polling, nên thực hiện long polling trên một thread riêng => ít dùng
+
+-> URL: https://socket.io/docs/v4/tutorial/step-7 => Đb là nó dùng serverOffset để đánh dấu sẽ gửi message thiếu bù lại khi bị disconnect rồi reconnect.
 
 
 
@@ -224,26 +241,6 @@ Khi truy cập vào gmail để gửi thông tin đi thì gmail sẽ chặn, đ�
 - Với tài khoản bth: ta phải bật quyền truy cập của ứng dụng kém an toàn của google account trong mục bảo mật
 - Với tài khoản xác minh 2 lớp (vd qua số đt nx): bảo mật -> App Password -> Sign in password -> SelectApp -> Other -> gõ tên mật khẩu -> sinh ra 1 password mới thay thế cho password hiện có để ứng dụng có tên đó truy cập vào đc gmail của ta 
 URL: https://myaccount.google.com/security
-
-
-
-# Dùng socketio
-Cơ chế Socket.io xây dựa vào Engine.io, đầu tiên chạy long-polling để kết nối, r dùng các phương thức giao tiếp khác như websocket, nhưng chiếm ít tài nguyên hơn
-Bắt sự kiện qua lại giữa socket client và server, broadcast event, tạo kênh và phòng, tự động kết nối lại, phát hiện ngắn kết nối, tạo channel nén dữ liệu khi gửi
-
-VD: socket.volatile.emit('event_name', data); => volatile thì socket sẽ không cần đảm bảo rằng tin nhắn đã được nhận, giúp giảm độ trễ, gửi là xong luôn. Nếu dùng nó thì đang gửi mà disconnect thì bỏ luôn, nếu k dùng thì message được lưu lại tạm thời và khi reconnect sẽ gửi lại
-
--> Polling: query liên tục xem có thay đổi không. Duration càng ngắn, càng tốn tài nguyên.
-Long-polling khắc phục nhược điểm của polling với ý tưởng: client gửi 1 request và server giữ lại request đó và sẽ response khi có 1 sự kiện tương ứng diễn ra. Nếu request client bị timeout, khi hết timeout nhưng vẫn chưa có sự kiện mong đợi nào thì server buộc trả về 1 response mà chả có dữ liệu nào, vẫn tốt hơn short-polling nhiều rồi.
-Để tránh việc client bị treo hay ảnh hưởng hiệu suất của tác vụ khác, khi sử dụng long polling, nên thực hiện long polling trên một thread riêng => ít dùng
-
--> URL: https://socket.io/docs/v4/tutorial/step-7 => Nó dùng serverOffset để đánh dấu sẽ gửi message thiếu bù lại khi bị disconnect rồi reconnect.
-Code theo luồng: VD tưởng tượng tạo phòng, rồi mn vào thì có data rồi làm gì thì có data gì, ta sẽ dễ dàng biết cái nào phát sự kiện và làm gì. VD lúc connect thì phát sự kiện nhận về data 
-=> Socket đắt nên ta thường tạo phòng như battle hand, thay vì connect luôn, nếu k vào phòng thì chưa cần kết nối socket. Nên cho options user enable chứ k luôn tạo socket mỗi khi vào web
-=> Để đảm bảo socket hoạt động, ui k update data ngay mà chờ socket gửi data mới về mới update. Data từ socket sẽ chỉ lấy từ socket, k cần fetch API. VD proj battlehand
-
--> Phía client hay server đều có thể tách file riêng cho export ra cái socket để thao tác, cô lập module => ref tới project "Battlehand"
-VD cần gửi data cho 1 list socket thoả mãn đk: tạo singleton lưu list socket export từ file riêng; trong hàm on cũng có thể lấy list socket với io.sockets.sockets;
 
 
 
@@ -359,6 +356,12 @@ Hoặc thêm: let client = {}; client.x = x; module.exports = client; => nó s�
 -> Default nodejs dùng commonjs (require và module.exports), còn module dùng cho 1 vài gói riêng của nodejs ES6 (import export).
 VD tùy biến package ESM cho phép dùng import/export trong commonjs
 Cũng có dynamic import dùng được ở cả commonjs và ES6, phải import thông qua promise
+
+
+->*** Vấn đề khi dùng class trong JS
+Class có properties cần set giá trị qua hàm async, khi lấy ra ngoài bị undefined. 
+Cần chú ý lấy thuộc tính ra ngoài thì giá trị của nó phải được set xong rồi. Nếu gọi hàm async mà k await sẽ vẫn thực hiện song song hàm đó, set xong thì dùng bth.
+Giải pháp là: nhét hàm khởi tạo async vào constructor, viết 1 hàm getter lấy ra, export ra ngoài instance của class chứ k export class.
 
 
 
