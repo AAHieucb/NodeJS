@@ -1,4 +1,83 @@
--> 
+-> Middleware:
+app.use(express.json({ limit: "50mb" })); // parsing application/json vào req.body, max 50mb tránh ddos
+app.use(express.urlencoded({ // parsing application/xwww-form-urlencoded vào req.body
+  extended: true,
+  limit: "50mb"
+}));
+app.use(express.static(path.join(__dirname, "public"))); // Static file serving
 
+router.use((req, res, next) => { next(); }); // Dùng middleware riêng cho 1 router
+router.get('/', (req, res) => { ; });
+app.use("/", router);
+app.use((err, req, res, next) => { // Error handling
+  res.status(500).send('Something broke!')
+});
+
+--> multer v1:
+var multer = require('multer');
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, __dirname + "/uploads"); // Đường dẫn upload ảnh
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + "_" +  file.originalname); // Tên file
+  }
+});
+const upload = multer({ storage: storage });
+app.use(upload.array("avatar", 2)); // Lấy max 2 file được upload trong trường avatar
+
+--> cookie-parser:
+app.use(cookieParser( // Lib cookie-parser
+  "mySecretKey123", // Ký (kp mã hóa) cookie đảm bảo chỉ server mới đổi giá trị cookie được, client chỉ có thể đọc
+  {
+    decode: function (val) { // Có thể mã hóa decrypt ở đây và thêm server encrypt cookie trước khi add để che giấu data nhạy cảm.
+      return decodeURIComponent(val); // default, có thể custom nếu cookie gửi tới server bị encode thì ở đây ta decode
+    }
+  }
+));
+
+--> cors:
+const whitelist = ['', 'https://example2.com']
+app.use(cors({
+  credentials: true,
+  origin: function (origin, callback) {
+    if (whitelist.indexOf(origin) !== -1 || !origin) { // !origin sẽ cho phép các origin undefined truy cập, orgin undefined khi request từ cùng nguồn, nội bộ, hoặc gọi bằng tool client nhu postman
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'))
+    }
+  },
+  origin: ['http://localhost:3000'], // or
+  optionsSuccessStatus: 200 // some legacy browsers (IE11, various SmartTVs) choke on 204 nên phải convert về 200 để tương thích
+}));
+
+--> express-rate-limit:
+app.use("/", rateLimit({
+  windowMs: 15 * 60 * 1000, // 15p
+  max: 20, // 1 IP max 20 request per window per 15p
+  skipSuccessfulRequests: true, // Là true thì lib sẽ skip all successful request
+  standardHeaders: true, // Thêm các header như RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset
+  legacyHeaders: false, // K thêm các header cũ như X-RateLimit-*
+}));
+
+--> express-session:
+app.use(session({ 
+  cookies: { secure: true, maxAge: 6000 },
+  secret: "test", // Dùng để encrypt information trong cookies
+  resave: true, // K resave khi k có sự thay đổi
+  saveUninitialized: true // Lưu cả các giá trị empty
+}))
+
+--> compression:
+app.use(compression({
+  level: 6, // Level càng lớn thì compress càng mạnh nhưng nếu lớn quá thì server sẽ phải xử lý nhiều và chậm hơn. Khuyến nghị để mức 6. 
+  threshold: 100 *1000, // Đơn vị là byte. tức phải lớn hơn 100kB thì mới thực hiện nén
+  filter: (req, res) => { // Filter là điều kiện khi nào thì nén, để mặc định sẽ nén mọi url
+    if(req.headers['x-no-compress']){ // Header k có cái option x-no-compress thì mới nén
+      return false;
+    }
+    return compression.filter(req, res);
+  }
+}));
 
 

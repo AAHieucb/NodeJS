@@ -21,7 +21,7 @@ app.use(express.json()); // parsing application/json
 app.use(express.urlencoded({ // parsing application/xwww-form-urlencoded
     extended: true
 }));
-app.use(express.static('./uploads')); 
+app.use(express.static("uploads")); 
 
 app.get("/", (req, res) => {
     res.render("form"); // Tìm trong ./views

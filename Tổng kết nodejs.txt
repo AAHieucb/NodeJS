@@ -7,17 +7,6 @@ node --watch
 
 
 
-# Dùng stream
-Bản chất việc chia chunk stream cũng như chia batch list data, là để xử lý từng phần và giải phóng bộ nhớ trước khi xử lý phần sau, giúp tiết kiệm bộ nhớ hoặc đỡ nặng khi call api. Chứ nếu chia batch xong vẫn lấy tất cả thì chả có ý nghĩa gì.
-Với các file lớn, dùng stream giúp tối ưu bộ nhớ gấp trăm lần và tốc độ cũng nhanh hơn, k bị tràn buffer => nên dùng stream mọi lúc, trừ khi có nhu cầu xử lý toàn bộ file 1 lúc
-VD đọc 1 file và ghi vào 1 file khác, fs.readFile(..., (err,data) => { fs.writeFile(...) }) nên thay thế bằng: (fs.createReadStream(...)).pipe(fs.createWriteStream(...));
-VD xem memory của 1 process nodejs trong win: chạy server -> vào Task Manager tab Details -> tìm process tên là "node". Mỗi request sẽ thấy memory tiêu thụ tăng lên để xử lý 
-
--> Mỗi stream trong nodejs đều là 1 event emitter cho phép bắt sự kiện. 4 sự kiện có sẵn là data(đọc), end(hết dữ liệu để đọc), error, finish(khi hoàn thành)
-Các stream trong NodeJS đều là chuỗi or buffer. Chuyển sang chế độ object mode của stream giúp nó thao tác với các kiểu giá trị khác của JS k là dạng buffer hay chuỗi
-
-
-
 # Built-in module trong nodejs
 URL tổng hợp: https://www.w3schools.com/nodejs/ref_modules.asp
 
@@ -53,12 +42,14 @@ Dùng marked + marked-terminal: vẽ ngôn ngữ markdown lên terminal, có th�
 Còn có winston-elasticsearch để kết hợp nó với tool elasticsearch (chat gpt ez)
 
 -> helmet: tự thêm các header bảo mật cần thiết. Khi dùng thì 1s số lượng request có thể xử lý bị giảm đi vài nghìn, đánh đổi security và performance
--> cookie-parser
 -> http-status: thao tác với các loại status http
 -> validator: giúp santinize string để chống XSS. Vd giúp check có phải email hay không chẳng hạn, tập hợp các type check có sẵn
--> express-session: dùng session middleware trong express
 -> concurrently*: khi cần chạy song song client và server trong 1 dự án cùng lúc chỉ bằng 1 lệnh
 -> @apollo/server + graphql: để xây 1 graphql server
+-> express-rate-limit: tránh ddos
+
+-> connect-timeout: sinh lỗi network nếu request lâu quá 5s
+Cơ chế là setTimeout 5s thì send error và bắt sự kiện request close thì clearTimeout thôi
 
 
 
@@ -83,28 +74,26 @@ FE nên gửi ảnh qua FormData, tương đương với <form action="/action_p
 
 
 
-//!!!!!!!!
+# Dùng stream
+Bản chất việc chia chunk stream cũng như chia batch list data, là để xử lý từng phần và giải phóng bộ nhớ trước khi xử lý phần sau, giúp tiết kiệm bộ nhớ hoặc đỡ nặng khi call api. Chứ nếu chia batch xong vẫn lấy tất cả thì chả có ý nghĩa gì.
+Với các file lớn, dùng stream giúp tối ưu bộ nhớ gấp trăm lần và tốc độ cũng nhanh hơn, k bị tràn buffer => nên dùng stream mọi lúc, trừ khi có nhu cầu xử lý toàn bộ file 1 lúc
+VD đọc 1 file và ghi vào 1 file khác, fs.readFile(..., (err,data) => { fs.writeFile(...) }) nên thay thế bằng: (fs.createReadStream(...)).pipe(fs.createWriteStream(...));
+VD xem memory của 1 process nodejs trong win: chạy server -> vào Task Manager tab Details -> tìm process tên là "node". Mỗi request sẽ thấy memory tiêu thụ tăng lên để xử lý 
+
+-> Mỗi stream trong nodejs đều là 1 event emitter cho phép bắt sự kiện. 4 sự kiện có sẵn là data(đọc), end(hết dữ liệu để đọc), error, finish(khi hoàn thành)
+Các stream trong NodeJS đều là chuỗi or buffer. Chuyển sang chế độ object mode của stream giúp nó thao tác với các kiểu giá trị khác của JS k là dạng buffer hay chuỗi
+
+
+
 # Dùng ExpressJS
+Chỉ giúp tạo server dễ hơn chứ mọi lang đều có cách chạy server thuần.
+
 -> Dùng middleware: khi có request thì các middleware chung k xđ url ưu tiên chạy trước rồi mới đến các middleware riêng của url đó
 1 middleware có thể truyền dữ liệu vào req cho middleware tiếp theo lấy. Các middleware có sẵn đều tự gọi next(), chỉ có middleware ta tự tạo mới phải gọi next thủ công
-Route cho middleware có thể là regexp, params, string pattern thoải mái
+Bắt lỗi kết hợp với middleware error handler 4 tham số và app.all("*", (req,res,next) => {<>}) khi gọi route k tồn tại
+Có express.Router giúp chia 1 route ra thành nhiều route con
 
-express.urlencoded({extended: true}) sẽ làm cho dữ liệu trong url mà người dùng gửi đến được lưu lại trong body của req dưới dạng key-value json
-express.json() sẽ giúp lấy được req.body để truy cập vào cặp key-value trong url
-express.static(<>) nếu cần dùng các file static
-
---> Middleware express.Router giúp chia 1 route ra thành nhiều route con
---> Middleware là error handler: hàm gồm 4 tham số err, req, res, next. Bth chỉ có 3 tham số req, res, next
---> Dùng kiểu app.all("*", (req,res,next) => {<>}); là route sau cùng để xử lý lỗi khi người dùng gọi router k tồn tại
-
--> NodeJS có thể xây API server or SSR cung ra html thông qua view engine
---> Dùng pug: luôn dùng vì tính tái sử dụng cao
---> Dùng ejs: cú pháp củ chuối k dùng
-
--> Dùng npx express-generator --view=pug myapp => boilerplate dùng view engine là pug
-
--> Dùng express-rate-limit: tránh ddos
--> Dùng connect-timeout: sinh lỗi network nếu request lâu quá 5s
+-> Dùng view engine xây web ssr với pug, thay cho ejs cú pháp khó dùng
 
 -> app.set("trust proxy", true); => khi server nằm sau 1 proxy và cần lấy ip của user thì bth chỉ lấy được ip của proxy, muốn lấy ip user phải báo cho express biết. 
 true là tin tưởng mọi proxy, false k tin tuỏng.
@@ -116,24 +105,22 @@ app.set("trust proxy", '127.0.0.1, 192.168.0.1, 192.168.0.2'); => tin 3 proxy c�
 
 # Dùng biến môi trường
 Có sẵn biến môi trường: NODE_ENV=production node app.js -> lấy ra với process.env.NODE_ENV
-NodeJS v18 hỗ trợ sẵn file .env k cần lib
+Best practice là dùng nodejs v18 hỗ trợ sẵn file .env k cần lib
 
--> Dùng dotenv: Theo thống nhất khi lập trình nodejs thì file .env ko được commit lên host theo git, để trong .gitignore
-Dùng dotenv-expand: giúp tạo biến môi trường mà dựa trên biến môi trường khác
-Dùng cross-env: có thể dùng quyết định môi trường nào ngay trong command. Nó còn ghê gớm khi tự động lấy tên file chuẩn trong config
+-> Dùng dotenv kết hợp dotenv-expand còn giúp tạo biến môi trường mà dựa trên biến môi trường khác
+Dùng cross-env có thể quyết định môi trường NODE_ENV trong command như bth, nhưng nó còn ghê gớm khi tự động lấy tên file .env chuẩn luôn.
 
 
 
 # Nén data truyền qua API
-Tốc độ sẽ nhanh hơn nhưng tăng áp lực lên CPU => nên dùng mọi lúc trừ khi CPU server yếu
+Nhiều nền tảng như Cloudflare cũng hỗ trợ sẵn nén data: Client <---10KB--- Cloudflare <---100KB--- Origin server
 
-compression: lib nén giảm lượng dữ liệu cần truyền qua mạng với gzip.
-shrink-ray-current: dùng thuật toán brotli mới của google còn giúp nén mạnh hơn nữa.
-
-Nhiều nền tảng như Cloudflare cũng hỗ trợ nén data: Client <---10KB--- Cloudflare <---100KB--- Origin server
+compression: lib nén giảm lượng dữ liệu cần truyền qua mạng với gzip. Lưu ý tốc độ nhanh hơn nhưng tăng áp lực lên CPU => nên dùng mọi lúc trừ khi CPU server yếu
+shrink-ray-current*: dùng thuật toán brotli mới của google còn giúp nén mạnh hơn nữa => best practice
 
 
 
+//!!!!!!
 # Dùng jsonwebtoken và bảo mật
 -> Dùng passport + passport-jwt kết hợp: sẽ dùng jwt như 1 strategy làm đơn giản code hơn
 Dùng passport-local nếu xác thực tk mk tự làm
@@ -204,6 +191,12 @@ store: new MongoStore ({
 
 
 -> Usecase: trong hệ thống phân tán nhiều server, các server thường đồng bộ session data của user thông qua 1 redis db chung thay vì mỗi máy lưu 1 session data riêng. Vừa tối ưu bộ nhớ và tốc độ, vừa giúp đồng bộ user k cần login lại nhiều lần. 
+
+
+-> cookie-parser: giúp đọc và lưu cooke tùy ý
+-> express-session: khi dùng sẽ có thêm req.session có thể tùy ý get và set chỉ ở server, bản chất nó lưu vào cookie và sign với secret, chỉ tồn tại trong 1 session, tắt đi bật lại là mất.
+Nếu chỉ cần cookie lưu session thì dùng express-session, còn không thì cookie-parser tùy ý lưu được session hoặc permanent mà.
+
 
 
 
@@ -280,7 +273,7 @@ Console của browser sẽ giúp nodejs nhìn rõ chi tiết mọi object. Có t
 File js chạy phát tắt ngay thì k thể mở được devtool. Có thể cho server lắng nghe ở 1 cổng lâu để dùng. 
 Click đúp vào dòng nào trong tab Source để đặt breakpoint, khi call api sẽ dừng ngay tại đó, F10 đi tiếp. Đặt "debugger;" trong code thì devtool browser cũng hiểu là dừng ở đó
 
--> morgan: thư viện log lại lịch sử gỡ lỗi và các request của user
+-> Dùng winston ghi log thay morgan, phải tự viết 1 middleware log request bằng winston chứ k tự động
 
 -> Package debug: giúp log ở môi trường debug. 
 VD: const debug = require("debug")("myapp:server"); debug("This is message");
