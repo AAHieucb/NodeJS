@@ -37,9 +37,6 @@ Dùng marked + marked-terminal: vẽ ngôn ngữ markdown lên terminal, có th�
 -> Dùng node-mocks-http: mock http api 
 -> Dùng supertest: test nhanh http. Hoạt động với mọi test framework or test 1 mình k cùng framework nào cũng đươc
 
--> Dùng winston: lib logger mạnh nhất. Trong hệ thống qtr về tốc độ, việc ghi log tốn thời gian thì thường push message vào buffer r chạy 1 thread riêng lấy ra ghi.
-Còn có winston-elasticsearch để kết hợp nó với tool elasticsearch (chat gpt ez)
-
 -> helmet: tự thêm các header bảo mật cần thiết. Khi dùng thì 1s số lượng request có thể xử lý bị giảm đi vài nghìn, đánh đổi security và performance
 -> http-status: thao tác với các loại status http
 -> validator: giúp santinize string để chống XSS. Vd giúp check có phải email hay không chẳng hạn, tập hợp các type check có sẵn
@@ -48,6 +45,8 @@ Còn có winston-elasticsearch để kết hợp nó với tool elasticsearch (c
 -> express-rate-limit: tránh ddos
 -> connect-timeout: sinh lỗi network nếu request lâu quá 5s. Cơ chế là setTimeout 5s thì send error và bắt sự kiện request close thì clearTimeout thôi
 -> mysql2: connect mysql chuẩn
+-> telegraf: giúp tương tác với telegram, có thể tạo bot tự động nhắn tin vào channel sau 1 ktg, thay thế email. Cần api key của tele là được.
+-> bullmq*: giúp tạo queue, lập lịch chạy cron job.
 
 
 
@@ -208,7 +207,6 @@ function yourApiEndpoint(req, res) { // VD hàm gọi ở API endpoint
 
 
 
-//!!!!!!
 # Session và cookie
 Server k thể xác định được requests HTTP có phải từ cùng 1 người hay không vì HTTP là 1 giao thức k trạng thái, cookie ra đời đã giải quyết vấn đề đó. Cookie giới hạn bộ nhớ nhỏ, lưu và truyền data giữa client server. Tùy biến lưu lâu dài hay ngắn hạn.
 Session là data trao đổi giữa client và server, tắt browser bật lại là mất.
@@ -252,31 +250,18 @@ URL: https://myaccount.google.com/security
 
 
 
-# json-server http-server
-FreeAPI: https://jsonplaceholder.typicode.com/posts
-
--> json-server / lite-server có thể dùng 1 file text bth làm db, chú ý là k có tính ACID của DB bth.
-
-json-server --watch <link đến file db.json> --port 4000 => file db thay đổi sẽ update realtime.
-GET /employees/1/?_sort=firstName&amp;_order=desc
-GET /employees?_page=7&amp;_limit=20
-
--> Còn có http-server dựng http server nhanh: cd thư mục -> http-server -c-1 (-c-1 để disable cache) => thêm file html vào thư mục để serve nó
-
-
-
-//!!!!!!
-# Debug và log lỗi trong nodejs
+# Debug và log trong nodejs
+-> Debug nodejs
 node --inspect index.js -> mở devtool của chrome lên sẽ thấy option nodejs (k thấy thì gõ chrome://inspect/#devices) -> click là thấy console của nodejs trong browser
 Console của browser sẽ giúp nodejs nhìn rõ chi tiết mọi object. Có thể tương tác trực tiếp in ra biến trong browser khi api chạy dừng ở breakpoint.
 File js chạy phát tắt ngay thì k thể mở được devtool. Có thể cho server lắng nghe ở 1 cổng lâu để dùng. 
 Click đúp vào dòng nào trong tab Source để đặt breakpoint, khi call api sẽ dừng ngay tại đó, F10 đi tiếp. Đặt "debugger;" trong code thì devtool browser cũng hiểu là dừng ở đó
 
--> Dùng winston ghi log thay morgan, phải tự viết 1 middleware log request bằng winston chứ k tự động
+-> Ghi log: Trong hệ thống qtr về tốc độ, việc ghi log tốn thời gian thì thường push message vào buffer r chạy 1 thread riêng lấy ra ghi.
+=> Dùng winston ghi log thay morgan, phải tự viết 1 middleware log request bằng winston chứ k tự động. Còn có winston-elasticsearch để kết hợp nó với tool elasticsearch (chat gpt ez)
 
--> Package debug: giúp log ở môi trường debug. 
-VD: const debug = require("debug")("myapp:server"); debug("This is message");
-=> Tức dùng debug với namespace có tên là myapp:server, namespace có vai trò lọc và phân loại các dòng log debug
+-> Package debug có sẵn trong nodejs giúp log ở môi trường debug:
+VD: const debug = require("debug")("myapp:server"); debug("This is message"); => Dùng debug với namespace có tên là myapp:server, namespace có vai trò lọc và phân loại các dòng log debug
 Để dùng:
 Trong linux: "start": "DEBUG=app:* node app.js" or chạy terminal trực tiếp DEBUG=app:* node app.js
 Trong window: cd vào thư mục -> set DEBUG=appmyapp:* => để cho debug trong môi trường nào rồi chạy bth. Làm như này sẽ set biến môi trường của window trong phạm vi thư mục đó
@@ -284,26 +269,13 @@ Trong window: cd vào thư mục -> set DEBUG=appmyapp:* => để cho debug tron
 
 
 # Bắt global error
-Chạy node index.js có server listen và ta gọi throw luôn thì ct sẽ tự kết thúc vì lỗi unexpected k được bắt.
-=> Kiểm soát bằng việc bắt các event lỗi: unhandledRejection, uncaughtException, SIGTERM. 
-VD: process.on("uncaughtException", unexpectedErrorHandler); Trong unexpectedErrorHandler thg có process.exit(0);
-=> Ta có thể override để tắt các connection tới database, socket các thứ. Thực ra nếu tắt process, nó cũng tự close các connection kia rồi, và các công nghệ hiện đại đủ để tự xử lý khi 1 bên tự bị close, phía bên kia cũng tự hiểu điều đó mà ta k cần làm gì thêm.
+Chạy node index.js có server listen và ta gọi throw thì ct sẽ tự kết thúc vì lỗi unexpected k được bắt. Phải bắt các event lỗi: unhandledRejection, uncaughtException, SIGTERM => ref tới "Project Tinkerbell Garden"
+VD: process.on("uncaughtException", unexpectedErrorHandler); Trong unexpectedErrorHandler thg có process.exit(0); 
+Ta có thể override để tắt các connection tới database, socket, close server. Thực tế, nếu tắt process, nó cũng tự close các connection kia rồi, và các công nghệ hiện đại đủ để tự xử lý khi 1 bên tự bị close, phía bên kia cũng tự hiểu điều đó mà ta k cần làm gì thêm.
 
 
 
-# Tương tác telegram
--> Tạo bot tự động nhắn tin vào channel sau 1 khoảng thời gian, có thể dùng thay thế gửi mail.
-telegraf => giúp tương tác với telegram
-node-schedule => package giúp tạo cron job, có thể setup chạy hàm gì vào thời điểm nào.
-
-Quy trình: @BotFather => chat với thằng này để tạo bot, lấy API key, có thể edit và làm mọi thứ với bot.
-Tạo 1 channel và thêm bot vào làm admin => ấn vào hình cái bút ở cuối list chat, ấn vào setting của channel
-@JsonDumpBot => chat với thằng này để lấy thông tin phòng chat
-Ta chat vào channel và forward message tơi @JsonDumpBot để lấy thông tin phòng chat, lấy được id channel trong forward_from_chat
-=> Dùng channelid + api key là tạo được 1 con bot có thể sendmessage vào channel đó.
-
-
-
+//!!!!!!
 # Tool test
 -> Jest: viết test case bằng JS để test cho FE. Nó tìm file test nằm trong thư mục __test__ or file có đuôi là .test.js
 -> MounteBank: mock cung API có sẵn dạng ngân hàng => thà dùng json-server

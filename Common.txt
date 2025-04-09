@@ -149,3 +149,17 @@ Class object có thể lưu dạng đường path "1.2.3", lưu left và right �
 - Xử lý recursive thì gọi hàm recursive, hoặc convert sang vòng while bằng cách dùng stack or queue.
 Với data lưu dạng phẳng thì viết hàm xử lý bth.
 
+
+
+# json-server http-server
+FreeAPI: https://jsonplaceholder.typicode.com/posts
+
+-> json-server / lite-server có thể dùng 1 file text bth làm db, chú ý là k có tính ACID của DB bth.
+
+json-server --watch <link đến file db.json> --port 4000 => file db thay đổi sẽ update realtime.
+GET /employees/1/?_sort=firstName&amp;_order=desc
+GET /employees?_page=7&amp;_limit=20
+
+-> Còn có http-server dựng http server nhanh: cd thư mục -> http-server -c-1 (-c-1 để disable cache) => thêm file html vào thư mục để serve nó
+
+

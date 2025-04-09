@@ -5,6 +5,7 @@ ab: thư viện apache benchmark test
 http-errors: module tạo ra error với các mã lỗi của website, dùng nó trong 1 middleware để pass nó tới error handler tiếp theo.
 nodemon: thay thế với node --watch
 morgan: thư viện log lại lịch sử gỡ lỗi và các request của user => thế bằng winston
+node-schedule: giúp tạo cron job, có thể setup chạy hàm gì vào thời điểm nào.
 
 -> express-flash: Flash message là message lưu tạm trong session hiện tại, nó là 1 dòng thông báo tạm thời và có thể truy xuất ở request tiếp theo, sau đó sẽ bị xoá. 
 Tức là lib này cung cho server lưu 1 message vào session để truy xuất ở 1 request tiếp theo rồi tự xoá. Thường chỉ dùng cho SSR => kqtr
