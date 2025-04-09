@@ -9,4 +9,5 @@ morgan: thư viện log lại lịch sử gỡ lỗi và các request của user
 -> express-flash: Flash message là message lưu tạm trong session hiện tại, nó là 1 dòng thông báo tạm thời và có thể truy xuất ở request tiếp theo, sau đó sẽ bị xoá. 
 Tức là lib này cung cho server lưu 1 message vào session để truy xuất ở 1 request tiếp theo rồi tự xoá. Thường chỉ dùng cho SSR => kqtr
 
-
+-> Dùng passport + passport-jwt: giúp code jwt strategy đơn giản hơn
+Dùng passport-local nếu xác thực tk mk tự custom.

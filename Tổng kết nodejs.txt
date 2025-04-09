@@ -28,7 +28,6 @@ Biến môi trường process.env.UV_THREADPOOL_SIZE thiết lập kích thướ
 -> Dùng cheerio: thư viện giúp parse DOM, tạo web crawler
 -> Dùng module-alias: import module relative url gọn
 -> Dùng Joi: thư viện validate type của object, email, password, not null => ref tới "Projects / BlogWeb"
--> npm i -g http-server dựng http server nhanh: cd thư mục -> http-server -c-1 (-c-1 để disable cache) => thêm file html vào thư mục để serve nó
 
 -> Dùng chalk: package giúp style text trên console
 Dùng figlet: package in chữ khổng lồ trên console
@@ -210,105 +209,63 @@ function yourApiEndpoint(req, res) { // VD hàm gọi ở API endpoint
 
 
 //!!!!!!
-# Dùng jsonwebtoken và bảo mật
--> Dùng passport + passport-jwt kết hợp: sẽ dùng jwt như 1 strategy làm đơn giản code hơn
-Dùng passport-local nếu xác thực tk mk tự làm
-
--> FE lưu refreshtoken tự động login
-- Cookie: httpOnly cookie flag làm browser k đọc được cookie bằng JS. Cài cookie flag SameSite=strict và secure=true(chỉ HTTPs) để giảm thiểu CSRF.
-- Indexed DB (ít dùng): là 1 NoSQL DB, dùng khi cần lưu 1 lượng data lớn và global trong code. Lưu được file, blobs. High performance với indexed, hỗ trợ transactions. Thường 1 app chỉ tạo 1 db dù ta có thể tạo bnh db cũng đươc. Cũng phải tạo connection, tạo object, lưu và chờ như db bth.
-=> localStorage thì phải chống XSS mọi nơi nên cookie httpOnly an toàn hơn, nhưng các framework FE giờ rất mạnh để chống XSS r nên k đáng kể.
-=> SSR nên dùng cookie, CSR nên dùng localStorage. Chỉ dùng indexed db khi muốn lưu như localStorage nhưng cần memory > 5MB
-
-
-
--> JWT cũng dùng khi quá trình verify bằng 1 pp bên ngoài mất nhiều tg thì chỉ cho làm 1 lần rồi sau đó dùng jwt xác thực cho nhanh. 
-VD: ký message trong web3 xong rồi dùng jwt để giao tiếp.
-
--> Dùng redis vô hiệu hoá token
-Usecase hệ thống bị hack và yêu cầu admin vô hiệu hóa 1 refresh token. Ta lưu tất cả refreshtoken vào redis và check thêm 1 bước, nếu nó k tồn tại trong redis, tức bị xoá hoặc expires thì login fail. Để vô hiệu hoá chỉ cần xoá khỏi redis. Tương tự nếu muốn vô hiệu accessToken
-- Lưu redis kiểu key là user id, value là refreshtoken. Điều này đồng nghĩa token mới được lấy thì token cũ tự k dùng được nữa. 
-- Nếu quản lý nhiều token 1 người, VD mỗi thiết bị 1 token thì ta lưu token sai vào (user => [blacklist token]) mỗi lần check phải check thêm token hết hạn chưa rồi xóa thủ công khỏi blacklist, hoặc tạo làm sao để tự xoá khi token qua expires time. Tương tự với pp whitelist.
-=> Đây cũng là tính năng cho phép user logout mọi thiết bị hay các thiết bị cụ thể khi phát hiện bất thường
-
--> Bài toán: ứng dụng cập nhật có tính năng mới, chỉ ai có accesstoken mới mới dùng được, mọi accesstoken cũ cần bị hủy, tức buộc người dùng phải đăng nhập lại.
-C1: Kể từ lúc cập nhật, mọi request của người dùng lên server lần đầu đều báo lỗi token k hợp lệ, yêu cầu login lại và lưu vào blacklist. Bất cứ ai chưa có trong blacklist đều báo k hợp lệ => K ổn nếu người dùng đăng nhập trên nhiều thiết bị và có nhiều token thì cái này chỉ báo có 1 lần là sai, các thiết bị khác sẽ pass cái blacklist
-
-C2: Thay đổi cấu trúc token. 
-1 JWT token được cấu tạo bởi: [(base64UrlEncoded JSON) Header] [(base64UrlEncoded JSON) Payload] [(base64UrlEncoded String) Signature]
-Lưu version vào payload. VD ban đầu là {id, email} thì thêm thành {id, email, version}. Mỗi request ngoài check expiretime, check thêm version phải trùng với version của hệ thống. Version hệ thống có thể lưu trong env or từng user database. Khi update thì tăng version lên, accesstoken mới tạo ra cũng tăng version lên là được
-Ta có thể custom chỉ update với list user xác định. Vd lưu vào user database thì đổi version của user nào sẽ chỉ hủy accessToken của user đó => Cũng có thể thêm tùy ý trường type vào payload để chỉ định áp dụng với user có type là gì
-=> Tối ưu hơn nữa: thay vì báo lỗi có thể trả lại accessToken mới cho người dùng luôn nếu accesstoken đúng như version sai, FE phải check và update accessToken với mọi request
-
--> Xây dựng hệ thống tự phát hiện token bị hacker cướp: mặc định chơi 1 user có thể nhiều token vì login từ nhiều thiết bị.
-Mỗi khi có login từ 1 thiết bị mới, gửi mail thông báo cho user về ip và location của thiết bị đó, để họ tự xác thực.
-Khi AT hết hạn, FE nên gửi cả RT và AT cũ tới server. Khi làm mới token, server cũng nên làm mới cả RT và AT gửi cho user chứ k chỉ AT. Khi 1 RT được dùng để lấy cặp token mới, server nên lưu cả RT và AT và blacklist trong thời hạn expires time của nó. Nếu 1 request mà dùng lại AT và RT này, khả năng cao là token đã bị hack, server sẽ vô hiệu hoá thêm cả cặp token mới vào blacklist và gửi mail thông báo cho user luôn. Vì hacker có thể là người trước đó login hoặc là người mới login.
-
--> 2 cách dùng JWT:
-- RSA => ref tới dự án "Ecommerce"
-- HMAC => Lộ secret ở db là mất hết nên ít dùng so với RSA, ref tới "Tinkerbell garden"
-Cơ chế: User login với username password -> Server dùng 1 HMAC secret key mã hoá thông tin payload thành signature, gửi cho user token = `payload.signature` -> user gửi kèm token ở mỗi request sau -> server check payload + HMAC secret key tạo lại đúng signature thì ok.
-HMAC secret key có thể sinh random ở mỗi phiên và lưu vào db thay vì dùng 1 key cố định để đảm bảo signature khác nhau mỗi lần sinh và k thể dùng lại signature cũ.
-Để chống replica attack trong 1 phiên, ta buộc sinh random HMAC secret key ở mỗi phiên lưu DB, sau đó gửi cho client lưu ở cả ở FE. Mỗi request, user phải ký lại payload kèm nonce và timestamp thành signature gửi kèm, server check signature đúng và timestamp k quá lâu và nonce chưa từng dùng là ok (nonce lưu kèm secret key trong db). Nếu lộ secret, sẽ chỉ lộ trong 1 phiên làm việc nên mới dám gửi cho FE như v
-
-
-
 # Session và cookie
-Cookie có giới hạn bộ nhớ nhỏ, được lưu ở phía client lâu dài.
-Session là 1 loại data trao đổi giữa client và server. Session thường implement lưu data trong session storage cho 1 phiên làm việc thôi.
-Có thể dùng cookie lưu session data tùy ý implement. Chú ý session storage là khái niệm chỉ có ở FE, backend k có session storage mà chỉ có cookie.
+Server k thể xác định được requests HTTP có phải từ cùng 1 người hay không vì HTTP là 1 giao thức k trạng thái, cookie ra đời đã giải quyết vấn đề đó. Cookie giới hạn bộ nhớ nhỏ, lưu và truyền data giữa client server. Tùy biến lưu lâu dài hay ngắn hạn.
+Session là data trao đổi giữa client và server, tắt browser bật lại là mất.
 
--> Server k thể xác định được các requests HTTP có phải từ cùng 1 người hay không vì HTTP là 1 giao thức k trạng thái, cookie ra đời đã giải quyết vấn đề đó. VD Setup cookie middleware lưu data tự động truyền giữa client server trong phạm vi 1 session.
-=> Session chỉ nên lưu data 1 lần vào web, VD login data mà lưu lâu dài thì dùng jwt lưu cookies đi. Do đó session ít dùng trong dự án lớn.
+Session storage là khái niệm chỉ ở browser, có thể dùng lưu session data. 
+Session cookie là việc cố tính lưu session data vào cookie thôi, vẫn tùy biến tắt browser bật lại là mất.
 
--> Lưu session data ở server
-Có thể dùng express-session lưu cookie trong memory (restart server là mất) hoặc cookie-session để lưu session data trong cookie (bị lỗi memory leak). Để fix, ta k được lưu session trong cookie nữa mà phải lưu trong các database khác bằng cách thêm option store:
-- VD redis:
-store: new RedisStore(),
-- VD connect-mongo hỗ trợ lưu session data:
+-> Lưu session data:
+- Có thể dùng express-session lưu data trong cookie ở browser, server ký data để đảm bảo k bị đổi bởi client chứ server k cần lưu => best practice
+- Có thể tùy biến session data lưu lâu dài hay ngắn hạn ở cả client và server:
+Client lưu trong localStorage, sessionStorage
+Server lưu trong redis, mongodb
+
+VD redis có store: new RedisStore(),
+VD connect-mongo hỗ trợ lưu session data:
 store: new MongoStore ({ 
   url: 'mongodb: // localhost: 27017 / test-app', // URL MONGODB CỦA BẠN 
   ttl: 14 * 24 * 60 * 60, // thời gian hết hạn 1 session
   autoRemove: 'native' 
 }), => Đăng nhập vào mongo atlas sẽ thấy session được lưu ở đó
 
--> Đồng bộ session trong hệ phân tán: client gửi request tới nhiều server khác nhau, server 1 lưu session data, server 2 lưu sẽ invalid yêu cầu login lại
-- Lưu session data chỉ ở client thông qua cookies / localStorage.
+--> Pb lib:
+cookie-parser: giúp đọc và lưu cooke tùy ý
+express-session: dùng cookie lưu session data cho expressjs. Cứ set là có thêm req.session tùy ý get và set data ở server, bản chất nó lưu vào cookie và sign với secret, chỉ tồn tại trong 1 sessio.
+Còn có cookie-session lưu session data trong cookie nhưng k bị giới hạn ở express server.
+=> Nếu chỉ cần cookie lưu session thì dùng express-session, còn không thì cookie-parser tùy ý lưu được session hoặc permanent mà.
+
+-> Giải pháp sync session data trong hệ phân tán: client gửi request tới nhiều server khác nhau, server 1 lưu session data, server 2 k lưu sẽ invalid yêu cầu login lại
+- Lưu session data chỉ ở client thông qua cookies / localStorage
 - Lưu ở local server thì cấu hình nginx trung gian thuật toán chỉ gửi 1 user tới 1 server là được
 - Lưu ở 1 database or redis chung để nhiều server cùng lấy được, thường dùng cho SSO, nhược điểm là sập phát toang luôn
 - Lưu ở local 1 server, rồi gọi đồng bộ copy session data vào các server khác => éo ổn
 
 
--> Usecase: trong hệ thống phân tán nhiều server, các server thường đồng bộ session data của user thông qua 1 redis db chung thay vì mỗi máy lưu 1 session data riêng. Vừa tối ưu bộ nhớ và tốc độ, vừa giúp đồng bộ user k cần login lại nhiều lần. 
 
-
--> cookie-parser: giúp đọc và lưu cooke tùy ý
--> express-session: khi dùng sẽ có thêm req.session có thể tùy ý get và set chỉ ở server, bản chất nó lưu vào cookie và sign với secret, chỉ tồn tại trong 1 session, tắt đi bật lại là mất.
-Nếu chỉ cần cookie lưu session thì dùng express-session, còn không thì cookie-parser tùy ý lưu được session hoặc permanent mà.
-
-
-
-# Dùng nodemailer 
-Tạo tính năng gửi mail => refer tới "Projects / BlogWeb"
-
-Khi truy cập vào gmail để gửi thông tin đi thì gmail sẽ chặn, để nodemailer hoạt động được thì:
+# Dùng nodemailer
+-> Gửi mail với gmail thì khi gửi đi sẽ bị chặn, nodemailer để chạy được thì: 
 - Với tài khoản bth: ta phải bật quyền truy cập của ứng dụng kém an toàn của google account trong mục bảo mật
 - Với tài khoản xác minh 2 lớp (vd qua số đt nx): bảo mật -> App Password -> Sign in password -> SelectApp -> Other -> gõ tên mật khẩu -> sinh ra 1 password mới thay thế cho password hiện có để ứng dụng có tên đó truy cập vào đc gmail của ta 
 URL: https://myaccount.google.com/security
 
 
 
-# Dùng json-server
-Free: https://jsonplaceholder.typicode.com/posts
+# json-server http-server
+FreeAPI: https://jsonplaceholder.typicode.com/posts
 
--> json-server / lite-server: có thể dùng 1 file text bth là db, dùng tạm thời và k có tính ACID của DB bth.
+-> json-server / lite-server có thể dùng 1 file text bth làm db, chú ý là k có tính ACID của DB bth.
 
---> json-server --watch <link đến file db.json> --port 4000 => file db thay đổi sẽ update realtime. 
-VD query: GET /employees/1/?_sort=firstName&amp;_order=desc
+json-server --watch <link đến file db.json> --port 4000 => file db thay đổi sẽ update realtime.
+GET /employees/1/?_sort=firstName&amp;_order=desc
 GET /employees?_page=7&amp;_limit=20
 
+-> Còn có http-server dựng http server nhanh: cd thư mục -> http-server -c-1 (-c-1 để disable cache) => thêm file html vào thư mục để serve nó
 
 
+
+//!!!!!!
 # Debug và log lỗi trong nodejs
 node --inspect index.js -> mở devtool của chrome lên sẽ thấy option nodejs (k thấy thì gõ chrome://inspect/#devices) -> click là thấy console của nodejs trong browser
 Console của browser sẽ giúp nodejs nhìn rõ chi tiết mọi object. Có thể tương tác trực tiếp in ra biến trong browser khi api chạy dừng ở breakpoint.
