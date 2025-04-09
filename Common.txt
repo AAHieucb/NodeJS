@@ -140,6 +140,7 @@ Requirements: chèn, sửa, thêm data nhanh, 1 node đổi vị trí trong cây
 Hoặc database lưu parentid là foreign key tới chính nó được, sẽ lưu dưới dạng adjacent list. Con nối với 1 cha thôi. Có thể dùng binary tree.
 Database lưu thêm 1 trường chỉ định vị trí nested và thứ tự. VD: path="1.2.3" là con của row có path="1.2", tìm kiếm mọi con với WHERE path LIKE '1.2.%'
 Database lưu mỗi row có 1 trường left và right (nested set model). VD X có left=1, right=10 thì tìm mọi con của X với WHERE left > 1 AND right < 10. Khi update phải update left right mọi con.
+Đơn giản là lưu như flat nhưng thêm 1 trường là parentId. Lấy list data từng cấp rất nhanh: lv1 lấy mọi comment k có parentid, view more 1 comment lv1 thì lấy mọi comment có parentId là id comment đó là xong.
 
 - Class object có thể chứa trường tự nested đệ quy được. Có thể lưu như 1 adjacent list, chỉ cần id của node cha thôi.
 Với dạng graph nhiều node 2 chiều, class object nên lưu kiểu graph. Số lượng k nên quá nhiều. Áp dụng các thuật toán tìm kiếm trên graph được.
@@ -147,5 +148,4 @@ Class object có thể lưu dạng đường path "1.2.3", lưu left và right �
 
 - Xử lý recursive thì gọi hàm recursive, hoặc convert sang vòng while bằng cách dùng stack or queue.
 Với data lưu dạng phẳng thì viết hàm xử lý bth.
-
 

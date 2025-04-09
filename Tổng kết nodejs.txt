@@ -143,15 +143,69 @@ Có thể bắt sự kiện giữa socket client và server, broadcast event, t�
 
 VD: socket.volatile.emit("event_name", data); => volatile thì socket sẽ không cần đảm bảo rằng tin nhắn đã được nhận, giúp giảm độ trễ, gửi là xong luôn. Nếu dùng nó thì đang gửi mà disconnect thì bỏ luôn, còn nếu k dùng thì message được lưu lại tạm thời và khi reconnect sẽ gửi lại.
 
-Socket đắt nên ta thường tối ưu kiểu tạo phòng như battle hand, thay vì connect luôn, nếu k vào phòng thì chưa cần kết nối socket. Nên cho options user enable chứ k luôn tạo socket mỗi khi vào web
+Socket đắt nên ta thường tối ưu kiểu tạo phòng như battle hand, thay vì connect luôn, nếu k vào phòng thì chưa cần kết nối socket. Nên cho options user enable chứ k luôn tạo socket mỗi khi vào web. Khi tắt client sẽ tự disconnect socket nên k cần handle gì thêm
 Cách tốt nhất là code theo luồng. VD tưởng tượng tạo phòng, rồi mn vào thì có data rồi làm gì thì có data gì, ta sẽ dễ dàng biết cái nào phát sự kiện và làm gì. VD lúc connect thì phát sự kiện nhận về data 
 Phía client hay server đều có thể tách file riêng cho export ra cái socket để thao tác, cô lập module. VD cần gửi data cho 1 list socket thoả mãn đk: tạo singleton lưu list socket export từ file riêng; trong hàm on cũng có thể lấy list socket với io.sockets.sockets => ref tới project "Battlehand"
+Phải setup cors cho socketio để cho phép client connect tới, tránh để người ngoài connect vào
+
+-> Bản chất khi gọi io.connect():
+Client call tới server qua 1 dạng. VD: ?EIO=3&transport=polling&t=LqtOnHh
+Server trả lại với: "90:0{"sid":"pcJM_AEZirrJT-DuAAUy","upgrades[], "pingInterval":3600000,"pingTimeout":3600000}2:40" => tức server tạo ra 1 socket object cho từng client và trả lại id của socket object đó. 
+Sau đó client call tiếp tới server connect tới cái socket client có id đó: ?EIO=3&transport=polling&t=LqtR6Rn&sid=0JFGcEFNdrS-XBZeAAXM => đây là long poll call và là connect thực sự
 
 -> Polling: query liên tục xem có thay đổi không. Duration càng ngắn, càng tốn tài nguyên.
 Long-polling khắc phục nhược điểm của polling với ý tưởng: client gửi 1 request và server giữ lại request đó và sẽ response khi có 1 sự kiện tương ứng diễn ra. Nếu request client bị timeout, khi hết timeout nhưng vẫn chưa có sự kiện mong đợi nào thì server buộc trả về 1 response mà chả có dữ liệu nào, vẫn tốt hơn short-polling nhiều rồi.
 Để tránh việc client bị treo hay ảnh hưởng hiệu suất của tác vụ khác, khi sử dụng long polling, nên thực hiện long polling trên một thread riêng => ít dùng
 
 -> URL: https://socket.io/docs/v4/tutorial/step-7 => Đb là nó dùng serverOffset để đánh dấu sẽ gửi message thiếu bù lại khi bị disconnect rồi reconnect.
+
+-> Fix lỗi socket client để lâu tự bị disconnect, lúc bật lên sẽ lỗi. Phải thêm config để tránh lỗi:
+const socket = io(BASE_URL, {
+  path: "/socket.io", // default 
+  transports: ["websocket"], // xđ transport mechanism dùng cho connection như websocket, polling. Ở đây dùng để "websocket" để duy trì socket lâu dài.
+  secure: true, // Báo dùng connect secure ở đây là wss. Nếu dùng ws thì chỉ connect 1 lúc r tự báo lỗi vì đường truyền k được mã hóa sẽ nguy hiểm
+  reconnection: true,
+});
+Nếu có authentication khi truyền sẽ phải thêm token để server check quyền với "query":"token="+Auth.getToken()
+
+
+
+# Server tránh xung đột biến global
+Khi làm việc với C# ASP.NET, mỗi client là 1 thread riêng nên mỗi request sẽ dùng biến độc lập trong từng thread. Ta vẫn có thể tạo class singleton dùng chung được. Xong ta còn phải xử lý các biến khi vào các async context chạy song song thì dùng chung giá trị hay độc lập.
+Trong nodejs là single thread và dù nhiều request đến mấy cũng chạy lần lượt và asynchronous nhau. Tức dù k bị conflict write biến đồng thời thì các request vẫn có thể dùng chung biến của nhau loạn xạ dẫn đến kết quả k mong muốn. Thông thường ta tạo biến local cho từng request nên k sợ bị xung đột, hiếm khi dùng biến global.
+
+Module "async" đảm bảo chỉ 1 luồng có thể truy cập và sửa biến global cùng một thời điểm. Cơ chế là add đoạn mã và 1 queue thực hiện lần lượt.
+VD: const async = require('async');
+let globalVariable = 0; // Khai báo biến global
+const lock = async.queue(
+  async (task, done) => { 
+    try { // Đoạn mã trong này chỉ được thực thi bởi một yêu cầu tại một thời điểm
+      const newValue = await performSomeOperation(task.value);
+      globalVariable = newValue;
+      done();
+    } catch (error) {
+      done(error);
+    }
+  }
+);
+function performSomeOperation(value) { // Hàm side effect
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      const result = globalVariable + value;
+      resolve(result);
+    }, 1000); // Giả định thời gian chậm trễ 1 giây
+  });
+}
+function yourApiEndpoint(req, res) { // VD hàm gọi ở API endpoint
+  const valueFromClient = req.body.value;
+  lock.push({ value: valueFromClient }, (error) => { // Thêm yêu cầu vào hàng đợi để có đồng bộ
+    if (error) {
+      return res.status(500).json({ error: 'Đã xảy ra lỗi trong quá trình xử lý yêu cầu.' });
+    }
+    return res.status(200).json({ message: 'Yêu cầu đã được xử lý thành công.' });
+  });
+}
+=> Dùng `async.queue` để tạo một hàng đợi đồng bộ hóa. Hàm đưa vào hàng đợi sẽ kbh thực hiện song song.
 
 
 
