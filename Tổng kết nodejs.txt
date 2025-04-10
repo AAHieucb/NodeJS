@@ -5,6 +5,13 @@ Luôn dùng nvm: Để update nvm lên version mới, phải tải lại từ gi
 node -> http.STATUS_CODES / Date.now()
 node --watch
 
+-> file.mjs là ES module js, file.cjs là file dùng common js. Có thể import lẫn nhau
+Nodejs dùng .js sẽ tự dùng commonjs, muốn dùng .js là es module phải thêm type module, nhưng nếu dùng đúng đuôi file sẽ tự dùng chuẩn loại
+
+Dùng top-level statement fetch api được.
+node --run <tên command script trong package json> => giúp chạy script trực tiếp trong cmd
+for await (const value of promises) { console.log(value); } => chờ lần lượt từng promies thực hiện xong
+
 
 
 # Built-in module trong nodejs
@@ -47,6 +54,12 @@ Dùng marked + marked-terminal: vẽ ngôn ngữ markdown lên terminal, có th�
 -> mysql2: connect mysql chuẩn
 -> telegraf: giúp tương tác với telegram, có thể tạo bot tự động nhắn tin vào channel sau 1 ktg, thay thế email. Cần api key của tele là được.
 -> bullmq*: giúp tạo queue, lập lịch chạy cron job.
+
+-> Autocannon: autocannon -c <> -p <> -d <> <url> 
+-c là số lượng connection đồng thời, mặc định là 10 user cùng lúc
+-p là đóng gói, bnh gói requests thì mặc định là 1
+-d là số giây nó phản hồi lại, mặc định là 10
+VD: autocannon http://localhost:5000/ thì sẽ check 1 gói 10 user chạy cùng lúc trong 10 giây thì mỗi giây có bnh request xử lý được thành công
 
 
 
@@ -275,31 +288,15 @@ Ta có thể override để tắt các connection tới database, socket, close 
 
 
 
-//!!!!!!
-# Tool test
--> Jest: viết test case bằng JS để test cho FE. Nó tìm file test nằm trong thư mục __test__ or file có đuôi là .test.js
--> MounteBank: mock cung API có sẵn dạng ngân hàng => thà dùng json-server
-
--> Apache benchmark (ab): gửi nhiều request đồng thời tới 1 server để test performance => cài phức tạp, thay thế bằng autocannon
--> Autocannon: autocannon -c <> -p <> -d <> <url> 
--c là số lượng connection đồng thời, mặc định là 10 user cùng lúc
--p là đóng gói, bnh gói requests thì mặc định là 1
--d là số giây nó phản hồi lại, mặc định là 10
-VD: autocannon http://localhost:5000/ thì sẽ check 1 gói 10 user chạy cùng lúc trong 10 giây thì mỗi giây có bnh request xử lý được thành công
-VD với server bth test sẽ thấy nó cho average 900 request trong 1s, tức 9k request trong 10s với máy 4 threads. Khi xử lý mã hóa tốc độ nó giảm 10 lần
-
-
-
 # Master require, import, module.export và export, dynamic import
-Dùng module.exports = { x: new Class() } + require ở nhiều file khác sẽ chỉ chạy qua file 1 lần rồi lưu object vào cache. Dù file có thay đổi động thì cũng k chạy lại. Cái export ra dùng như 1 singleton.
-Khi dùng async để khởi tạo biến, logic chạy như bth. Hàm async chạy xong thì require dùng dược biến, chưa chạy xong thì k dùng được.
+Dùng module.exports = { x: new Class() } + require ở nhiều file sẽ chỉ chạy qua 1 lần đầu tiên rồi lưu cache. Object export ra dùng như 1 singleton.
+Khi dùng async để khởi tạo biến, logic chạy như bth, require như bth, hàm chạy xong sẽ dùng được biến thôi.
+Cần tránh circular dependencies
 
-Dùng import require cần tránh circular dependencies
-
--> Code
+-> Code example:
 const x = new Class(); 
 module.exports = x; hoặc module exports = { x }; hoặc module.exports = { x: new Class() };
-=> Export singleton, có constructor
+=> Export singleton, có gọi constructor khởi tạo
 
 Class { static method() {} }
 module.exports = Class;
@@ -313,7 +310,6 @@ module.exports = Class;
 const Class = require("./Class"); const x = new Class();
 => Mỗi lần dùng là 1 lần tạo mới
 
---> Có khởi tạo async
 class MyClass { 
   constructor() { this.initialize(); } 
   async initialize() { } 
@@ -325,62 +321,21 @@ class MyClass {
 const instance = Database.getInstance();
 module.exports = instance;
 const instance = require('./file');
-=> Init async và lấy singleton ra dùng. Đảm bảo initialize async hoàn thành mới dùng biến là được chạy.
+=> Khởi tạo async và lấy singleton ra dùng. Đảm bảo initialize async hoàn thành mới dùng biến là được => best practice
 
--> Tùy biến lỗi async. VD gọi hàm async, bên trong hàm gán giá trị cho 1 biến và k chờ nó, sau đó ta export biến ra sẽ lỗi vì khi export, nó sẽ copy state hiện tại của biến vào cache (khi chưa thực hiện xong await) và bị sai.
-VD: let x = 1; async function runSleep() { await sleep(2000); x = 2; }
-runSleep(); module.exports = { x };
+->*** Bản chất lỗi async: gọi hàm async, bên trong hàm gán giá trị cho 1 biến và k chờ nó, sau đó ta export biến ra sẽ lỗi vì khi export, nó sẽ copy state hiện tại của biến vào cache (khi chưa thực hiện xong await) và bị sai.
+VD: let x = 1; async function runSleep() { await sleep(2000); x = 2; } runSleep(); module.exports = { x };
 
-=> Để fix, phải export 1 hàm trong file trả về biến đó thì hàm bị cache, còn biến vẫn chạy và k bị xoá do hàm vẫn gọi tới, dùng singleton. VD: 
-let x = 1; async function runSleep() { await sleep(2000); x = 2; } function getX(){ return x; }
-runSleep(); module.exports = { getX: getX };
-Hoặc thêm: let client = {}; client.x = x; module.exports = client; => nó sẽ cache client copy ngay, vùng nhớ x vẫn có ref tới nên k bị xóa, async chạy xong là vùng nhớ có giá trị và dùng thôi
+Để fix, phải export 1 hàm trong file trả về biến đó thì hàm bị copy cache, còn biến vẫn chạy và k bị xoá do hàm vẫn gọi tới. 
+VD: let x = 1; async function runSleep() { await sleep(2000); x = 2; } function getX(){ return x; } runSleep(); module.exports = { getX: getX };
+Hoặc wrap nó vào 1 biến khác thì biến bao ngoài bị copy, vẫn trỏ tới trường bên trong k bị copy thôi: let client = {}; client.x = x; module.exports = client; => nó sẽ cache client copy ngay, vùng nhớ x vẫn có ref tới nên k bị xóa, async chạy xong là vùng nhớ có giá trị và dùng thôi
 
--> Default nodejs dùng commonjs (require và module.exports), còn module dùng cho 1 vài gói riêng của nodejs ES6 (import export).
-VD tùy biến package ESM cho phép dùng import/export trong commonjs
-Cũng có dynamic import dùng được ở cả commonjs và ES6, phải import thông qua promise
-
-
-->*** Vấn đề khi dùng class trong JS
-Class có properties cần set giá trị qua hàm async, khi lấy ra ngoài bị undefined. 
-Cần chú ý lấy thuộc tính ra ngoài thì giá trị của nó phải được set xong rồi. Nếu gọi hàm async mà k await sẽ vẫn thực hiện song song hàm đó, set xong thì dùng bth.
-Giải pháp là: nhét hàm khởi tạo async vào constructor, viết 1 hàm getter lấy ra, export ra ngoài instance của class chứ k export class.
+-> Có package ESM cho phép dùng import/export trong commonjs
+Hoặc dùng dynamic import cho cả commonjs và ES6 đều được, phải import thông qua promise.
 
 
 
-# Chuyển hết về async await
--> Hàm callback
-X(a, callback); => khi hàm X thực hiện xong sẽ truyền kết quả vào hàm callback ở cuối để xử lý. 
-Thường hàm từ thư viện sẽ có sẵn phiên bản khác là async await. Vd: const x = await X(a); callback(x);
-
-Nếu không có phiên bản async await, buộc phải truyền callback vào bth. Nếu callback là async, nó sẽ đi tiếp luôn và thực hiện song song hàm callback. Có thể ép chờ callback xong mới chạy xuống dưới:
-const x = await new Promise((resolve, reject) => {
-  X(a, async (err, result) => {
-    if(err) reject(err);
-    resolve(result);
-  })
-})
-=> Bản chất: promise kbh kết thúc nếu như cái cục cuối cùng của nó k gọi resolve or reject. Vd ở đây ta xóa resolve hay reject đi thì hàm promise này sẽ kbh kết thúc. Ta dựa vào nó để ép hàm này dùng được await.
-
--> Promise: await X().then();
-Chú ý promise khi call resolve hay reject, nó vẫn chạy tiếp phần code bên dưới, do đó ta nên return để tránh nó đi tiếp
-=> Trong callback phải check if(err) tuỳ lib, promise vẫn phải .then().catch, còn async await phải có try catch. Do đó chuyển sang async await phải luôn nhớ try catch error
-
--> Event với on
-Ta có thể biến thành Promise để dùng với async. Bằng cách cho resolve khi onsucess, reject với onerror:
-new Promise((resolve, reject) => {
-  const reader = new FileReader();
-  reader.onload = () => {
-    resolve(reader.result);
-  };
-  reader.onerror = (error) => {
-    reject(error);
-  };
-  reader.readAsDataURL(file);
-});
-
-
-
+//!!!!!!
 # Dùng PM2
 Tool chạy nhiều instance của server. Khi máy có nhiều CPU cores, PM2 sẽ tự tối ưu hóa bằng cách chạy mỗi process trên 1 core để tối ưu. Khi đó, PM2 tự dùng round robin để phân bố request cho các instance khác nhau. Còn nếu máy chỉ có 1 cores, việc chạy nhiều instance sẽ k có ích gì vì dùng chung core đó.
 Khi server crash, pm2 sẽ auto restart nó, nên khi deploy sẽ kbh bị sập vì lỗi lạ.
@@ -417,21 +372,6 @@ Nó tự tận dụng mỗi core CPU là 1 process, mỗi process vẫn đơn lu
 Số instance k nên set là max số CPU cores mà nên trải qua thực nghiệm để tối ưu. VD máy 10 cores chạy được 20 instances thì chỉ nên chạy tầm 10 intances, còn lại dành cho task khác để tránh quá tải sẽ chậm hơn trước. Ta chạy chung 1 cổng và nó sẽ tự dùng cơ chế load balancing tối ưu của hđh để xử lý, thường là round robin, ta k cần đụng
 
 -> Dùng PM2 cũng tạo instance phân bố vào cores khác nhau tối ưu => nếu chả mất gì mà lại tăng performance thì tội gì k dùng.
-
-
-
-# NodeJS v23
-mjs có thể import cjs nhưng cjs k thể import mjs. Giải pháp tạm thời là thế bằng dynamic import, khi đó phải wrap code có hàm import vào 1 hàm async và gọi hàm đó -> Node23 cho phép cjs import trực tiếp mjs
-Dùng top-level statement fetch api được.
-
-node --run <tên command script trong package json> => giúp chạy script trực tiếp trong cmd
-
--> for await (const value of promises) { console.log(value); } => chờ lần lượt từng promies thực hiện xong
-
--> file.mjs là ES module js
-file.cjs là file dùng common js
-VD trong nodejs dùng .js sẽ tự dùng commonjs, muốn dùng .js là es module phải thêm type module. Nhưng nếu dùng đúng đuôi file sẽ tự dùng chuẩn loại
-
 
 
 

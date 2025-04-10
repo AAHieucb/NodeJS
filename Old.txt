@@ -12,3 +12,8 @@ Tức là lib này cung cho server lưu 1 message vào session để truy xuất
 
 -> Dùng passport + passport-jwt: giúp code jwt strategy đơn giản hơn
 Dùng passport-local nếu xác thực tk mk tự custom.
+
+-> MounteBank: mock cung API có sẵn dạng ngân hàng => thà dùng json-server
+Apache benchmark (ab): gửi nhiều request đồng thời tới 1 server để test performance, thế bằng autocannon
+
+
