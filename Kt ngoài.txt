@@ -76,4 +76,5 @@ Trình duyệt tự động gửi preflight request như vậy khi FE và server
 -> NodeJS xd trên nền tảng Javascript V8 Engine tốc độ cao, mã nguồn mở. Engine gồm heap và stack, tải NodeJS là tải engine này về
 Javascript engine là trình thông dịch mã js. Ngoài V8 thì cũng có các js engine khác như: SpiderMonkey(FireFox), Hermes(ReactNative), Chakra(IE), JavascriptCore(Safari).
 
+-> Daemon là 1 loại chương trình trên các hệ điều hành like-unix hoạt động ẩn trong background. Các tiến trình daemon thg kết thúc bằng d như inetd, httpd, sshd, ipd. Các tiến trình daemon không thể bị gián đoạn và chỉ hoạt động khi có đầu vào, tách ra khỏi tiến trình cha mẹ.
 

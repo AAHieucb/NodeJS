@@ -335,46 +335,40 @@ Hoặc dùng dynamic import cho cả commonjs và ES6 đều được, phải im
 
 
 
-//!!!!!!
 # Dùng PM2
-Tool chạy nhiều instance của server. Khi máy có nhiều CPU cores, PM2 sẽ tự tối ưu hóa bằng cách chạy mỗi process trên 1 core để tối ưu. Khi đó, PM2 tự dùng round robin để phân bố request cho các instance khác nhau. Còn nếu máy chỉ có 1 cores, việc chạy nhiều instance sẽ k có ích gì vì dùng chung core đó.
-Khi server crash, pm2 sẽ auto restart nó, nên khi deploy sẽ kbh bị sập vì lỗi lạ.
-Tuỳ ý kiểm soát từng process, giám sát resource (monit), tự động reload khi đổi như nodemon (--watch), xem log.
+Tool chạy nhiều instance của server. Khi máy có nhiều CPU cores, PM2 sẽ tự tối ưu hóa bằng cách chạy mỗi process trên 1 core. Khi đó, PM2 tự dùng round robin để phân bố request cho các instance khác nhau. Còn nếu máy chỉ có 1 cores, việc chạy nhiều instance với PM2 sẽ k có ích gì.
+PM2 cũng đảm bảo auto restart khi server crash.
+Tuỳ ý kiểm soát từng process, giám sát resource (monit), tự động reload server khi code đổi như nodemon (--watch), xem log.
 Có thể dùng file ecosystem.config.js để thiết lập cấu hình cho pm2 stable 
 
-Khi chạy, nó tạo ra 1 process master lắng nghe ở cổng mà ta xác định trong file server. 
-Ta có thể tuỳ chỉnh. VD: NODE_PORT=3002 pm2 start -i 2 app.js => rồi trong file app.js lấy với process.env.NODE_PORT (thực chất là cung 1 biến env). Sau đó VD ta chạy 2 instance thì nó sinh ra 2 worker process để xử lý, thông qua 1 process master lắng nghe ở 1 cổng. 
+Khi chạy, nó tạo ra 1 process master quản lý các process worker. Các process worker cùng listen trên 1 port.
+VD: NODE_PORT=3002 pm2 start -i 2 app.js => sinh ra 2 worker process để xử lý logic 
+VD: pm2 start app.js --name "my-app" --max-memory-restart 100M => 1 instance dùng max 100MB mem, nếu quá sẽ tự restart lại
 
-VD: pm2 deploy production/staging setup => lần đầu chạy nó pull code từ git về và setup, các lần sau chỉ cần: pm2 deploy production/staging update
+Chạy với option --no-daemon thì sẽ k chạy trong background nữa, VD pm2 start --no-daemon. Khi dùng với docker thì nên có vì nếu chỉ chạy "pm2 start index.json" thì docker dừng luôn vì nó tưởng tiến trình đã kết thúc.
 
--> option --no-daemon: 
-Daemon là 1 loại chương trình trên các hệ điều hành like-unix hoạt động ẩn trong background. Các tiến trình daemon thg kết thúc bằng d như inetd, httpd, sshd, ipd. Các tiến trình daemon không thể bị gián đoạn và chỉ hoạt động khi có đầu vào, tách ra khỏi quá trình cha mẹ và thiết bị đầu cuối.
-Nhiều tiến trình khi chạy phải thêm --no-daemon như câu lệnh pm2 start. VD khi dùng với docker thì nên có vì nếu chỉ chạy "pm2 start index.json" thì docker dừng luôn vì nó tưởng tiến trình đã kết thúc, chạy phát là dừng do nó ở trạng thái daemon và k có đầu vào nên k hoạt động.
-
--> Dùng PM2 có 2 chế độ là forkmode và cluster mode
+-> PM2 có 2 chế độ là forkmode và cluster mode
 - Fork mode: Chạy 1 instance duy nhất với "pm2 start app.js --name my-api"
-Nếu muôn chạy nhiều instance thì chạy nhiều lần script đó. Mỗi instance là độc lập và hệ điều hành kiểm soát việc phân bổ vào CPU core nào, có thể là cùng cores.
-- Cluster mode: VD "pm2 start app.js -i 0" sẽ chạy ứng dụng với max số CPU cores
+Nếu muôn chạy nhiều instance thì chạy nhiều lần script đó. Mỗi instance là độc lập và OS tự kiểm soát việc phân bổ vào CPU core nào, có thể là cùng cores.
+- Cluster mode: VD "pm2 start app.js -i 0" sẽ chạy ứng dụng với max số CPU cores => luôn dùng
 Cluster mode sẽ tự phân bổ instance vào các cores khác nhau. PM2 cũng tự dùng cơ chế load balancing là round-robin
 
 
 
 # Tối ưu với cluster
-Cluster là 1 nhóm máy tính (nodes) làm việc cùng nhau để chia tải công việc, cùng cung ra 1 dịch vụ. VD 1 hệ thống có 1 chức năng cụ thể, ta mở rộng bằng cách triển khai chức năng đó trên nhiều máy khác nhau mà hoạt động như 1 máy duy nhất cung ra dịch vụ chức năng đó => chính là hệ phân tán
-Tương tự việc chạy nhiều instance cùng 1 chức năng trên 1 máy để tận dụng tối đa số CPU cores trong máy. Vì luôn muốn đủ máy xử lý lượng tải lớn và mỗi máy đều dùng tối ưu CPU
+Cluster trong hệ phân tán là 1 nhóm máy tính (nodes) làm việc cùng nhau để chia tải công việc, cùng cung ra 1 dịch vụ. VD 1 hệ thống có 1 chức năng cụ thể, ta mở rộng bằng cách triển khai chức năng đó trên nhiều máy khác nhau mà hoạt động như 1 máy duy nhất cung ra dịch vụ chức năng đó
+Cluster cũng chỉ việc chạy nhiều process trên cùng 1 máy cung ra 1 chức năng. Ở từng máy sẽ chạy nhiều instance để tận dụng tối đa số CPU cores trong máy đó. Khi đó, các instance độc lập nhau về main memory, còn đĩa cứng với file thì vẫn chung.
+Logic chia instance trong 1 máy chỉ đúng với nodejs là ngôn ngữ đơn luồng, còn ASP.NET thông qua thread async await tự chia task tối ưu cho multicore CPU rồi.
 
-Nếu cùng 1 máy, các instance độc lập nhau về main memory, còn đĩa cứng với file thì vẫn chung
-Chỉ đúng với nodejs là ngôn ngữ đơn luồng, còn ASP.NET thông qua thread async await tự chia task tối ưu cho multicore CPU rồi.
-
--> NodeJS cũng có sẵn package cluster chuyên chạy nhiều instance của server trên 1 máy: https://www.youtube.com/watch?v=_74_z2-uOys
+-> PM2 là package ngoài giúp dùng cluster dễ hơn. Thực tế, nodejs có built-in package cluster giúp chạy nhiều instance của server trên 1 máy custom mạnh hơn.
+URL: https://www.youtube.com/watch?v=_74_z2-uOys
 Cơ chế khi chạy sẽ tạo 1 instance isMaster, fork ra hàng loạt instance isWorker chạy dự án lại từ trên xuống. Master có thể dùng quản lý các instance worker. 
 Nó tự tận dụng mỗi core CPU là 1 process, mỗi process vẫn đơn luồng trong nodejs, sẽ chịu tải đồng thời tốt hơn. 
-Số instance k nên set là max số CPU cores mà nên trải qua thực nghiệm để tối ưu. VD máy 10 cores chạy được 20 instances thì chỉ nên chạy tầm 10 intances, còn lại dành cho task khác để tránh quá tải sẽ chậm hơn trước. Ta chạy chung 1 cổng và nó sẽ tự dùng cơ chế load balancing tối ưu của hđh để xử lý, thường là round robin, ta k cần đụng
-
--> Dùng PM2 cũng tạo instance phân bố vào cores khác nhau tối ưu => nếu chả mất gì mà lại tăng performance thì tội gì k dùng.
+Số instance k nên set là max số CPU cores mà nên trải qua thực nghiệm để tối ưu. VD máy 10 cores chạy được 20 instances thì chỉ nên chạy tầm 10 intances, còn lại dành cho task khác để tránh quá tải sẽ chậm hơn trước. Nó chạy chung 1 cổng và tự dùng cơ chế load balancing tối ưu của hđh để xử lý, thường là round robin, ta k cần đụng.
 
 
 
+//!!!!!!
 # Scaling:
 
 # Hệ phân tán nhiều server thì query cái nào
@@ -422,25 +416,6 @@ Có thể dùng database proxy để điều hướng tới db gần nhất, ké
 TraceId duy nhất của 1 request giúp debug dễ hơn, thậm chí được duy trì dù gọi qua nhiều services khác nhau. 
 Khi nhận 1 request và ghi log, sẽ lấy traceid được lưu trong request đó. Nếu k có mới tạo 1 Guid mới.
 
-
-
-# NodeJS
--> Vấn đề về process và hiệu suất
-Trong C# khi tạo 1 process chạy độc lập từ 1 process khác, ta k thể kiểm soát bộ nhớ max mà 1 process có thể sử dụng
-
---> Dùng PM2:
-Dùng PM2 chạy nhiều instance song song tận dụng đa lõi CPU, nếu máy đã lõi mà chạy node bình thường thì hiệu suất PM2 sẽ cao hơn.
-Tự động restart instance khi bị crash. Khi 1 instance gặp sự cố thì các instance khác vẫn xử lý giúp giảm downtime. Tài nguyên độc lập k chia sẻ.
-Kiểm soát tài nguyên thoải mái. VD pm2 start app.js --name "my-app" --max-memory-restart 100M => giúp 1 instance dùng max bộ nhớ 100MB, nếu quá sẽ tự restart lại. Quản lý log, tự động cân bằng tải giữa các instance, giám sát hiệu suất.
-
-Nodemon chỉ giúp đổi code thì tự restart trong môi trường dev, dùng PM2 thì k cần nodemon nữa và dùng cho prod được.
-
-Phân biệt PM2 là dùng để tối ưu hiệu suất cho 1 máy. Còn Nginx cấu hình load balancer giữa các server độc lập. 
-VD1: máy local chạy 2 instance PM2 tại cùng 1 port thì nginx chả có vai trò gì ở đây
-VD2: máy local chạy 2 instance server tại 2 port trên cùng 1 máy thì là 2 ứng dụng độc lập, nginx có thể phân phối tải cho ứng dụng nào xử lý. Nhưng điều này k đem lại lợi ích gì vì khả năng xử lý k tăng, PM2 đã tự load balancer rồi.
-VD3: 2 máy chủ vật lý độc lập chạy server ở 2 ip khác nhau, lúc này là mở rộng chiều ngang thì nginx có thể load balancing giữa các máy là đúng vai trò của nó.
-
----> Cluster mode là gì? Là kiểu chia ra nhiều cụm instance không chia sẻ tài nguyên. Nếu duy trì biến toàn cục dùng chung các thứ thì k dùng cluster mode
 
 
 

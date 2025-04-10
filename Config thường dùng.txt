@@ -7,14 +7,14 @@ app.use(express.urlencoded({ // parsing application/xwww-form-urlencoded vào re
 app.use(express.static(path.join(__dirname, "public"))); // Static file serving
 
 router.use((req, res, next) => { next(); }); // Dùng middleware riêng cho 1 router
-router.get('/', (req, res) => { ; });
+router.get("/", (req, res) => { ; });
 app.use("/", router);
 app.use((err, req, res, next) => { // Error handling
-  res.status(500).send('Something broke!')
+  res.status(500).send("Something broke!")
 });
 
 --> multer v1:
-var multer = require('multer');
+var multer = require("multer");
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, __dirname + "/uploads"); // Đường dẫn upload ảnh
@@ -37,17 +37,17 @@ app.use(cookieParser( // Lib cookie-parser
 ));
 
 --> cors:
-const whitelist = ['', 'https://example2.com']
+const whitelist = ["", "https://example2.com"]
 app.use(cors({
   credentials: true,
   origin: function (origin, callback) {
     if (whitelist.indexOf(origin) !== -1 || !origin) { // !origin sẽ cho phép các origin undefined truy cập, orgin undefined khi request từ cùng nguồn, nội bộ, hoặc gọi bằng tool client nhu postman
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'))
+      callback(new Error("Not allowed by CORS"))
     }
   },
-  origin: ['http://localhost:3000'], // or
+  origin: ["http://localhost:3000"], // or
   optionsSuccessStatus: 200 // some legacy browsers (IE11, various SmartTVs) choke on 204 nên phải convert về 200 để tương thích
 }));
 
@@ -73,11 +73,55 @@ app.use(compression({
   level: 6, // Level càng lớn thì compress càng mạnh nhưng nếu lớn quá thì server sẽ phải xử lý nhiều và chậm hơn. Khuyến nghị để mức 6. 
   threshold: 100 *1000, // Đơn vị là byte. tức phải lớn hơn 100kB thì mới thực hiện nén
   filter: (req, res) => { // Filter là điều kiện khi nào thì nén, để mặc định sẽ nén mọi url
-    if(req.headers['x-no-compress']){ // Header k có cái option x-no-compress thì mới nén
+    if(req.headers["x-no-compress"]){ // Header k có cái option x-no-compress thì mới nén
       return false;
     }
     return compression.filter(req, res);
   }
 }));
 
+
+
+-> ecosystem.config.js:
+module.exports = {
+  apps: [
+    {
+      name: "tinkerbellgarden",
+      script: "src/index.js",
+      instances: 2,
+      autorestart: true,
+      watch: false, // K theo dõi file change để reload tự động
+      max_memory_restart: "1G", // Nếu quá 1GB RAM, PM2 tự restart server tránh quá tải
+      exec_mode: "cluster", // "cluster" giúp zero downtime vì pm2 reload sẽ lần lượt từng instance, đảm bảo instance chưa tới lượt vẫn serve.
+      env: { // Dùng env var này khi chạy ở chế độ development "pm2 start ecosystem.config.js"
+        NODE_ENV: "development", 
+      },
+      env_production: { // Khi chạy "pm2 start ecosystem.config.js --env production"
+        NODE_ENV: "production",
+      },
+    },
+  ],
+  deploy: {
+    production: {
+      user: "ubuntu", // User SSH kết nối server
+      host: "your.production.server.com", // IP của server
+      repo: "git@github.com:yourname/my-app.git", // url của repo để clone
+      ref: "origin/main", // branch pull về
+      path: "/var/www/my-app", // folder chứa project trên server hiện tại
+      "post-deploy": "npm install && pm2 reload ecosystem.config.js --env production" // Lệnh chạy khi pull code xong
+    },
+    staging: {
+      user: "ubuntu",
+      host: "your.staging.server.com",
+      ref: "origin/develop",
+      repo: "git@github.com:yourname/my-app.git",
+      path: "/var/www/my-app-staging",
+      "post-deploy": "npm install && pm2 reload ecosystem.config.js --env staging"
+    }
+  }
+};
+
+--> "post-deploy"
+Lần đầu vào thì dùng "pm2 deploy production/staging setup"
+Khi có version mới đổi code thì chạy "pm2 deploy production/staging", nó sẽ thao tác lại pull code và chạy post-deploy. Các instance cũ không tự xóa mà "pm2 reload" trong post-deploy sẽ reload các instance này đúng cách với code mới.
 
