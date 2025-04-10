@@ -54,6 +54,7 @@ Dùng marked + marked-terminal: vẽ ngôn ngữ markdown lên terminal, có th�
 -> mysql2: connect mysql chuẩn
 -> telegraf: giúp tương tác với telegram, có thể tạo bot tự động nhắn tin vào channel sau 1 ktg, thay thế email. Cần api key của tele là được.
 -> bullmq*: giúp tạo queue, lập lịch chạy cron job.
+-> @google-cloud/text-to-speech
 
 -> Autocannon: autocannon -c <> -p <> -d <> <url> 
 -c là số lượng connection đồng thời, mặc định là 10 user cùng lúc
@@ -368,9 +369,7 @@ Số instance k nên set là max số CPU cores mà nên trải qua thực nghi�
 
 
 
-//!!!!!!
-# Scaling:
-
+//!!!!!!!!
 # Hệ phân tán nhiều server thì query cái nào
 Vấn đề muôn thuở của hệ phân tán: Khi dùng distributed cache, hoặc có nhiều api server và mỗi server dùng 1 cache riêng
 Client query 1 server cache lưu có data rồi nhưng request sau query server khác không có phải get lại dẫn đến 1 data lưu ở nhiều server. Do đó nên dùng pp Hashing hoặc Sticky Sessions thay vì dùng Round Robin, Least Connections. Hashing sẽ hash thông tin client để lấy ra 1 server khiến cho mọi request của client luôn tới 1 server duy nhất.
@@ -417,8 +416,5 @@ TraceId duy nhất của 1 request giúp debug dễ hơn, thậm chí được d
 Khi nhận 1 request và ghi log, sẽ lấy traceid được lưu trong request đó. Nếu k có mới tạo 1 Guid mới.
 
 
-
-
-Có package google API convert text to speech
 
 -> Sharp: thư viện xử lý tối ưu hoá ảnh mạnh cho nodejs. Input ảnh vào và lấy ra đủ loại kích thước muốn blur hay chất lượng giảm như nào tuỳ
