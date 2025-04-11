@@ -1,3 +1,84 @@
+-> ioredis:
+new Redis({
+  host: 'localhost',
+  port: 6379,
+  password: 'yourStrongPassword',
+  lazyConnect: true, // Khi gọi connect redis sẽ chỉ khởi tạo connection khi cần dùng.
+});
+
+
+
+-> var testSchema = new Schema({
+  level1: new Schema({
+    level2: new Schema({
+      test: String
+    })
+  })
+  name: mongoose.Schema.Types.String,
+  date: {
+    type: Date,
+    default: Date.now,
+    min: ['2025-12-09', "Ngày bị nhỏ quá rồi"],
+    max: '2019-19-02'
+  },
+  age: { type: Number, min: 18, max: 65 },
+  array: [],
+  dateArray: [Date],
+  docArr: [{name: String}],
+  singleNested: new Schema({ name: String }),
+  nested: {
+    age: Number
+    first: { 
+      type: String, 
+      lowercase: true, 
+      uppercase: false, 
+      trim:true, 
+      minlength: 2, 
+      match: "Hello", 
+      required: function() { this.age > 0 } 
+    }
+  },
+  mapOfString: { type: Map, of: String },
+  details: {
+    first: String,
+    type: {
+      type: String
+    }
+  },
+  data: {
+    type: Number,
+    get: v => Math.round(v),
+    set: v => Math.round(v),
+    alias: "d"
+    index: true,
+    unique: true,
+    sparse: false,
+    enum: [1, 2],
+    validate: () => Promise.resolve("OK"); => là validate bất đồng bộ
+  },
+  phone: {
+    type: String,
+    validate: {
+      validator: function(v) { return /\d{3}-\d{3}-\d{4}/.test(v); },
+      message: props => "not a number"
+    },
+    select: false
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
+  },
+  author: { 
+    type: Schema.Types.ObjectId, 
+    ref: "Person5", => ref đến model "Person5" cột _id
+    autopopulate: true, => từ lib mongoose-autopopulate sẽ tự populate trường này
+  }, 
+  hahaTestRef: {type: ObjectId, required: true, refPath: "onModel"}, => là 1 ObjectId ref tới 1 docs khác, docs nào thì xem ở trường onModel
+  onModel: {type: String, enum: ["BlogPost", "Product"]}, => 1 enum báo trường hahaTestRef ref tới bảng BlogPost or Product thông qua cột _id
+});
+
+--> hahaTestRef: { refPath: "onModel" } => Khi gọi .populate("on") sẽ chạy vào thấy refPath và nhảy vào trường onModel xem bảng nào, rồi check _id của bảng đó trùng với giá trị trường hahaTestRef thì lấy
+
+
+
 -> Middleware:
 app.use(express.json({ limit: "50mb" })); // parsing application/json vào req.body, max 50mb tránh ddos
 app.use(express.urlencoded({ // parsing application/xwww-form-urlencoded vào req.body

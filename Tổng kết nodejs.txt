@@ -1,4 +1,4 @@
-# Basic
+# NodeJS
 Luôn dùng nvm: Để update nvm lên version mới, phải tải lại từ github về file setup.exe và chạy mới lại
 
 -> node cli: 
@@ -51,10 +51,10 @@ Dùng marked + marked-terminal: vẽ ngôn ngữ markdown lên terminal, có th�
 -> @apollo/server + graphql: để xây 1 graphql server
 -> express-rate-limit: tránh ddos
 -> connect-timeout: sinh lỗi network nếu request lâu quá 5s. Cơ chế là setTimeout 5s thì send error và bắt sự kiện request close thì clearTimeout thôi
--> mysql2: connect mysql chuẩn
 -> telegraf: giúp tương tác với telegram, có thể tạo bot tự động nhắn tin vào channel sau 1 ktg, thay thế email. Cần api key của tele là được.
 -> bullmq*: giúp tạo queue, lập lịch chạy cron job.
 -> @google-cloud/text-to-speech
+-> Sharp: giúp dựng server optimize image cho nodejs. Input ảnh và lấy ra đủ loại kích thước muốn blur hay chất lượng giảm như nào tuỳ
 
 -> Autocannon: autocannon -c <> -p <> -d <> <url> 
 -c là số lượng connection đồng thời, mặc định là 10 user cùng lúc
@@ -368,53 +368,3 @@ Nó tự tận dụng mỗi core CPU là 1 process, mỗi process vẫn đơn lu
 Số instance k nên set là max số CPU cores mà nên trải qua thực nghiệm để tối ưu. VD máy 10 cores chạy được 20 instances thì chỉ nên chạy tầm 10 intances, còn lại dành cho task khác để tránh quá tải sẽ chậm hơn trước. Nó chạy chung 1 cổng và tự dùng cơ chế load balancing tối ưu của hđh để xử lý, thường là round robin, ta k cần đụng.
 
 
-
-//!!!!!!!!
-# Hệ phân tán nhiều server thì query cái nào
-Vấn đề muôn thuở của hệ phân tán: Khi dùng distributed cache, hoặc có nhiều api server và mỗi server dùng 1 cache riêng
-Client query 1 server cache lưu có data rồi nhưng request sau query server khác không có phải get lại dẫn đến 1 data lưu ở nhiều server. Do đó nên dùng pp Hashing hoặc Sticky Sessions thay vì dùng Round Robin, Least Connections. Hashing sẽ hash thông tin client để lấy ra 1 server khiến cho mọi request của client luôn tới 1 server duy nhất.
-
-Dùng Hashing gặp vấn đề khi server list biến động, lúc nào client cũng gọi vào server đó kể cả khi nó sập hay bị xoá rồi dẫn đến lỗi. Do đó họ dùng:
-- Consistent Hashing: 
-Dùng 1 hàm hash an toàn cho id của node và id của data record. Ra 1 giá trị thì nhét vào 1 vòng tròn. Mỗi key sẽ gắn với node gần nhất kề nó theo chiều kim. Vd:
-0 ---- A ---- key1 ---- B ---- key2 ---- E ---- key3 ---- C ---- key4 ---- D ---- 2^32-1
-Key 1 gắn node B, key 2 gắn node E. Nếu ngừoi dùng muốn query data có key 4 thì họ query vào cache server D. Thêm xoá server không sợ lỗi mà lại nhanh.
-- Rendezvous Hashing: 
-Muốn tìm node nào lưu record hiện tại, ta tính weight của data với từng node: weight(key, node) = hash(key of record + node_id) => Node có giá trị cao nhất sẽ lưu record đó.
-
-
-
-
--> Nhược điểm của dedicated server là k thể horizontal scaling, buộc phải mua thêm server ở nơi khác để scaling.
-
--> VD mua 1 VPS trên digital ocean và chạy server. Bh muốn scale lên 2 server ở Sing và Mỹ. 
-Các bước tối thiểu phải xử lý là:
-Dùng load balancer phân phối tải, ghi log các thứ. 
-Cấu hình DNS trỏ tới từng server hoặc trỏ tới 1 load balancer nếu dùng load balancer.
-Xử lý fail over, 1 server sập sẽ đổ traffic vào server còn lại
-
--> Cách đơn giản hơn là dùng Cloudflare proxy làm load balancer. Nó có hàng trăm điểm phân phối toàn cầu, request tới nó trước rồi tự phân phối đến server gần nhất 
-Nó cũng có sẵn cache.
-
--> Load balancer phân phối tải mà lại có 1 endpoint thì các request ở xa load balancer vẫn bị lâu như thường. Thực tế ta đang hiểu sai vai trò của load balancer. Nếu chỉ có vài khu vực, môi khu có 1 server thì chả cần LB làm gì. LB chỉ dùng khi 1 khu vực có nhiều server và cần route trong khu vực đó. Tức ta đã tăng số lượng server ở khu vực đó để nó chịu tải tốt hơn. 
-Chứ ít server thì dùng DNS-based routing trỏ đến các server được đã là đủ r.
-
--> Nếu chỉ dùng 1 db duy nhất (ở sing) thì mọi request tới server ở Mỹ cũng cần gọi vào db ở sing để lấy bị lâu. 
-Read replica => ghi ít thì ok vì chỉ có 1 db ghi ở xa sẽ lâu khi update. 
-Chia độc lập customer => đảm bảo mọi user ở Mỹ sẽ kbh liên can đến data ở Sing. Nếu user đi từ Mỹ qua Sing thì query vẫn về Mỹ và bị lâu. 
-Multi-master replica => đọc ghi đều nhanh nhưng cấu hình phức tạp. Phải có cơ chế fail over, cơ chế đồng bộ giữa mọi database, cơ chế xử lý conflict. VD dùng safe writes để đảm bảo dữ liệu ghi được xác nhận từ ít nhất 2 node trước khi commit.
-Có thể dùng database proxy để điều hướng tới db gần nhất, két hợp cache.
-=> Thường công ty lớn dùng kiểu chia customer độc lập chứ multi-master rất ít khi dùng. Vì đọc ghi nhanh từ mọi nơi trên thế giới mà update nhiều dễ conflict thì rất hiếm.
-
-
-- Dự án k nặng thì deploy luôn database và server chung 1 VPS cho nhanh.
-
-
-
-- Trong hệ thống lớn, khi nhiều service độc lập gọi lẫn nhau, mỗi log đến từ 1 request sẽ có cùng 1 traceId. 
-TraceId duy nhất của 1 request giúp debug dễ hơn, thậm chí được duy trì dù gọi qua nhiều services khác nhau. 
-Khi nhận 1 request và ghi log, sẽ lấy traceid được lưu trong request đó. Nếu k có mới tạo 1 Guid mới.
-
-
-
--> Sharp: thư viện xử lý tối ưu hoá ảnh mạnh cho nodejs. Input ảnh vào và lấy ra đủ loại kích thước muốn blur hay chất lượng giảm như nào tuỳ

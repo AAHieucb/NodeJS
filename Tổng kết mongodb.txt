@@ -1,16 +1,12 @@
-//!!!!!!!!
-# Basic
-1 Cloud Server có nhiều Cluster, 1 cluster có nhiều database bên trong, 1 database bên trong có nhiều collections tên khác nhau, mỗi collection có nhiều documents bên trong. 
-Còn model hay schema trong code là tùy vào thư viện như mongoose sử dụng để định nghĩa ra cấu trúc của 1 collection.
+# Mongodb
+Cluster tập hợp nhiều nodes hđ như 1 system duy nhất, nó klq tới việc chia server ở các vùng miền khác nhau mà là gom nhiều máy cùng 1 function ở 1 khu vực thôi.
+1 Cloud Server có nhiều Cluster mongodb, 1 cluster có nhiều database bên trong, 1 database bên trong có nhiều collections tên khác nhau, mỗi collection có nhiều documents bên trong. 
 Mongodb lưu dữ liệu dạng BSON, tương tự JSON nhưng mạnh hơn.
-Mongodb phù hợp với data linh hoạt, thay đổi nhiều. VD thiết kế module comment thì mongodb sẽ phù hợp hơn mysql
+Mongodb phù hợp với data linh hoạt, thay đổi nhiều. VD thiết kế module nested comment thì mongodb sẽ phù hợp hơn mysql
 
-URL docs: https://mongoosejs.com/docs/
-URL tut: https://stackjava.com/huong-dan-mongodb-code-vi-du-java-mongodb
-
--> Cài đặt: - Cài local docker
+-> Cài đặt: - Dùng local docker
 - Cloud mongodb server: Dùng mongo atlas. Chọn tạo shared cluster. Sau khi tạo cần vào deployment để connect trong 1 cluster -> vào network access mục security cột bên trái, thêm IP address máy của ta hoặc (0.0.0.0 để accept mọi IP) và chọn connect qua driver sẽ lấy được connection string.
-- Tải mongo compass: Khi tải compass về sẽ tự tải mongodb server và được thêm vào services trong administrator tools của máy win, có thể tắt service này trong control panel. 
+- Tải mongo compass: tải compass sẽ tự tải mongodb server và được thêm vào services trong administrator tools của máy win, có thể tắt service này trong control panel.
 Compass có thể connect vào service cổng 27017 (default) để dùng qua UI.
 
 -> 2 kiểu connect mongodb có srv hoặc không
@@ -19,7 +15,17 @@ DNS seed list connection format là 1 định dạng chuỗi IP or tên miền �
 mongodb://username:password@host1:port1,host2:port2/databaseName?replicaSet=myReplicaSet => giúp kết nối tới 1 replica set với 2 máy chủ thành viên
 - mongodb+srv: là bản cải tiến đơn giản hơn để kết nối tới cluster. Chỉ cần truyền hostname là tên cluster, và mongodb sẽ tự động phân giải tất cả máy chủ thành viên thông qua DNS SRV record để connect (K cần liệt kê cụ thể host port từng máy mà tự động lấy qua DNS SRV record). DNS SRV records là một loại bản ghi DNS kiểu DNS seed list connection format mà ta phải setup cho bên ngoài connect vào.
 VD: mongodb+srv://username:password@myClusterName.mongodb.net/databaseName
-=> Để server mongodb hỗ trợ kiểu connect "mongodb+srv", có thể dùng mongodb atlas sẽ tự động setup (DNS SRV record) sẵn cho ta vì nó hosting hộ hết r. Nếu tự hosting, ta cần cấu hình DNS SRV record cho domain của ta, cần quyền truy cập và quản lý DNS khá phức tạp. Còn nếu chạy local thì nên dùng mongodb bth vì k hỗ trợ mongodb+srv
+
+Dùng mongodb+srv giúp có connection string gọn, k cần liệt kê từng host port, tự động cân bằng tải và failover. Dùng mongodb atlas tự tạo 3 node tiêu chuẩn và cung srv:
+- Primary node nhận các thao tác ghi.
+- Secondary node(s) sao chép dữ liệu từ node chính, dùng để đọc hoặc backup.
+- Arbiter (tùy chọn) không lưu dữ liệu, chỉ dùng để bầu chọn node mới nếu Primary bị down.
+Nếu tự hosting, ta cần tạo ra 1 nhiều code trong cluster, rồi cấu hình DNS SRV record cho domain của ta, cần quyền truy cập và quản lý DNS khá phức tạp. Chạy local thì k support gì cả.
+
+-> Connect mongodb trong code:
+- Trong dự án lớn, k nên tạo 1 connection mongodb duy nhất, mà nên tạo connection mới ở mỗi query. 
+- Connection pool là giải pháp tối ưu, query xong tự trả vào pool để tái sử dụng, setting config autoReconnect reconnectTries đảm bảo connection k bị mất khi k sử dụng.
+Lúc mới chạy, nếu server khởi động thành công mà connect db lỗi thì nên dừng ct luôn.
 
 
 
@@ -28,16 +34,18 @@ Mongodb dùng BTree, còn MySQL dùng đa dạng nhiều kiểu Hash, B+ Tree t�
 Nhắc lại BTree lưu node cha có nhiều cục trỏ tới node con, node con lại trỏ tới node cháu được chia theo khoảng. 
 Thực tế nó làm như sau: Khóa - Contro 60 - Khóa - Contro 70 - Khóa - Contro 80 - Khóa. Tức số khóa bằng số contro + 1. Khóa sẽ trỏ tới node con, còn Contro lưu data. VD khóa giữa Contro70 và Contro80 sẽ trỏ tới node con >70 và <80
 
+-> Mongodb vẫn dùng prefix rule là đánh index từ trái qua, đúng như cấu trúc của B-Tree. VD: db.test.createIndex({ a: 1, b: 1, c: 1 }) 
+=> Truy vấn dùng index là: db.test.find({c: "", a: ""}); db.test.find({b: "", a: ""}); => Vì có a nên chắc chắn có index, b a nhanh hơn c a
+
 -> VD mongosh đánh index:
 db.products.insert({productName: "Tips JS", categories: ["TShirt", "phone"], stock: {size: "L", color: "green", quantity: 100}}); 
 db.products.find(); 
-
 db.products.createIndex({ productName: 1 }) => đánh index cho trường productName
 db.products.createIndex({ "stock.quantity": 1 }) => đánh index cho trường stock.quantity
 db.products.getIndexes();
 db.products.createIndex({ "stock.quantity": 1, categories: 1 }); => compound index
 
--> Phân tích truy vấn
+-> Phân tích truy vấn:
 VD JS: var exp = db.products.explain(); exp.find({ productName: "Tips JS" }); => tìm trong db nhưng giải thích cả quy trình tìm, như có dùng index hay không 
 - Nếu k có index thì stage hiển thị COLLSCAN, có index sẽ hiển thị IXSCAN
 - isMultikey là true nếu ta đánh chỉ mục trên 1 trường mà giá trị của trường đó là 1 mảng. VD trường categories của products trên
@@ -46,21 +54,26 @@ VD: db.collectionName.stats({ indexDetails: true });
 db.collectionName.stats({ indexDetails: {name: "indexName"} }); 
 => Hiển thị thống kê chi tiết hơn như index nào chiếm dung lượng bao nhiêu vì nếu đánh quá nhiều index sẽ ảnh hưởng tới tốc độ ghi và giảm bộ nhớ.
 
--> Mongodb vẫn dùng prefix rule là đánh index từ trái qua, đúng như cấu trúc của B-Tree. VD: db.test.createIndex({ a: 1, b: 1, c: 1 }) 
-=> Truy vấn dùng index là: db.test.find({c: "", a: ""}); db.test.find({b: "", a: ""}); => Vì có a nên chắc chắn có index, b a nhanh hơn c a
-
 
 
 # Mongodb injection
-VD: db.users.findOne({ username: { $gte: "" }, password: { $gte: "" } });
-=> Cản với mongo-santinize: db.users.findOne(santinize({ username: { $gte: "" }, password: { $gte: "" } }));
+Vd: db.users.findOne({ username: { $gte: input1 }, password: { $gte: input2 } });
+Nếu input1 và input2 người dùng nhập là "" thì mọi chuỗi đều lớn hơn chuỗi rỗng sẽ lấy mọi tk.
+
+Vd: const user = await db.collection('users').findOne({ username, password });
+User input 1 object: {
+  "username": { "$ne": null },
+  "password": { "$ne": null }
+}
+
+Giải pháp là không viết các query kiểu occho như vậy; dùng thư viện như express-mongo-sanitize để cản input chứa các ký tự như $gt, $ne, $or; validate type của input là string hay object, dùng schema của mongoose hay thư viện như joi để validate type của input.
 
 
 
 # Backup replica
--> Có thể backup db vào file, import vào db khác
+Có thể backup db vào file, import file vào db khác
 
--> Tạo replica qua docker: update 1 db sẽ tự update các db còn lại
+-> VD tạo replica qua docker: update 1 db sẽ tự update các db còn lại
 docker network create mongo-replica-network => muốn chạy nhiều instance tương tác với nhau, phải tạo 1 mạng
 docker run -d -p 27017:27017 --name mongo1 --net mongo-replica-network mongo --replSet "rs0"
 docker run -d -p 27018:27017 --name mongo2 --net mongo-replica-network mongo --replSet "rs0"
@@ -75,14 +88,18 @@ db.getMongo().setReadPref('secondary') => Mặc định mongodb chỉ cho đọc
 
 
 
-# Dùng mongoose
-Object Data Modeling (ODM) là kỹ thuật ánh xạ dữ liệu từ db vào các đối tượng trong mã code. Mongoose là 1 ODM cho mongodb. 
+# Dùng lib mongoose
+Object Data Modeling (ODM) là kỹ thuật ánh xạ dữ liệu từ db vào các đối tượng trong mã code NoSQL, còn ORM của relational db thôi.
+Mongoose là 1 ODM cho mongodb. URL: https://mongoosejs.com/docs/ => nên dùng drizzle hơn
 
--> Thêm static function cho schema gọi global 
+Dùng kèm lib: 
+mongoose-paginate-v2 plugin hỗ trợ phân trang cho mongoose
+mongoose-sequence là plugin hỗ trợ autoincrement 1 trường nào đó khi tương tác với mongoose
+
+-> Thêm static function cho schema để gọi global 
 Thêm các hàm cho 1 instance của schema
 Thêm custom query helper cho schema. Vd: Schema.query.byName. Trong mongoose cũng có sẵn các query helper cho các query phức tạp.
-
-Dùng aggregation để query get với đk vô cùng phức tạp.
+Dùng aggregation để query get với đk vô cùng phức tạp, lấy bất cứ thứ gì từ db.
 Dùng populate để query liên kết bảng.
 Dùng watch để bắt sự thay đổi của data trong 1 collection
 Dùng cursor duyệt qua từng document trong 1 collection
@@ -92,186 +109,249 @@ Dùng pre/port middleware cho schema để xử lý trước và sau khi thực 
 
 VD: Dùng ModelName.updateOne({ _id: doc._id }, { $set: { name: 'foo' } }) tương đương với ModelName.findOne tìm ra doc và gán trực tiếp doc.name = "foo" rồi doc.save();
 
--> Dùng kèm lib: 
-express-mongo-sanitize: package dùng cho express khi dùng mongodb có thể xử lý input tránh Injection
-mongoose-sequence: plugin hỗ trợ autoincrement 1 trường nào đó khi tương tác với mongoose
-mongoose-paginate-v2 plugin hỗ trợ phân trang cho mongoose
+-> Dùng transaction với hàm có sẵn: findOneAndUpdate, findByIdAndDelete, findOneAndReplace, findOneAndRemove, findAndModify
+Hoặc tự tạo transaction custom với startSession, startTransaction
 
--> Dùng transaction:
-Hàm có sẵn: findOneAndUpdate, findByIdAndDelete, findOneAndReplace, findOneAndRemove
-Cũng có thể tự tạo transaction custom với startSession, startTransaction
-
-VD: Khi 1 người gọi hàm db.collection.updateMany() chẳng hạn thì nó chỉnh sửa nhiều document nhưng vc sửa đổi từng doc vẫn là atomic dù operation as a whole thì k atomic.
-
-VD: findAndModify là hàm atomic, tức nó sẽ lock document mà truy vấn này tìm thấy để đảm bảo k có truy vấn khác sửa đổi.
+VD findAndModify tìm 1 document đầu tiên thỏa mãn và update doc đó. Nó là hàm atomic, tức nó sẽ lock doc mà truy vấn này tìm thấy để đảm bảo k có truy vấn khác sửa đổi.
 Giả sử tạo ra 1 database với: db.myCollection.insertMany( [
   { _id: 0, a: 1, b: 1 },
   { _id: 1, a: 1, b: 1 }
 ] )
 => Sau đó ta chạy song song 2 cái queries giống nhau, mỗi query sẽ như dưới:
-db.myCollection.findAndModify( {
+db.myCollection.findAndModify({
   query: { a: 1 },
   update: { $inc: { b: 1 }, $set: { a: 2 } }
-} )
-Query 1 tìm thấy _id 0 sẽ lock lại và xử lý. Query 2 k chờ cái lock đó mà thực hiện tiếp sẽ tìm và xử lý với _id 1 và hoàn thành. Query 1 hoàn thành xử lý _id 0 sẽ mở lock _id 0 và thực hiện _id 1, còn query 2 k recheck _id 0 mà bỏ qua luôn.
+});
+Query 1 tìm thấy _id 0 sẽ lock lại và xử lý. Query 2 tìm thì _id 0 bị lock sẽ bỏ qua, k chờ mà tìm tiếp _id 1 thỏa mãn sẽ xử lý là xong.
 => Chú ý phạm vi lock là từng document, muốn lock toàn bộ thì tự tạo transaction riêng
 
+--> Lưu ý kp hàm nào cũng atomic. 
+VD gọi hàm db.collection.updateMany() thì nó chỉnh sửa nhiều document nhưng vc sửa đổi từng doc vẫn là atomic dù operation as a whole k atomic.
 
-
-# Code mẫu option cho Schema
-level1: new Schema({
-  level2: new Schema({
-    test: String
-  })
-})
-name: mongoose.Schema.Types.String,
-date: {
-  type: Date,
-  default: Date.now,
-  min: ['2025-12-09', "Ngày bị nhỏ quá rồi"],
-  max: '2019-19-02'
-},
-age: { type: Number, min: 18, max: 65 },
-array: [],
-dateArray: [Date],
-docArr: [{name: String}],
-singleNested: new Schema({ name: String }),
-nested: {
-  age: Number
-  first: { 
-    type: String, 
-    lowercase: true, 
-    uppercase: false, 
-    trim:true, 
-    minlength: 2, 
-    match: "Hello", 
-    required: function() { this.age > 0 } 
-  }
-},
-mapOfString: { type: Map, of: String },
-details: {
-  first: String,
-  type: {
-    type: String
-  }
-},
-data: {
-  type: Number,
-  get: v => Math.round(v),
-  set: v => Math.round(v),
-  alias: "d"
-  index: true,
-  unique: true,
-  sparse: false,
-  enum: [1, 2],
-  validate: () => Promise.resolve("OK"); => là validate bất đồng bộ
-},
-phone: {
-  type: String,
-  validate: {
-    validator: function(v) { return /\d{3}-\d{3}-\d{4}/.test(v); },
-    message: props => "not a number"
-  },
-  select: false
-  toJSON: { virtuals: true },
-  toObject: { virtuals: true }
-}
-var schema1 = new Schema({
-  author: { type: Schema.Types.ObjectId, ref: "Person5" } => ref đến model "Person5" cột _id
-});
-var commentSchema = new Schema({
-  body: {type: String},
-  on: {type: ObjectId, required: true, refPath: "onModel"},
-  onModel: {type: String, enum: ["BlogPost", "Product"]} => bảng này ref tới 1 trong 2 bảng BlogPost và Product thông qua cột _id
-});
-=> khi gọi .populate("on") thì nó chạy vào thấy refPath và nhảy vào trường onModel. Trong đây nó sẽ check trường onModel là gì và lấy type: ObjectId là ref "on" với _id của bảng đó, trùng thì lấy
-
--> Lib mongoose-autopopulate là plugin hỗ trợ thêm 1 số tùy chọn SchemaType 
+-> Khi tạo relation 2 bảng, k nên embedded vào mà nên ref
+Khi 1 instance bảng này ref tới nhiều instance bảng khác: one to many là cha ref tới 10 con; one to huge là cha ref tới 1 triệu con quá lớn nên họ thường dùng con ref tới cha thôi.
+VD mongodb có thể dùng ghi log trong hệ thống nhỏ, còn hệ thống lớn thường dùng Elastic Search cơ. Khi đó 1 server có 1 triệu log là chuyện bth.
 
 
 
 # Sharding trong mongodb
-Replica là sử dụng cluster, còn sharding là pp chia dữ liệu và phân phối vào các server khác nhau. Có thể cho mỗi shard 1 replica để tăng tính khả dụng của hệ thống
-Sharding không tăng tốc độ query, mà giúp tăng tính khả dụng khi 1 shard sập thì vẫn hoạt động, tránh quá tải 1 máy chủ duy nhất khi quá nhiều data.
+Sharding là pp chia dữ liệu và phân phối vào các server khác nhau. Từng shard cũng có thể có replica riêng để tăng tính khả dụng.
+Sharding có tăng tốc độ query khi chia nhỏ data, cũng tránh quá tải máy chủ khi quá nhiều data.
 
 Chỉ cần cài mongodb trên các máy độc lập rồi setup shards phần nào của dữ liệu là xong. Cần chọn shardkey là chia data theo trường nào, có thể chia theo hash hoặc chia theo range. VD có thể chia theo range trường createdDate là mỗi năm data sẽ lưu vào 1 shard riêng.
 Khi thêm 1 shard mới vào, mongodb tự có cơ chế reshard chia data vào shard mới theo đúng rules
 Nếu 1 shard bị sập, mongodb tự động phát hiện dựa vào cơ chế heartbeat cũng chỉ là các shards gửi tín hiệu check lẫn nhau mỗi 2s. Sau đó có thể bầu replica của shard đó lên. Nếu chủ động xoá 1 shard mà k có replica, sẽ phải thủ công chuyển data từ đó ra các shards khác rồi xoá đi.
-Khi query db, query routing của mongodb tự check để biết shards nào có data mà query vào. Nếu query chỉ 1 shard, tốc độ sẽ nhanh hơn query nhiều shards.
+Khi query db, query routing của mongodb tự check để biết shards nào có data mà query vào. Nếu query chỉ trong 1 shard, tốc độ sẽ nhanh hơn query nhiều shards.
 
 
 
+# Usecase thiết kế nested commentSchema
+Cần thiết kế sao cho lấy comment phân trang tốc độ cao theo từng level, ở mỗi level lại lấy phân trang tốc độ cao cho từng level con
 
+- Thuật toán nested comment của joey celko: https://www.youtube.com/watch?v=PE6f66u7KBQ
+Comment lưu left, right, parentid. Left right đánh số theo prefix traversal
 
-
-# 3 cách connect db:
-- K nên tạo 1 db connection global duy nhất dùng suốt dự án. Vì connection có thể đóng vì nhiều lý do mà ko biết như timeout hay lỗi mạng. Kể cả có setting reconnect hay sự kiện disconnect để gọi connect lại cũng k nên dùng
-- Mỗi lần query sẽ khởi tạo connection và đóng ở cuối. Duwj asn lowsn
-- Connection pool là giải pháp tối ưu, query xong tự trả vào pool để tái sử dụng, setting config autoReconnect reconnectTries, tự đảm bảo connection k bị mất khi k sử dụng.
-Néu server khởi động thành công mà connect db lỗi thì nên dừng ct, có thể throw error để dùng.
-
-
-
-
-# Mongodb
--> Comment Schema: Cần thiết kế sao cho lấy comment phân trang tốc độ cao theo từng level, ở mỗi level lại lấy phân trang tốc độ cao cho từng level con
-
-- Thuật toán nested comment của joey celko: https://www.youtube.com/watch?v=PE6f66u7KBQ&t=1s
-Add: Comment lưu left, right, parentid. Left right đánh số theo prefix traversal
 Add 1 comment mới toanh thì left = max right hiện tại của sản phẩm, right = left + 1
 Add 1 comment reply phải update left + 2 mọi bản ghi có left > parent left, update right + 2 mọi bản ghi có right > parent right
-=> Số lượng không nhiều vì chỉ thao tác trong phạm vi nested 1 comment
+=> Update hàng loạt bản ghi nhưng số lượng không nhiều vì chỉ thao tác trong phạm vi nested 1 comment
 
 Search comment con từ parentcommentid. VD Search 1 comment là con của comment [2,8] ta chỉ cần tìm comment có left > 2 và right < 8. Có thể lưu thêm level để lấy từng level hoặc lấy hết con
 
-Khi xóa 1 comment, ta có thể dùng trường isDeleted. Với hệ thống lớn, ta nên move qua 1 db mới cho các tác vụ cần hoàn tác hay restore.
-Xóa comment có left >= comment left, right =< comment right
-Update mọi comment có left > comment right với 1 lượng trừ đi width = right - left + 1. Tương tự update right > comment right với - width = right - left + 1
+Khi xóa 1 comment, thường xóa thẳng luôn vì comment kqtr và thường k có nhu cầu tạo lại. Còn thực tế xóa data khác, phải dùng trường isDeleted, hoặc move qua 1 db mới cho các tác vụ restore. 
+Phải xóa cả comment con có left >= comment left, right =< comment right. Cũng phải update mọi comment có left > comment right với 1 lượng trừ đi width = right - left + 1. Tương tự update right > comment right với - width = right - left + 1
 
-- ref tới "Project / BlogWeb"
-1 cách đơn giản hơn là comment ta chỉ lưu thêm parentid với timestamp. Khi đó việc lấy và thêm comment rất đơn giản vì chỉ thao tác với 1 bản ghi. Việc delete comment nếu làm 1 bản ghi sẽ bị lưu thừa data, nên nếu xóa tất cả phải for loop rất mệt
-=> Cái này phù hợp với hệ thống nhỏ như comment của shopee chỉ có max 1 level. Còn thuật toán joey celko có thể nói là độ phức tạp tương đương nhưng phù hợp hệ thống lớn khi có thể lồng rất nhiều cấp độ. Có thể truy vấn 1 phát mọi nested sets con luôn chứ k cần truy vấn từng cấp độ
+- Với usecase đơn giản hệ thống nhỏ, chỉ cần lưu thêm parentid với timestamp => ref tới "Project / BlogWeb"
+Cách này thì việc lấy và thêm comment đơn giản vì chỉ thao tác với 1 bản ghi. Nhưng delete phải tìm để xóa nested khá lâu.
 
-- Cải tiến: https://www.youtube.com/watch?v=i8WLvdbF_W8&list=PLw0w5s5b9NK5SUfrJ8rjIMYitT9K8WB8W&index=48
-Có 1 pp khác cải tiến đơn giản hơn là dùng slug (là id), parentslug và timestamp. slug của 1 comment = "slug comment cha của cha/slug comment cha/slug comment hiện tại", cứ lồng vào thì slug lại lồng tiếp
+- PP khác: https://www.youtube.com/watch?v=i8WLvdbF_W8&list=PLw0w5s5b9NK5SUfrJ8rjIMYitT9K8WB8W
+1 comment lưu slug (là id), parentslug và timestamp. 
+slug của 1 comment = "slug comment cha của cha/slug comment cha/slug comment hiện tại", cứ lồng vào thì slug lại lồng tiếp
 Khi thêm sẽ lồng slug cha vào con đơn giản. Có thể lấy tất cả comment con của 1 comment cha với RegExp "slug cha/*", hoặc con ở cụ thể cấp độ 2 với "slug cha/*/*$". Khi xóa cũng dùng RegExp đơn giản, có thể đánh index.
 
-Để phân trang: Các giải pháp trước ta có thể phân trang theo kiểu chỉ phân trang các comment ở node gốc. Còn con của 1 comment có thể lấy hết mọi cấp hoặc lấy hết theo từng level, hoặc phân trang ở từng level.
 
-- Subset pattern
-Ở mỗi database bài viết gốc, ta lưu 1 trường topFiveComment, khi người dùng xem thêm mới load cho họ thôi từ 1 bảng Comment độc lập và chắc chắn bảng đó phải đánh index rồi
-Để có topFiveComment, mỗi comment sẽ lưu thêm score, với mỗi request tương tác với comment đó càng nhiều sẽ cộng score lên và ưu tiên show ra
 
-- Bucket pattern:
+# Tổng kết toán tử trong mongodb
+$rename đổi tên một trường (field) 
+VD: db.collection.updateOne({ _id: 1 }, { $rename: { "oldFieldName": "newFieldName" } });
+
+$eq	$ne $gt $gte $lt $lte $in $nin
+VD: db.users.find({ age: { $gt: 18 } })
+
+$and $or $not $nor
+VD: db.users.find({ $or: [{ age: { $lt: 18 } }, { testBool: true }] })
+
+$set $unset $inc
+$push Thêm phần tử vào mảng
+$pull Gỡ phần tử khỏi mảng
+$addToSet Thêm phần tử nếu chưa tồn tại
+Vd: db.users.updateOne({ _id: 1 }, { $inc: { points: 10 } })
+
+$all Mảng chứa tất cả các phần tử chỉ định
+$elemMatch So khớp phần tử trong mảng
+$size Kích thước mảng
+VD: db.products.find({ specs: { $elemMatch: { key: "RAM", value: "16GB" } } });
+
+$sum $avg
+$group Nhóm dữ liệu
+$match Lọc dữ liệu (như find)
+$project Chọn trường trả về
+VD: db.orders.aggregate([ { $group: { _id: "$customerId", total: { $sum: "$amount" } } } ])
+
+
+
+## Mongodb pattern
+Còn có: outlier pattern, computed pattern, extended reference pattern, approximation pattern, tree pattern, preallocation pattern, document versioning, schema versioning pattern. 
+
+# Subset pattern
+Nhét tất cả data liên quan vào 1 schema giúp thao tác dễ hơn nhưng nếu data lớn k ổn. Vd thiết kế review cho 1 products hay comment cho 1 bài post như trên facebook:
+{
+  ... data về product ...
+  reviews: [
+    {
+      author: "user1",
+      text: "This is content of review",
+      rating: 5
+    },
+    ... 1000 reviews khác ...
+  ]
+}
+=> Làm như v thì mỗi lần query sản phẩm sẽ lấy hết reviews về và hoang phí.
+
+Subset pattern đưa ra giải pháp là chỉ lưu data cần dùng ngay ở trong main collection. Vd:
+{
+  ... data về product ...
+  topFiveReviews: [
+    ... Chỉ có 5 review tốt nhất hiện ra ...
+  ]
+}
+=> Khi users query sp sẽ lấy về 5 reviews đáng quan tâm nhất luôn. Ấn xem thêm mới show toàn bộ review với phân trang lấy từ 1 collection Review riêng. Điều này là cần thiết vì review là loại data có thể mở rộng ra vô hạn theo thời gian mà k bị giảm đi, còn 1 document giới hạn max 16MB
+=> Có nhiều giải pháp đi kèm như, mỗi comment lưu thêm score, với mỗi request tương tác với comment đó càng nhiều sẽ cộng score lên và ưu tiên show ra. Hoặc cho người dùng vote comment nào lên top trend.
+
+--> Có thể tối ưu hơn nữa bằng cách tạo 1 crawl job cứ mỗi 3 tháng sẽ tự động đẩy 80% dữ liệu review vào collection "Lịch sử cũ" trong trường hợp số lượng review bị nhiều quá, tương tự vơi nhiều kiểu data khác. Đảm bảo bảng review sẽ luôn ít data cần query hơn mà vẫn đảm bảo yêu cầu. 
+Trong mongodb mặc định có bộ đệm WiredTiger: tự động lưu các data nằm trong Working Set (là các data được truy vấn nhiều) để tối ưu. Vd nó thường lưu indexed data.
+=> Ta k thể tương tác với bộ đệm này nhưng có thể custom qua cấu hình để đáp ứng nhu cầu về hiệu suất, như custom kích thước, cách lưu dữ liệu, quản lý bộ đệm.
+
+
+
+# Polymorphic pattern / Attribute pattern
+-> Polymorphic pattern
+Cơ chế là nên lưu các kiểu dữ liệu khác nhau vào chung 1 collection nếu gom được các thuộc tính chung của chúng.
+VD: 1 db lưu 100 loại sản phẩm khác nhau như tai nghe, quần áo, thú cưng vì có cùng các thuộc tính như tên, giá, quantity, ảnh minh họa. Chứ k nên chia ra kiểu ElectronicCollection, PetCollection, ClothesCollection quản lý rất khó khi mở rộng
+
+-> Attribute pattern
+Polymorphic pattern tạo 1 collection cho nhiều kiểu data khác nhau. Nhưng mỗi data vẫn có các thuộc tính riêng. 
+VD Đồ điện tử có tên hãng, màu sắc:
+attributes: {
+  brand: "apple",
+  color: "silver"
+}
+Quần áo có kích thước, chất liệu:
+attributes: {
+  size: "L",
+  material: "cotton"
+}
+
+Kiểu gì cũng phải dùng index vì người dùng chắc chắn muốn search sản phẩm theo thuộc tính riêng với tốc độ cao nhưng đánh index từng trường sẽ chết bộ nhớ. Attribute pattern giải quyết bằng cách biến mọi attribute thành 1 mảng có cấu trúc chung:
+VD đồ điện tử dùng
+attributes: [
+  { k: "brand", v: "apple" },
+  { k: "color", v: "silver" }
+]
+Còn quần áo dùng
+attributes: [
+  { k: "size", v: "L" },
+  { k: "material", v: "cotton" }
+]
+=> Thì chỉ cần đánh 1 index {k: 1, v: 1} ok. Nếu có trường đặc biệt cần 3 giá trị như { k: "height", v: "97", u: "cm" } thì đánh index thành {k: 1, v: 1, u: 1} là được
+=> Mongodb rất mạnh cho phép ta đánh index 1 trường trong 1 object, object này nằm trong 1 mảng là thuộc tính của 1 document trong 1 collection
+
+
+
+#***Bucket pattern trong mongodb
 Giải pháp tối ưu hóa bản ghi vì 1 bản ghi có thể dài tới 16MB nên việc lưu 1 comment = 1 record rất tốn. Ta nên lưu 1 records = 1 list comment con của 1 comment trong 1 sản phẩm với giới hạn 1000.
 VD bucket có parent id là null sẽ chứa comment gốc. Bucket có parent id là 1 comment sẽ chứa 1000 comment con của comment đó, nếu lớn hơn 1000 sẽ lưu ở bucket có parentid tương tự nhưng sang page 2.
-Khi thêm chỉ update vào bucket đơn giản. Khi lấy sẽ lấy theo bucket parentid và page. Khi xóa thì cần xác định rõ bucketid là gì và comment nào, nên nhớ để xóa thì người dùng phải chọn nó đồng nghĩa frontend phải truyền lại bucketid cho backend xóa chứ backend k thể search trong toàn bộ bucket được.
+Khi thêm chỉ update vào bucket đơn giản. Khi lấy sẽ lấy theo bucket parentid và page. Khi xóa thì xóa toàn bộ comment con là bucket có parent id là comment đó.
 
-Chính vì comment k có filter phức tạp nên làm v là ổn. Trong thực tế, việc thiết kế phụ thuộc vào frontend sẽ lấy nó như nào để tối ưu. VD Nếu frontend lấy 1 comment thì cần lấy hết các comment con mọi cấp độ thì dùng joey celko là chuẩn nhất.
+Comment k có filter phức tạp nên làm v là ổn. Trong thực tế, việc thiết kế phụ thuộc vào frontend sẽ lấy nó như nào để tối ưu. VD Nếu frontend lấy 1 comment thì cần lấy hết các comment con mọi cấp độ thì dùng joey celko là chuẩn nhất.
+Bucket pattern cũng dùng kiểu chia để tránh 1 collection chứa quá nhiều document. Vd chia thành các table con 1, table con 1 như quyển sách chia thành tập 1, tập 2 vậy.
+MongoDb khuyến nghị sử dụng máy chủ ít nhất 64GB RAM phần cứng cho dữ liệu lớn. 1 collection trong mongodb cho có thể lưu tới 32TB document. 1 document có max kích thước là 16MB. 1 document có thể nested object tới 100 lần => lưu thoải mái mà chả qt bộ nhớ. 
 
--> Notification system: Giải quyết vấn đề 1 triệu shop gửi notification, 1 triệu user nhận được notification cùng lúc. Tốc độ cao và nhanh. Chắc chắn phải push notification tới user. Chỉ có MQ là đảm bảo tốc độ cao và không mất dữ liệu, không duplicate dữ liệu, đúng thứ tự.
+VD dùng mongodb ghi log để thống kê request theo từng phút trong hệ thống gồm nhiều server phức tạp:
+{
+  _id: ObjectId("0000001");
+  data_received: "2022-03-30 00:01:000",
+  server_id: "111",
+  infor: {
+    ip: "ip của server",
+    cpu: "xx",
+    ram: "xx"
+  },
+  request_calls: 12000,
+  failed_calls: 1200
+}
+=> Tức là mỗi phút sẽ sinh ra 1 documents log như v cho 1 server cần quản lý. 1 ngày có tới 1400 documents rất tốn. Fix với bucket pattern
 
-Shop -> new product -> MessageQueue 1 -> User id từ 0 tới 1000
-                    -> MessageQueue 2 -> User id từ 1000 tới 2000
-=> Phân chia đảm bảo tốc độ push notification đạt tối đa khi có nhiều user
+-> Tối ưu với bucket pattern:
+{
+  data_received: "2022-03-30 01:00:000",
+  server_id: "111",
+  infor: {
+    ip: "ip của server",
+    cpu: "xx",
+    ram: "xx"
+  },
+  request_calls: {
+    minutes: [
+      12000, 10000, 200, 90, 1, 2, 3, 4, 5, 90,
+      12000, 10000, 200, 90, 1, 2, 3, 4, 5, 90,
+      12000, 10000, 200, 90, 1, 2, 3, 4, 5, 90,
+      12000, 10000, 200, 90, 1, 2, 3, 4, 5, 90,
+      12000, 10000, 200, 90, 1, 2, 3, 4, 5, 90,
+      12000, 10000, 200, 90, 1, 2, 3, 4, 5, 90,
+    ],
+    sum: 190071
+  },
+  failed_calls: {
+    minutes: [
+      1200, 10000, 200, 90, 1, 2, 3, 4, 5, 90,
+      12000, 10000, 200, 90, 1, 2, 3, 4, 5, 90,
+      12000, 10000, 200, 90, 1, 2, 3, 4, 5, 90,
+      12000, 10000, 200, 90, 1, 2, 3, 4, 5, 90,
+      12000, 10000, 200, 90, 1, 2, 3, 4, 5, 90,
+      12000, 10000, 200, 90, 1, 2, 3, 4, 5, 90,
+    ],
+    sum: 78977
+  }
+}
+=> Tức thay vì 1 phút sinh 1 document mới thì mỗi 1h mới tạo 1 document mới, còn trong 1h đó chỉ cần update document cũ. Gom lại vào 1 mảng data liên tục thôi.
 
-Phân tích:
-Shop -> new product -> system.center.notification -> MQ -> 1,000,000 users
-
-Về business: Notification center là database sẽ lưu tất cả notification của mọi shop. Trong 1 triệu user, user nào thường xuyên online, ta sẽ push notification tới cho họ. User nào online ít thì khi nào online, họ phải tự vào notification center mà pull về. Riêng trường hợp mã giảm giá hay tin quan trọng, sẽ phải push tới mọi user.
-
-CrawlJob: Tại sao lại dùng 1 crawljob lấy data từ db của system.center.notification gửi tới MQ mà không gửi mẹ từ shop tới MQ luôn? 
-Ta cần tính toán tới việc phân tác các case khi crash hệ thống. Trong trường hợp này cần đảm bảo khi 1 shop gửi notification tới user thành công, chắc chắn notification đó k bị mất khi crash hệ thống, nếu crash thì phải là chưa gửi chứ không phải là gửi thành công nhưng lại crash. Bởi vì việc gửi tới 1 triệu user phải làm từ từ, không thể chờ gửi hết 1 triệu mới báo thành công được. Do đó thành công ở đây là lưu thành công vào system.center.notification. Sau đó cần có 1 crawljob lấy từ db ra gửi vào MQ. 
-Lại phải đảm bảo ở từng bước này, hệ thống crash tiếp nhưng khi khởi động lại vẫn chạy tiếp từ chỗ cũ. CrawlJob chỉ cần check trường isSent = false thì gửi tiếp thôi.
-
-Việc phân phối trực tiếp từ system.center.notification tới database của user, so với gửi vào MQ và MQ gửi tới 1 triệu user có điểm lợi gì?
-MQ cung khả năng đảm bảo tin nhắn không bị mất, mỗi thông báo chắc chắn sẽ được gửi đi ngay cả khi hệ thống lỗi. Ví dụ ta đang chạy for loop duyệt 1 triệu user để update db, chẳng may sập server phát sẽ mất. Để đảm bảo thì mỗi lần gửi user ta lại phải update database là đã gửi rồi, khởi động lại hệ thống sẽ check k gửi lại user đó nữa sẽ rất phức tạp nếu tự impleemnt. Nhưng MQ thì sập, khởi động lại sẽ tiếp tục từ chỗ dừng lại lần trước.
-MQ cung khả năng xử lý tùy biến, ta có thể thêm workder để xử lý tin nhắn từ queue mà không cần thay đổi cơ sở hạ tầng của MQ. Kiểm soát số lượng tin nhắn worker xử lý song song, VD nếu CPU tốn quá thì giảm đi 1 chút để hoạt động trơn tru. Tách biệt quá trình tạo thông báo và gửi thông báo. Nếu server crash, MQ vẫn hoạt động bth, vẫn gửi tiếp các tin nhắn trong queue tới user.
-MQ cung khả năng xử lý song song, nên nhớ chạy for loop sẽ xử lý tuần tự, k dùng MQ ta sẽ phải tự implement bất đồng bộ việc này khá mệt
-
-Implement database cho noti.center -> implement MQ -> implement crawljob -> Implement server gửi từ MQ sang db user
-
--> Aggregate trong mongodb:
-Nó giúp combine lấy bất thứ gì từ 1 databasse mongodb, lấy mạnh giống như làm với graphql v
+-> Ta có thể tối ưu hơn nữa rằng 1 ngày mới sinh ra 1 document mới.
+{
+  data_received: "2022-03-30",
+  server_id: "111",
+  infor: {
+    ip: "ip của server",
+    cpu: "xx",
+    ram: "xx"
+  },
+  request_calls: {
+    mesurements: {
+      "1": [10000, 12, 123, ... ], // Lưu 60 phần tử là từng phút trong giờ đó
+      "2": [10000, 12, 123, ... ],
+      ...
+      "24": [10000, 12, 123, ... ],
+    },
+    sum: 909099
+  },
+  failed_calls: {
+    mesurements: {
+      "1": [10000, 12, 123, ... ],
+      "2": [10000, 12, 123, ... ],
+      ...
+      "24": [10000, 12, 123, ... ],
+    },
+    sum: 8980980
+  }
+}
 
 
