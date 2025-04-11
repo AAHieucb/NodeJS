@@ -22,10 +22,27 @@ Dùng mongodb+srv giúp có connection string gọn, k cần liệt kê từng h
 - Arbiter (tùy chọn) không lưu dữ liệu, chỉ dùng để bầu chọn node mới nếu Primary bị down.
 Nếu tự hosting, ta cần tạo ra 1 nhiều code trong cluster, rồi cấu hình DNS SRV record cho domain của ta, cần quyền truy cập và quản lý DNS khá phức tạp. Chạy local thì k support gì cả.
 
+
+
+# Scaling connect db hệ thống lớn
 -> Connect mongodb trong code:
 - Trong dự án lớn, k nên tạo 1 connection mongodb duy nhất, mà nên tạo connection mới ở mỗi query. 
 - Connection pool là giải pháp tối ưu, query xong tự trả vào pool để tái sử dụng, setting config autoReconnect reconnectTries đảm bảo connection k bị mất khi k sử dụng.
 Lúc mới chạy, nếu server khởi động thành công mà connect db lỗi thì nên dừng ct luôn.
+
+-> Bth 1 server sẽ fix cứng url của db để query tới db server đó. 
+Nếu có 10 vùng trên TG, mỗi vùng 1 DB và 1 server, thì server vẫn fix cứng url của db gần nó nhất để query.
+Khi đó server có thể dùng 1 connection pool duy trì 5 connections tới db. Có 100 users query đồng thời sẽ chờ nhau và chỉ dùng trong phạm vi 5 connections trong pool, query tới 1 db thôi.
+
+Vấn đề: ở mỗi vùng ta k chỉ dùng 1 db mà dùng 1 cluster có 10 db, server k thể fix cứng url của 10 db được; nếu 1 user ở vùng khác di chuyển tới vùng này thì phải query vào db cũ chú kp db gần nhất nữa.
+Giải pháp là dựng 1 server lưu connection string của mọi db, và thực hiện xử lý logic data của user nào thì trả về connection string của db ở vùng tương ứng. Server có thể đóng vai trò như load balancer trong việc phân phối tải tới các db khác nhau trong 1 vùng. Có tool ProxySQL giúp phân phối tải db như v.
+Nếu k, sẽ phải fix các url primary, secondary vào code để cấu hình query get gọi vào secondary, write gọi vào primary.
+
+-> Khi dùng serverless như lamba function và RDS của AWS. 
+Mỗi khi lamba function call db, nó tạo 1 connection mới. Vì nó là serverless function, k chạy server truyền thống lắng nghe cổng để mở connection pool.
+Khi có 5000 function chạy 1 lúc sẽ có 5000 connections đồng thời. 
+Để đạt được như server truyền thống, AWS dùng RDS proxy (Relational Database Service Proxy) duy trì 1 global connection pool để connect vào RDS.
+Cơ chế nó lưu 1 lượng fix các connection tới RDS và lamba function call vào vượt quá sẽ chờ để chỉ dùng trong phạm vi số lượng connection đã fix.
 
 
 
