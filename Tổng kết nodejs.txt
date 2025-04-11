@@ -31,18 +31,16 @@ Biến môi trường process.env.UV_THREADPOOL_SIZE thiết lập kích thướ
 
 
 # Các package backend NodeJS thường dùng
--> Dùng node-persist: giúp tạo 1 global store tạm, tắt là mất.
--> Dùng cheerio: thư viện giúp parse DOM, tạo web crawler
--> Dùng module-alias: import module relative url gọn
--> Dùng Joi: thư viện validate type của object, email, password, not null => ref tới "Projects / BlogWeb"
+-> node-persist: giúp tạo 1 global store tạm, tắt là mất.
+-> cheerio: thư viện giúp parse DOM, tạo web crawler
+-> puppeteer: tự động thao tác trình duyệt bằng cách điều khiển các action trên Chrome
+-> module-alias: import module relative url gọn
+-> Joi: thư viện validate type của object, email, password, not null => ref tới "Projects / BlogWeb"
 
--> Dùng chalk: package giúp style text trên console
-Dùng figlet: package in chữ khổng lồ trên console
-Dùng marked + marked-terminal: vẽ ngôn ngữ markdown lên terminal, có thể dùng kết hợp với chalk để custom style => chả bh dùng
+-> chalk: package giúp style text trên console
+figlet: package in chữ khổng lồ trên console
+marked + marked-terminal: vẽ ngôn ngữ markdown lên terminal, có thể dùng kết hợp với chalk để custom style => chả bh dùng
 => Thường chỉ dùng khi cần tạo thư viện
-
--> Dùng node-mocks-http: mock http api 
--> Dùng supertest: test nhanh http. Hoạt động với mọi test framework or test 1 mình k cùng framework nào cũng đươc
 
 -> helmet: tự thêm các header bảo mật cần thiết. Khi dùng thì 1s số lượng request có thể xử lý bị giảm đi vài nghìn, đánh đổi security và performance
 -> http-status: thao tác với các loại status http
@@ -50,17 +48,55 @@ Dùng marked + marked-terminal: vẽ ngôn ngữ markdown lên terminal, có th�
 -> concurrently*: khi cần chạy song song client và server trong 1 dự án cùng lúc chỉ bằng 1 lệnh
 -> @apollo/server + graphql: để xây 1 graphql server
 -> express-rate-limit: tránh ddos
--> connect-timeout: sinh lỗi network nếu request lâu quá 5s. Cơ chế là setTimeout 5s thì send error và bắt sự kiện request close thì clearTimeout thôi
 -> telegraf: giúp tương tác với telegram, có thể tạo bot tự động nhắn tin vào channel sau 1 ktg, thay thế email. Cần api key của tele là được.
 -> bullmq*: giúp tạo queue, lập lịch chạy cron job.
 -> @google-cloud/text-to-speech
 -> Sharp: giúp dựng server optimize image cho nodejs. Input ảnh và lấy ra đủ loại kích thước muốn blur hay chất lượng giảm như nào tuỳ
 
+-> node-mocks-http: mock http api 
+-> supertest: test nhanh http. Hoạt động với mọi test framework or test 1 mình k cùng framework nào cũng đươc
 -> Autocannon: autocannon -c <> -p <> -d <> <url> 
 -c là số lượng connection đồng thời, mặc định là 10 user cùng lúc
 -p là đóng gói, bnh gói requests thì mặc định là 1
 -d là số giây nó phản hồi lại, mặc định là 10
 VD: autocannon http://localhost:5000/ thì sẽ check 1 gói 10 user chạy cùng lúc trong 10 giây thì mỗi giây có bnh request xử lý được thành công
+
+
+
+# Tạo timeout cho API
+-> Dùng lib connect-timeout: cung middleware timeout. Cơ chế là setTimeout sau 1 ktg đó thì send error và bắt sự kiện request close thì clearTimeout thôi
+
+-> Tự implement middleware timeout trong express:
+function withTimeout(ms) {
+  return (req, res, next) => {
+    const timeout = setTimeout(() => {
+      if (!res.headersSent) { // header của response đã được gửi đi hay chưa
+        res.status(503).json({ error: `Request timeout after ${ms}ms` });
+      }
+    }, ms);
+    res.on('finish', () => clearTimeout(timeout));
+    res.on('close', () => clearTimeout(timeout));
+    next();
+  };
+}
+app.get('/only-this-route', withTimeout(5000), async (req, res) => {
+  await new Promise(r => setTimeout(r, 6000));
+  res.send('...');
+});
+
+-> Timeout global mọi request của server express
+server = app.listen(...)
+server.setTimeout(10000, () => {
+  console.log("Server handling request over timeout");
+});
+
+-> Timeout cụ thể trong 1 API:
+app.get("/slow", (req, res) => {
+  res.setTimeout(5000, () => {
+    console.log("Response timed out!");
+    res.status(503).send("Request took too long");
+  });
+});
 
 
 
