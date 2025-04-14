@@ -31,11 +31,14 @@ Biến môi trường process.env.UV_THREADPOOL_SIZE thiết lập kích thướ
 
 
 # Các package backend NodeJS thường dùng
+-> yargs: xử lý tham số từ dòng lệnh cmd. Kết hợp minimist để parse process.argv thoải mái
 -> node-persist: giúp tạo 1 global store tạm, tắt là mất.
 -> cheerio: thư viện giúp parse DOM, tạo web crawler
 -> puppeteer: tự động thao tác trình duyệt bằng cách điều khiển các action trên Chrome
 -> module-alias: import module relative url gọn
 -> Joi: thư viện validate type của object, email, password, not null => ref tới "Projects / BlogWeb"
+-> hcaptcha: tạo captcha
+-> KvJS: thư viện giống redis nhưng là dùng với biến JS bth
 
 -> chalk: package giúp style text trên console
 figlet: package in chữ khổng lồ trên console
@@ -47,11 +50,10 @@ marked + marked-terminal: vẽ ngôn ngữ markdown lên terminal, có thể dù
 -> validator: giúp santinize string để chống XSS. Vd giúp check có phải email hay không chẳng hạn, tập hợp các type check có sẵn
 -> concurrently*: khi cần chạy song song client và server trong 1 dự án cùng lúc chỉ bằng 1 lệnh
 -> @apollo/server + graphql: để xây 1 graphql server
--> express-rate-limit: tránh ddos
--> telegraf: giúp tương tác với telegram, có thể tạo bot tự động nhắn tin vào channel sau 1 ktg, thay thế email. Cần api key của tele là được.
--> bullmq*: giúp tạo queue, lập lịch chạy cron job.
+-> telegraf / node-telegram-bot-api: giúp tương tác với telegram, tạo bot tự động nhắn tin vào channel thay thế email. Cần api key của tele.
+-> bullmq*: giúp tạo queue, lập lịch chạy cron job, thay thế node-cron và node-schedule
 -> @google-cloud/text-to-speech
--> Sharp: giúp dựng server optimize image cho nodejs. Input ảnh và lấy ra đủ loại kích thước muốn blur hay chất lượng giảm như nào tuỳ
+-> commander: xây ứng dụng dòng lệnh, custom chạy lệnh nào thì thực hiện actions là gì
 
 -> node-mocks-http: mock http api 
 -> supertest: test nhanh http. Hoạt động với mọi test framework or test 1 mình k cùng framework nào cũng đươc
@@ -60,6 +62,16 @@ marked + marked-terminal: vẽ ngôn ngữ markdown lên terminal, có thể dù
 -p là đóng gói, bnh gói requests thì mặc định là 1
 -d là số giây nó phản hồi lại, mặc định là 10
 VD: autocannon http://localhost:5000/ thì sẽ check 1 gói 10 user chạy cùng lúc trong 10 giây thì mỗi giây có bnh request xử lý được thành công
+
+
+
+# Dựng server optimize image
+-> Dùng ImageKit hoặc Cloudinary đều cho optimize image và video realtime. Nó tự dùng CDN và cung blur image chuẩn
+
+-> Sharp: giúp dựng server optimize image cho nodejs. Input ảnh và lấy ra đủ loại kích thước muốn blur hay chất lượng giảm như nào tuỳ
+
+-> Combo https://github.com/MobileTeleSystems/image-optimize hỗ trợ tận răng chỉ cần chạy với docker là được
+Có thể kết hợp với @mts-pjsc/image-optimize dùng ở FE 
 
 
 
@@ -309,6 +321,10 @@ Click đúp vào dòng nào trong tab Source để đặt breakpoint, khi call a
 
 -> Ghi log: Trong hệ thống qtr về tốc độ, việc ghi log tốn thời gian thì thường push message vào buffer r chạy 1 thread riêng lấy ra ghi.
 => Dùng winston ghi log thay morgan, phải tự viết 1 middleware log request bằng winston chứ k tự động. Còn có winston-elasticsearch để kết hợp nó với tool elasticsearch (chat gpt ez)
+URL: https://www.youtube.com/watch?v=ZwDpGJmGGb8&t=150s
+
+Kết hợp với winston-daily-rotate-file để config như maxsize, tự động xóa sau bao nhiêu ngày, tên file chia theo thời gian, định dạng ngày tùy chỉnh, zipfile 
+URL: https://www.youtube.com/watch?v=6_DJEZ7285Q
 
 -> Package debug có sẵn trong nodejs giúp log ở môi trường debug:
 VD: const debug = require("debug")("myapp:server"); debug("This is message"); => Dùng debug với namespace có tên là myapp:server, namespace có vai trò lọc và phân loại các dòng log debug
@@ -316,10 +332,15 @@ VD: const debug = require("debug")("myapp:server"); debug("This is message"); =>
 Trong linux: "start": "DEBUG=app:* node app.js" or chạy terminal trực tiếp DEBUG=app:* node app.js
 Trong window: cd vào thư mục -> set DEBUG=appmyapp:* => để cho debug trong môi trường nào rồi chạy bth. Làm như này sẽ set biến môi trường của window trong phạm vi thư mục đó
 
+-> Cũng có thể ghi log vào centry or discord.
+
 
 
 # Bắt global error
-Chạy node index.js có server listen và ta gọi throw thì ct sẽ tự kết thúc vì lỗi unexpected k được bắt. Phải bắt các event lỗi: unhandledRejection, uncaughtException, SIGTERM => ref tới "Project Tinkerbell Garden"
+Chạy node index.js có server listen và ta gọi throw thì ct sẽ tự kết thúc vì lỗi unexpected k được bắt. Phải bắt các event lỗi: 
+unhandledRejection: rejection nhưng k có handler xử lý 
+uncaughtException: phát ra khi uncaught JavaScript exception xảy ra trong event loop
+SIGTERM: khi có request program to terminate, VD ta chạy lệnh kill tiến trình này bằng phương tiện nào đó
 VD: process.on("uncaughtException", unexpectedErrorHandler); Trong unexpectedErrorHandler thg có process.exit(0); 
 Ta có thể override để tắt các connection tới database, socket, close server. Thực tế, nếu tắt process, nó cũng tự close các connection kia rồi, và các công nghệ hiện đại đủ để tự xử lý khi 1 bên tự bị close, phía bên kia cũng tự hiểu điều đó mà ta k cần làm gì thêm.
 
@@ -404,3 +425,13 @@ Nó tự tận dụng mỗi core CPU là 1 process, mỗi process vẫn đơn lu
 Số instance k nên set là max số CPU cores mà nên trải qua thực nghiệm để tối ưu. VD máy 10 cores chạy được 20 instances thì chỉ nên chạy tầm 10 intances, còn lại dành cho task khác để tránh quá tải sẽ chậm hơn trước. Nó chạy chung 1 cổng và tự dùng cơ chế load balancing tối ưu của hđh để xử lý, thường là round robin, ta k cần đụng.
 
 
+
+# Dùng typescript trong nodejs
+Trong môi trường dev, phải cài ts-node là 1 package giúp chạy trực tiếp file typescript với lệnh "ts-node index.js". Cơ chế nó build typescript trong quá trình chạy nên tốc độ chậm và k dùng cho production.
+Trong production, phải viết file tsconfig.json. Trước khi start server, phải chạy lệnh tsx để biên dịch sang JS trước. 
+VD tsconfig.json có compilerOptions target là es6 để compile thành index.js rồi mới chạy server bth với node index.js được
+
+BE viết bằng JS mà lại dùng package viết bằng typescript được là vì package luôn được compile thành js sẵn rồi.
+Check reference package hiện file typescript là vì npm vẫn giữ code typescript của nó thôi.
+
+-> BE và FE đều có thẻ dùng ESModule và CommonJS. Cộng đồng đang chuyển hết sang ESModule chạy 1 kiểu duy nhất thôi, nhưng BE có nhiều package vẫn dùng CommonJS k hỗ trợ.

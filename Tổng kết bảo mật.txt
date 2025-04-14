@@ -52,7 +52,7 @@ Cơ chế y hệt browser tương tác với web server, phải host FE lên đ�
 Có 2 loại: chỉ server có chứng chỉ TLS để client xác thực server; cả client server đều có chứng chỉ (mTLS - Mutual TLS). Ở đây ta k muốn bất cứ client nào cũng gọi được mà chỉ 1 vài server chỉ định thôi nên dùng mTLS, cả 2 bên phải xác thực lẫn nhau mới được gọi. Còn web bth là TLS 1 chiều.
 
 - Tạo CA (cert authority):
-openssl genrsa -out ca-key.pem 2048 => Tạo khóa riêng cho CA (ca-key.pem) 
+openssl genrsa -out ca-key.pem 2048 => Tạo khóa riêng cho CA (ca-key.pem)
 Đuôi file có thể là .key cũng được; Kích thước 2048 đủ an toàn, để 4096 sẽ bảo mật hơn nhưng chậm hơn.
 
 openssl req -x509 -new -nodes -key ca-key.pem -sha256 -days 365 -out ca-cert.pem -subj "/CN=MyCA" => Tạo 1 chứng chỉ CA tự ký (ca-cert.pem).
@@ -97,6 +97,24 @@ VD nếu client set rejectUnauthorized false thì client cũng k check cert đ�
 
 => Hệ thống này có cần thiết dùng TLS không? Có vì server nội bộ giao tiếp với nhau thì bên ngoài kb, nhưng nếu có nhân viên làm r nghỉ việc sẽ biết các API public k được bảo vệ. Nếu hiểu bản chất sẽ thấy có thể bỏ qua việc xác thực server ở client vì hệ thống nội bộ với url chuẩn thì khó mà giả mạo server kia được.
 
+
+
+# Usecase socket chat bảo mật cao với TLS/SSL
+Client server gửi message trong môi trường k an toàn, k thể message nào cũng gửi kèm password được.
+
+Luồng: sinh 1 cert lưu ở cả client và server. Từ cert, sinh ra pubkey và pivkey lưu ở server. Khi bắt đầu connect, client request pubkey từ server và dùng cert có sẵn check key hợp lệ. Dùng pubkey mã hoá random sharekey sinh ra và gửi tới server. Server giải mã và lưu vào db, v là client server đều có chung 1 sharekey.
+Certificate chứa thông tin công khai nhận dạng 1 tổ chức hay 1 cá nhân. VD nó chứa tên tổ chức, public key của server, tên của CA phát hành cái cert đó, ngày hết hạn của cert.
+
+VD sinh cert và key:
+openssl.exe genrsa -out server.key 2048 => sinh server.key chứa private RSA key lưu ở server
+openssl req -new -key server.key -out server.csr => sinh server.csr là certificate signing request từ private key chứa thêm thông tin về tổ chức cung ra key
+openssl req -x509 -sha256 -days 365 -key server.key -in server.csr -out server.crt => thực sự sinh ra file server.crt có hạn sử dụng 365 ngày, chứa thông tin về CA và public key
+openssl rsa -in server.key -pubout > publickey.txt => sinh ra public key đưa cho client sử dụng
+
+-> Giao thức HTTP cũng dùng cơ chế symmetric cipher tương tự:
+Client phải gửi request trước để yêu cầu thiết lập secure connection. Server gửi lại SSL/TLS certificate của nó bao gồm public key. Cert chứa mọi thông tin nhận dạng server.
+Client check cái cert đó bằng trusted root CA. Nếu hợp lệ thì client sinh tiếp ra 1 random sharekey chỉ dùng cho session hiện tại. Encrypt sharekey bằng pubkey ở server và gửi cho server.
+Server decrypt ra bằng private key của mình và dùng sharekey trong phiên đó. Cả client và server dùng chung sharedkey để trao đổi =
 
 
 
@@ -275,6 +293,9 @@ Vd redis lưu rate_limit:IP_1, rate_limit:user_123. Nếu timeout tự xóa kh�
 2) Dùng Lua script: Lua là 1 lang nhỏ gọn tích hợp vào redis cho phép thực thi script phức tạp ngay trên máy chủ redis. 
 VD dùng lua tăng giá trị 1 key: EVAL "return redis.call('INCR', KEYS[1])" 1 mykey => dùng như 1 ngôn ngữ lập trình chứ k chỉ giới hạn ở các cú pháp của redis-cli
 Redis cũng chỉ là lưu data của rate limit, nhưng Lua giúp thực hiện nhiều task phức tạp trong 1 transaction là 1 script, nhờ đó nhiều request cùng lúc đến xử lý rate limit data trong redis đều ok. Cũng chỉ là viết các logic check, tăng giảm value thôi.
+
+-> Còn có package axios-rate-limit là rate limit phía client, quá nhiều request 1 lúc sẽ vào hàng đợi để delay. Các host khác nhau k ảnh hưởng lẫn nhau.
+Điều này là cần thiết vì nếu ta crawl data của bên thứ 3, nếu call liên tục quá nhiều họ có thể cho vào blacklist cấm server của ta luôn vì tưởng hacker DDoS.
 
 -> Advance: Ratelimit dựa vào khả năng tải của server. Nếu server chịu 100 request/s thì tổng rate limit của 1 api nên khoảng 80% khả năng tối đa.
 Kỹ thuật slide window: thay vì reset cứng mỗi s là 5req/s thì cho phép 10req/2s ok hơn.

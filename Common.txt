@@ -163,3 +163,25 @@ GET /employees?_page=7&amp;_limit=20
 -> Còn có http-server dựng http server nhanh: cd thư mục -> http-server -c-1 (-c-1 để disable cache) => thêm file html vào thư mục để serve nó
 
 
+
+# Publish package npm
+Tạo file readme
+package.json cần có các thông tin như: license, git repo, name, version, bugs, homepage có thể hiển thị trên các nền tảng như npm, github, document, 1 số loại IDE
+Phải push code lên github
+Package phải có file export tính năng cho ứng dụng dùng.
+
+Tạo 1 folder ngoài cùng để test package
+Vào folder test "npm link <tên package>" => Lệnh này sẽ import cái package của ta vào trong node_modules của folder test. Mọi lệnh sửa ở 1 trong 2 folder test hay folder package sẽ đều tự sửa ở folder còn lại, giúp ta có thể test liên tục mà k cần sửa 2 nơi thủ công. Đây cũng là cách để chạy package local cho dự án mà k cần publish lên npm
+
+Tạo tk trên npmjs.com và chạy "npm login"
+Check xem trên trang chủ phải chưa có package nào trùng tên với package của ta
+Vào folder package "npm publish"
+Khi sửa package, nhớ push lại lên git, sửa version, "npm login", "npm publish" lại
+
+Nếu tạo package cho frontend, phải build thành ESModule bằng bundler hoặc code luôn type module. Và khuyến khích dùng typescript để cung cho frontend dùng đúng kiểu khi frontend dùng typescript. 
+
+-> yalc giúp dùng local package trong project, thay cho npm link
+Dùng package bên trong dự án luôn mà k cần publish lên npm: Vào trong thư mục chứa package: "yalc publish" -> quay lại thư mục chứa package.json của dự án: "yalc add <tên package>" -> yalc sẽ tự thêm vào package.json đường dẫn local đến package và ta import dùng như bth
+Để remove package: cd vào folder chứa package.json của project -> yalc remove my-package
+Đẻ upgrade package: sửa code package như bth -> lặp lại: cd ../my-package -> yalc publish -> cd ../my-project -> yalc update my-package
+

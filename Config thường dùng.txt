@@ -169,6 +169,8 @@ module.exports = {
     {
       name: "tinkerbellgarden",
       script: "src/index.js",
+      cwd: __dirname, // path to project
+      args: "one two", // tham số truyền vào script nếu có
       instances: 2,
       autorestart: true,
       watch: false, // K theo dõi file change để reload tự động
@@ -186,10 +188,16 @@ module.exports = {
     production: {
       user: "ubuntu", // User SSH kết nối server
       host: "your.production.server.com", // IP của server
+      ssh_options: [
+        'ForwardAgent=yes',
+      ],
       repo: "git@github.com:yourname/my-app.git", // url của repo để clone
       ref: "origin/main", // branch pull về
       path: "/var/www/my-app", // folder chứa project trên server hiện tại
-      "post-deploy": "npm install && pm2 reload ecosystem.config.js --env production" // Lệnh chạy khi pull code xong
+      "post-deploy": "npm install && pm2 reload ecosystem.config.js --env production", // Lệnh chạy khi pull code xong
+      env: {
+        NODE_ENV: 'production',
+      },
     },
     staging: {
       user: "ubuntu",
