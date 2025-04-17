@@ -29,6 +29,7 @@ Nếu tự hosting, ta cần tạo ra 1 nhiều code trong cluster, rồi cấu 
 - Trong dự án lớn, k nên tạo 1 connection mongodb duy nhất, mà nên tạo connection mới ở mỗi query. 
 - Connection pool là giải pháp tối ưu, query xong tự trả vào pool để tái sử dụng, setting config autoReconnect reconnectTries đảm bảo connection k bị mất khi k sử dụng.
 Lúc mới chạy, nếu server khởi động thành công mà connect db lỗi thì nên dừng ct luôn.
+1 connection chỉ xử lý 1 truy vấn ở 1 thời điểm nên nếu poolsize là 5 chỉ có 5 lệnh call db gọi đồng thời, còn lại vào hàng đợi. Poolsize nên lấy từ thực nghiệm tuỳ vào cores trong máy. Tạo 1 hàm check gần quá tải thì notify admin để check ngay.
 
 -> Bth 1 server sẽ fix cứng url của db để query tới db server đó. 
 Nếu có 10 vùng trên TG, mỗi vùng 1 DB và 1 server, thì server vẫn fix cứng url của db gần nó nhất để query.
@@ -71,6 +72,15 @@ VD: db.collectionName.stats({ indexDetails: true });
 db.collectionName.stats({ indexDetails: {name: "indexName"} }); 
 => Hiển thị thống kê chi tiết hơn như index nào chiếm dung lượng bao nhiêu vì nếu đánh quá nhiều index sẽ ảnh hưởng tới tốc độ ghi và giảm bộ nhớ.
 
+-> Dùng full text seach: 
+- Đánh index 'text' cho trường cần full text search. Vd: db.players.createIndex({ "name": "text", "description": "text" });
+- Tìm kiếm:
+db.players.find({ $text:{ $search: 'ghi ban'} }) => tìm trong các trường được đánh index cứ chứa 1 trong 2 chữ "ghi" và "ban" là lấy. Khoảng trắng là phân cách tìm theo OR
+db.players.find({ $text:{ $search: '\"ghi ban\"'} }) => tìm đúng chính xác phải chứa cụm từ "ghi ban"
+db.players.find({ $text:{ $search: 'bang dau -chan'} }) => tìm kiếm trong các trường đánh index chứa cụm "bang dau" và k chứa từ "chan"
+db.players.find({ $text:{ $search: 'chan phai dau'}}, {score: {$meta: 'textScore'}}) => full text search và lấy ra nh kết quả sắp xếp theo điểm trùng khớp. 
+Điểm trùng khớp là 1 số thập phân biểu thị độ khớp của 1 record output so với input cần tìm kiếm. $meta: 'textScore' để tính theo điểm của phép truy vấn $text. Ở đây là sắp xếp giảm dần theo độ khớp với chuỗi tìm kiếm => tính năng fuzzy search
+
 
 
 # Mongodb injection
@@ -109,9 +119,13 @@ db.getMongo().setReadPref('secondary') => Mặc định mongodb chỉ cho đọc
 Object Data Modeling (ODM) là kỹ thuật ánh xạ dữ liệu từ db vào các đối tượng trong mã code NoSQL, còn ORM của relational db thôi.
 Mongoose là 1 ODM cho mongodb. URL: https://mongoosejs.com/docs/ => nên dùng drizzle hơn
 
+Dùng extension mongodb snippets for node-js. Gõ: !dmbg
 Dùng kèm lib: 
 mongoose-paginate-v2 plugin hỗ trợ phân trang cho mongoose
 mongoose-sequence là plugin hỗ trợ autoincrement 1 trường nào đó khi tương tác với mongoose
+
+-> Dùng mongoose dự án thực
+Dùng singleton pattern chỉ 1 instance sử dụng toàn dự án. Dùng connection pool thì 1 instance quản lý 5 connection tới mongodb.
 
 -> Thêm static function cho schema để gọi global 
 Thêm các hàm cho 1 instance của schema
@@ -148,6 +162,9 @@ VD gọi hàm db.collection.updateMany() thì nó chỉnh sửa nhiều document
 -> Khi tạo relation 2 bảng, k nên embedded vào mà nên ref
 Khi 1 instance bảng này ref tới nhiều instance bảng khác: one to many là cha ref tới 10 con; one to huge là cha ref tới 1 triệu con quá lớn nên họ thường dùng con ref tới cha thôi.
 VD mongodb có thể dùng ghi log trong hệ thống nhỏ, còn hệ thống lớn thường dùng Elastic Search cơ. Khi đó 1 server có 1 triệu log là chuyện bth.
+
+-> Mongodb hỗ trợ update kiểu PATCH nested object, khi có 1 object và chỉ cần update 1 field trong object đó. SQL k hỗ trợ điều này mà phải tự stringify và update cả string.
+VD: { a: { b: 1, c: 2 } } => truyền vào 'a.b': "3" sẽ chỉ update a.b mà k xóa mất a.c 
 
 
 

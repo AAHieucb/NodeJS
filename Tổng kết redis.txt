@@ -166,6 +166,7 @@ Tut: https://www.youtube.com/watch?v=EckRuTo-t0k
 URL: https://redis.io/docs/latest/develop/use/keyspace-notifications/
 Keyspace notification cho phép client subscribe vào channel để nhận các event đặc biệt của redis. Có event như: khi 1 data hết hạn, hay khi 1 key mới được set.
 VD tự hủy đơn hàng nếu chưa thanh toán quá N phút: set expires time cho đơn hàng và subscribe sự kiện hết hạn thì thực hiện tuỳ ý.
+VD: Tạo 1 sp mới thì gửi notification cho user thì nên dùng, nó k cần chờ việc gửi notification xong thì request mới kết thúc mà là 1 hành động độc lập. Việc gửi notification kp là hành động qtr và chấp nhận miss ở 1 mức độ nên ok => Redis pubsub cứ có message là gửi luôn và k stable như message queue.
 
 Thực tế, redis pubsub là 1 cách giao tiếp giữa các services (tương đương kiểu gọi 1 API):
 - VD hàm A thay vì gọi API tới services B, A sẽ gửi message vào channel, B sẽ subscribe vào channel lấy message và xử lý. Subscriber và publisher k biết gì về nhau nên cũng dễ dàng thêm hàng loạt subscribers. Khác với việc gọi API thì A phải biết API của B cụ thể là gì.
@@ -360,10 +361,22 @@ VD: HSET "mediabucket:1155" "1155315" "939" "123" ... => Scale lên 300M key th�
 
 
 
-# Dùng redis thực hiện optimisitics locking
--> Usecase 1 user gửi hàng loạt request bắt phiếu giảm giá, hoặc nhiều user đồng thời mua mà kho còn 1 sản phẩm. 
-Cần đảm bảo 1 người k lấy 2 phiếu giảm giá, chỉ 1 user được mua sản phẩm. User có thể refresh trang liên tục, thậm chí dùng tool bắt mã giảm giá.
-VD dùng hàm atomic hoặc tạo transaction với mongodb:
+# Optimistic Locking và Pessimistic Locking
+VD ngừoi dùng thấy trên giao diện có 3 sản phẩm thì cho vào giỏ hàng 3 sản phẩm, lúc bấm mua lại chỉ còn 2 sản phẩm.
+Optimistics là đọc và thêm giỏ hàng thoải mái rồi thanh toán mới check. Pessimistics là lock từ khâu đọc cho tới thanh toán. VD ta cho mọi ngừoi thêm thoải mái vào giỏ hàng nhưng lúc ấn thanh toán mới check là optimistics locking.
+=> Tính năng đặt hàng giảm trong khó, rồi tự xoá đơn sau N phút không chốt chỉ dùng với pessimistics locking vì nó giảm trong kho từ lúc đọc, còn optimistics k cần. 
+
+- Optimistic Locking => thường dùng: lạc quan cho rằng hiếm khi có xung đột, cho phép nhiều luồng hoạt động đồng thời read data nhưng khi thực sự update sẽ check các trường liên quan vẫn phải thoã mãn. Quá trình check và update phải là 1 transaction.
+VD mua hàng thì thời điểm mua phải check số lượng trong kho vẫn đúng: SELECT id, name, quantity FROM products WHERE id = 1; -- B1: Get data
+UPDATE products SET name = 'New Product Name', quantity = 90 WHERE id = 1 AND quantity = 100; -- B2: update nếu quantity vẫn còn 100 là như lúc lấy.
+
+- Pessimistic Locking: cho rằng xung đột xảy ra nhiều và lock từ bước lấy cho đến khi update xong => chờ lâu nhưng an toàn nên dùng trong banking
+VD: SELECT id, name, quantity FROM products WHERE id = 1 FOR UPDATE; -- Khoá FOR UPDATE đảm bảo bản ghi này không thể bị đọc và ghi bởi chỗ khác.
+UPDATE products SET name = 'New Product Name', quantity = 100 WHERE id = 1; -- Update như bth
+
+-> Dùng redis / mongodb thực hiện optimisitics locking, hoặc dùng mutex từ thư viện nếu chỉ có 1 server tương tác với db
+Usecase: 1 user gửi hàng loạt request bắt phiếu giảm giá, hoặc nhiều user đồng thời mua mà kho còn 1 sản phẩm. Cần đảm bảo 1 người k lấy 2 phiếu giảm giá, chỉ 1 user được mua sản phẩm. User có thể refresh trang liên tục, thậm chí dùng tool bắt mã giảm giá.
+VD: Dùng hàm atomic hoặc tạo transaction với mongodb:
 const isGiamGia = async({userId}) => {
     const record = await phieuGiamGia.findOneAndUpdate({
         userId
@@ -379,13 +392,14 @@ const isGiamGia = async({userId}) => {
         this.isGiamGia();
     }
 }
-VD dùng redis pessimitics lock
+VD: Dùng redis pessimitics lock
 const isGiamGia = async({userId}) => {
   const result = await this.redis.setNX(userId, 'true'); // setnx là 1 atom, nếu userId k có giá trị thì set là true, có rồi thì k làm gì cả
   if (result === 1) {
     // 1 người chỉ đươc 1 mã giảm giá
   }
 }
+
 
 
 # Other

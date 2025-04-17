@@ -39,6 +39,11 @@ Biến môi trường process.env.UV_THREADPOOL_SIZE thiết lập kích thướ
 -> Joi: thư viện validate type của object, email, password, not null => ref tới "Projects / BlogWeb"
 -> hcaptcha: tạo captcha
 -> KvJS: thư viện giống redis nhưng là dùng với biến JS bth
+-> slugify: biến string thành chuỗi slug dùng trong url
+
+-> node-cache*: cache trong nodejs bằng biến local. Cần chú ý api nào update data thì phải stale cache đó. 
+Nếu data update nhiều thì k cần dùng cache
+Nếu data update ít hoặc k yêu cầu realtime quá mà query nhiều thì nên dùng.
 
 -> chalk: package giúp style text trên console
 figlet: package in chữ khổng lồ trên console
@@ -49,7 +54,7 @@ marked + marked-terminal: vẽ ngôn ngữ markdown lên terminal, có thể dù
 -> http-status: thao tác với các loại status http
 -> validator: giúp santinize string để chống XSS. Vd giúp check có phải email hay không chẳng hạn, tập hợp các type check có sẵn
 -> concurrently*: khi cần chạy song song client và server trong 1 dự án cùng lúc chỉ bằng 1 lệnh
--> @apollo/server + graphql: để xây 1 graphql server
+-> @apollo/server + graphql: để xây 1 graphql server. Kinh nghiệm tạo graphql server thì cái gì cần phân trang thì buộc phải là 1 entity riêng
 -> telegraf / node-telegram-bot-api: giúp tương tác với telegram, tạo bot tự động nhắn tin vào channel thay thế email. Cần api key của tele.
 -> bullmq*: giúp tạo queue, lập lịch chạy cron job, thay thế node-cron và node-schedule
 -> @google-cloud/text-to-speech
@@ -163,8 +168,11 @@ app.set("trust proxy", '127.0.0.1, 192.168.0.1, 192.168.0.2'); => tin 3 proxy c�
 
 
 # Dùng biến môi trường
-Có sẵn biến môi trường: NODE_ENV=production node app.js -> lấy ra với process.env.NODE_ENV
-Best practice là dùng nodejs v18 hỗ trợ sẵn file .env k cần lib
+Chỉ dùng .env nếu cần lưu thông tin nhạy cảm, nếu k thì file config là đủ rồi vì config thậm chí lưu được nhiều kiểu data phức tạp hơn là chỉ string.
+
+-> Dùng dotenv để lấy data từ file .env => thêm require("dotenv").config();
+Dùng "node --env-file .env server.js" => dùng file .env trong nodejs v20
+Dùng "NODE_ENV=pro node server.js" => tự lấy với process.env.NODE_ENV => Cái này đè lên file .env => best practice
 
 -> Dùng dotenv kết hợp dotenv-expand còn giúp tạo biến môi trường mà dựa trên biến môi trường khác
 Dùng cross-env có thể quyết định môi trường NODE_ENV trong command như bth, nhưng nó còn ghê gớm khi tự động lấy tên file .env chuẩn luôn.
@@ -320,7 +328,7 @@ File js chạy phát tắt ngay thì k thể mở được devtool. Có thể ch
 Click đúp vào dòng nào trong tab Source để đặt breakpoint, khi call api sẽ dừng ngay tại đó, F10 đi tiếp. Đặt "debugger;" trong code thì devtool browser cũng hiểu là dừng ở đó
 
 -> Ghi log: Trong hệ thống qtr về tốc độ, việc ghi log tốn thời gian thì thường push message vào buffer r chạy 1 thread riêng lấy ra ghi.
-=> Dùng winston ghi log thay morgan, phải tự viết 1 middleware log request bằng winston chứ k tự động. Còn có winston-elasticsearch để kết hợp nó với tool elasticsearch (chat gpt ez)
+=> Dùng winston ghi log thay morgan, phải tự viết 1 middleware log request bằng winston chứ k tự động. Còn có winston-elasticsearch để kết hợp nó với tool elasticsearch (chatgpt)
 URL: https://www.youtube.com/watch?v=ZwDpGJmGGb8&t=150s
 
 Kết hợp với winston-daily-rotate-file để config như maxsize, tự động xóa sau bao nhiêu ngày, tên file chia theo thời gian, định dạng ngày tùy chỉnh, zipfile 
@@ -333,6 +341,7 @@ Trong linux: "start": "DEBUG=app:* node app.js" or chạy terminal trực tiếp
 Trong window: cd vào thư mục -> set DEBUG=appmyapp:* => để cho debug trong môi trường nào rồi chạy bth. Làm như này sẽ set biến môi trường của window trong phạm vi thư mục đó
 
 -> Cũng có thể ghi log vào centry or discord.
+K nên in chi tiết lỗi quá mức để chỉ đường cho hacker biết thêm thông tin
 
 
 
@@ -381,7 +390,7 @@ module.exports = instance;
 const instance = require('./file');
 => Khởi tạo async và lấy singleton ra dùng. Đảm bảo initialize async hoàn thành mới dùng biến là được => best practice
 
-->*** Bản chất lỗi async: gọi hàm async, bên trong hàm gán giá trị cho 1 biến và k chờ nó, sau đó ta export biến ra sẽ lỗi vì khi export, nó sẽ copy state hiện tại của biến vào cache (khi chưa thực hiện xong await) và bị sai.
+->*** Bản chất lỗi async: gọi hàm async, bên trong hàm gán giá trị cho 1 biến và k chờ nó, sau đó ta export biến ra sẽ lỗi vì khi export, nó sẽ copy state hiện tại của biến vào cache (khi chưa thực hiện xong await) và bị sai => nói chung là như copy constructor
 VD: let x = 1; async function runSleep() { await sleep(2000); x = 2; } runSleep(); module.exports = { x };
 
 Để fix, phải export 1 hàm trong file trả về biến đó thì hàm bị copy cache, còn biến vẫn chạy và k bị xoá do hàm vẫn gọi tới. 
