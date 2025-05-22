@@ -29,6 +29,16 @@ QUIC cũng được dùng để đổi mạng trong điện thoại mà k bị l
 
 => Cũng có thể dựng 1 proxy nginx server dùng HTTP2, khi đó sẽ k tận dụng hết dược sức mạnh của HTTP2: Client <-- HTTP2 --> Nginx <-- HTTP1.1 --> Server
 
+-> NodeJS có built-in node:http2 => k dùng được cho expressjs
+http3 k hỗ trợ nodejs, chỉ có cách dựng nginx http3 thôi. ASP.NET có hỗ trợ thẳng http3.
+
+spdy là 1 giao thức tiền thân của http2, package spdy giúp expressjs dùng http2 => luôn dùng. Khi k support http2, tự downgrade http1.1 ok
+Package này có code ở client side để call api tới server trong trường hợp client side k hỗ trợ http2 => k cần thiết vì h luôn hỗ trợ
+
+-> Từ HTTP2 trở đi, luôn phải có SSL.
+Giả sử host lên VPS và cấu hình nginx dùng http2 với ssl ok. Browser query api sẽ dùng http2 gửi đến máy VPS rồi vào nginx thiết lập connection. Giả sử cấu hình nginx chuyển tiếp vào expressjs dùng http2 ssl thì nginx và express server cũng tương tác với nhau qua giao thức http2. SSL ở nginx và express server là độc lập, có thể dùng chung cert ok.
+Nếu nginx và express server là connect nội bộ cùng 1 máy or cùng mạng LAN thì nên dùng http để tiết kiệm và tối ưu tốc độ, còn nginx dùng http2 ra ngoài là best practice. Nginx và server nội bộ chỉ dùng http2 là các máy rời rạc và cần zero trust thôi. Hoặc khi k có nginx mà express dùng http2 trực tiếp.
+
 
 
 # Chia file BE hệ thống lớn
@@ -184,4 +194,43 @@ Nếu tạo package cho frontend, phải build thành ESModule bằng bundler ho
 Dùng package bên trong dự án luôn mà k cần publish lên npm: Vào trong thư mục chứa package: "yalc publish" -> quay lại thư mục chứa package.json của dự án: "yalc add <tên package>" -> yalc sẽ tự thêm vào package.json đường dẫn local đến package và ta import dùng như bth
 Để remove package: cd vào folder chứa package.json của project -> yalc remove my-package
 Đẻ upgrade package: sửa code package như bth -> lặp lại: cd ../my-package -> yalc publish -> cd ../my-project -> yalc update my-package
+
+
+
+# Thiết kế FE cho handling permission
+-> Dự án nhỏ với vài role cơ bản có thể check trực tiếp ở mọi chỗ
+{ user.role == "admin" && <></>} => chỉ admin mới hiện component
+{ user.role == "admin" || user.role == "moderator" || user.id == authorId && <></>} => mở rộng để moderator và chủ của bài viết cũng có thể xem component
+
+-> RBAC: User gắn với nhiều roles. Roles có nhiều permission. 1 permission gồm action:resource.
+Sửa quyền của role chỉ cần sửa ở 1 nơi duy nhất, và cung ra hàm check 1 role có quyền gì.
+VD https://github.com/WebDevSimplified/permission-system/blob/main/auth-rbac.ts
+
+Có nhiều cách nâng cấp trong hệ thống lớn:
+- User có thể thuộc 1 group, gán quyền cho group thì mọi user trong group sẽ có quyền đó
+- Data cũng có thể chia theo container, gán container cho user để chỉ dịnh user đó được quyền truy cập vào các data nào.
+- VD untrest họ chia role chính là permission groups, dùng 1 bảng ánh xạ user với 1 permission group, còn tài nguyên chia theo tenant và container. Khi check sẽ check user có gán cho permission group chứa container của data và action permission k.
+User / Group -- [UserRoles] -- Role -- [RolePermissions] -- Permission
+
+RBAC khó mở rộng trong vài TH:
+Nếu muốn chủ của comment có thể xoá comment thì phải thêm vào 1 permision mới là delete:ownedComments, mọi nơi vẫn phải check thủ công user.id==authorId. 
+Nếu user và moderator đều có quyền đó sẽ phải thêm delete:ownedComments ở cả 2 roles.
+
+--> Clert giúp authorization RBAC chuẩn cho FE: https://www.youtube.com/watch?v=5GG-VUvruzE&list=WL&t=1011s => Clerk sẽ lo logic signin provider, organization, gán roles cho user, user login sẽ lưu vào clerk và ta tuỳ ý chỉnh, lấy roles ở FE dễ dàng. Còn roles gắn với permission nào vẫn lưu ở DB của ta.
+Clerk dùng webhook, là 1 cơ chế giao tiếp realtime không cần polling. Tạo 1 url listen sẵn, khi có update thì gửi vào đó là xong. Webhook 1 chiều, muốn 2 chiều thì 2 bên đều phai là server lắng nghe 1 port.
+
+--> Mở rộng RBAC như gg drive, nó còn cho phép user share người khác edit và view docs file.
+Giải pháp là vẫn dùng như trên, nhưng mỗi 1 tài nguyên có thể chia sẻ sẽ có role riêng. VD:
+Shared File -- [UserFileRole] -- FileRole -- [FileRolePermission] -- Permission
+                    |                                                   /
+                  User -- [UserRoles] -- Role -- [RolePermissions] ---
+                              |
+                          Organization(tenant, container)
+=> Mỗi khi user tương tác 1 file, sẽ check user có role nào đối với file không: fileid - userid - filerole
+
+-> ABAC: Subject thực hiện Action tương tác Resource.
+URL: https://github.com/WebDevSimplified/permission-system/blob/main/auth-abac.ts
+Cơ chế check dựa vào hàm tính toán giữa các thuộc tính của object và user. Export ra 1 hàm duy nhất gọi các hàm check đó với từng resource. Có cả blockUsers, inviteUsers
+
+
 

@@ -46,56 +46,78 @@ Phải dùng qua ứng dụng như Remote Desktop Connection, VSC k có extensio
 
 
 # SSL/TLS
-VD có 1 server cung API, nhiều server khác có thể gọi tới API server đó lấy data. Tất cả server đều do ta quản lý.
+-> Luồng SSL trong web server
+- Tổ chức CA được thành lập
+CA sinh 1 pivkey
+CA sinh ra 1 cert từ pivkey cho chính mình
 
-Cơ chế y hệt browser tương tác với web server, phải host FE lên để browser lấy về, host BE để FE tương tác. Khi đó chứng chỉ TLS được cấp bởi CA đáng tin cậy cho cả FE và BE. Nhưng ở đây chỉ có các server do ta tự quản lý nên phải tự tạo CA, tự tạo chứng chỉ vĩnh viễn cho các server xác thực nhau.
-Có 2 loại: chỉ server có chứng chỉ TLS để client xác thực server; cả client server đều có chứng chỉ (mTLS - Mutual TLS). Ở đây ta k muốn bất cứ client nào cũng gọi được mà chỉ 1 vài server chỉ định thôi nên dùng mTLS, cả 2 bên phải xác thực lẫn nhau mới được gọi. Còn web bth là TLS 1 chiều.
+- Server serve FE và API server khi host lên đều đăng ký TLS với 1 CA uy tín, nhận về cert.
+Server sinh 1 pivkey.
+Server sinh tiếp 1 yêu cầu cấp chứng chỉ (CSR) từ pivkey gửi cho CA. Do server k thể gửi pivkey tới CA trực tiếp được vì pivkey phải giữ kín, nên phải tạo ra CSR chứa đủ thông tin cần thiết và gửi cho CA.
+CA check CSR hợp lệ, đã trả phí, thì dùng cert của mình ký thông tin của server sẽ sinh ra cert cho server. Gửi lại cert cho server.
+
+- Browser vào web sẽ tạo TLS handshake với server serve FE trước rồi mới giao tiếp request HTTP.
+Browser nhận về cert rồi gửi tới CA check. CA check cert được tạo ra từng đúng cert của CA đó, check các trường ok.
+Từ cert của server, browser và server sẽ trao đổi 1 khoá bí mật chung bằng Diffie-Hellman như bth. Khoá này chính là TLS handshake giữa 2 bên. 
+Có nhiều PP khác như TLS1.3 Key Share. Bước này tự động ta k nhìn thấy.
+Browser và server sẽ trao đổi qua giao thức HTTP, mọi data trao đổi được mã hoá bằng TLS handshake.
+
+- Khi FE call tới API server cũng tạo TLS handshake mới và check SSL cert của server hợp lệ trước, rồi mới giao tiếp HTTP.
+TLS handshake có thể keep alive để tái dùng cho nhiều request chứ kp mỗi request là check cert 1 lần. Connection này có sessionid riêng.
+
+-> Usecase dựng 1 server cung API, nhiều server khác có thể call API của server đó. Tất cả server đều do ta quản lý nội bộ.
+Các server tương tác phải mã hoá đường truyền và nhận biết nhau. Ta k muốn bất cứ client nào cũng gọi được mà chỉ 1 vài server chỉ định thôi nên dùng mTLS, cả 2 bên phải xác thực lẫn nhau mới được gọi
+Cơ chế y hệt browser tương tác web server, nhưng ở đây mà chỉ các server nội bộ do ta quản lý, nên ta tự tạo cert expires vĩnh viễn cho các server xác thực nhau.
+=> Hệ thống này có cần thiết dùng TLS không? Có vì server nội bộ giao tiếp với nhau thì bên ngoài kb, nhưng nếu có nhân viên làm r nghỉ việc sẽ biết các API public k được bảo vệ. Nếu hiểu bản chất sẽ thấy có thể bỏ qua việc xác thực server ở client vì hệ thống nội bộ với url chuẩn thì khó mà giả mạo server kia được.
 
 - Tạo CA (cert authority):
-openssl genrsa -out ca-key.pem 2048 => Tạo khóa riêng cho CA (ca-key.pem)
+openssl genrsa -out ca-key.pem 2048 => Generate 1 khoá riêng RSA cho CA (ca-key.pem) (RSA là bất đối xứng)
 Đuôi file có thể là .key cũng được; Kích thước 2048 đủ an toàn, để 4096 sẽ bảo mật hơn nhưng chậm hơn.
 
 openssl req -x509 -new -nodes -key ca-key.pem -sha256 -days 365 -out ca-cert.pem -subj "/CN=MyCA" => Tạo 1 chứng chỉ CA tự ký (ca-cert.pem).
--nodes tức là chứng chỉ (ca-cert.pen) sẽ k được mã hóa bằng mật khẩu
+req là tạo 1 request yêu cầu cấp cert
+-x509 là 1 kiểu chứng chỉ chuẩn cho SSL, tức ở đây k chỉ tạo yêu cầu cấp chứng chỉ mà tự cấp chứng chỉ luôn
+-new tạo mới
+-nodes (No Des) tức là chứng chỉ (ca-cert.pem) sẽ k được mã hóa bằng mật khẩu
 -sha256 dùng băm SHA-256, nếu k chỉ định thì openssl có thể dùng SHA-1 trên các phiên bản cũ.
+-subj "/CN=MyCA" là optional. Nó đặt thông tin chủ sở hữu cho chứng chỉ, CN=MyCA tức Common Name là "MyCA".
 
 - Tạo chứng chỉ cho server cung API:
 openssl genrsa -out server-key.pem 2048 => Tạo khóa riêng cho serverA (server-key.pem)
 
-openssl req -new -key server-key.pem -out server-req.pem -subj "/CN=localhost"
-Tạo yêu cầu để CA ký chứng chỉ cho serverA (server-req.pem); Để .crt hay .pem đều được => dùng .pem hết cho dễ.
-K thể gửi pivkey tới CA trực tiếp được vì bảo mật, nên phải tạo ra CSR chứa đủ thông tin nhưng k chứa pivkey để gửi CA ký.
+openssl req -new -key server-key.pem -out server-req.pem -subj "/CN=localhost" => Tạo yêu cầu cấp chứng chỉ để gửi CA ký chứng chỉ cho serverA (server-req.pem)
+req -new là chỉ tạo yêu cầu thôi, k có -x509 như trên nên k cấp cert ngay.
+Để .crt hay .pem đều được => dùng .pem hết cho dễ.
 
-openssl x509 -req -in server-req.pem -CA ca-cert.pem -CAkey ca-key.pem -CAcreateserial -out server-cert.pem -days 365
-CA ký chứng chỉ cho serverA là có chứng chỉ hoàn chỉnh (server-cert.pem); Đuôi .crt hay .pem đều được.
+openssl x509 -req -in server-req.pem -CA ca-cert.pem -CAkey ca-key.pem -CAcreateserial -out server-cert.pem -days 365 => CA ký chứng chỉ cho serverA là có chứng chỉ hoàn chỉnh (server-cert.pem)
+Đuôi .crt hay .pem đều được.
 
-openssl pkcs12 -export -out server.pfx -inkey server-key.pem -in server-cert.pem -certfile ca-cert.pem -passout pass:mypassword1
-Chuyển thành file pfx (server.pfx)
+openssl pkcs12 -export -out server.pfx -inkey server-key.pem -in server-cert.pem -certfile ca-cert.pem -passout pass:mypassword1 => Gom khoá riêng và chứng chỉ thành file pfx (server.pfx)
+Cách khác có thể dùng file pfx kèm password cũng được, nó gom 2 file lại cho gọn thôi.
 
-- Tạo chứng chỉ cho client call api:
+- Tạo chứng chỉ cho client call api tương tự:
 openssl genrsa -out client-key.pem 2048
 openssl req -new -key client-key.pem -out client-req.pem -subj "/CN=Client"
 openssl x509 -req -in client-req.pem -CA ca-cert.pem -CAkey ca-key.pem -CAcreateserial -out client-cert.pem -days 365
 openssl pkcs12 -export -out client.pfx -inkey client-key.pem -in client-cert.pem -certfile ca-cert.pem -passout pass:mypassword
 
-- Tạo server phải dùng đến khóa riêng server-key.pem, chứng chỉ server-cert.pem, chứng chỉ CA ca-cert.pem.
-- Tạo client phải dùng đến khóa riêng client-key.pem, chứng chỉ client-cert.pem, chứng chỉ CA ca-cert.pem.
+- CA được lưu ở đâu? Ta có thể dựng 1 server riêng lưu CA để các server gửi cert đến check cho giống web server. Nhưng ở đây các server đều do ta quản lý nên có thể lưu pivkey của CA ở 1 nơi bí mật, khi cần sinh them cert thì lấy ra ký, còn cert của CA thì clone ra lưu vào trusted CA ở mọi server luôn.
+Khi call API thì các server sẽ check cert của nhau bằng cert của CA nó lưu sẵn, chỉ chấp nhận các cert được ký bởi cert này là được.
 
 - Note:
-Client và server giao tiếp dùng khóa riêng và chứng chỉ. Cách khác có thể dùng file pfx kèm password cũng được, nó gom 2 file lại cho gọn thôi.
-Dùng web server cũng tương tự nhưng CA là tổ chức bên thứ 3 uy tín. Server sẽ tạo khóa riêng rồi tạo ra yêu cầu server-req.pem gửi cho CA ký nhận về cert thôi.
-Cơ chế khi giao tiếp, 1 bên sẽ gửi chứng chỉ cert, bên còn lại sẽ check cert có tạo từ đúng CA này không, đã hết hạn chưa. Nếu là web server sẽ gửi qua api tới CA để check. Sau đó 2 bên tạo session key để giao tiếp, đầy pp như Diffie-Hellman (DH), TLS1.3 Key Share, bước này tự động mà ta k nhìn thấy.
+Cách tạo nhanh key và cert luôn trong 1 request: openssl req -x509 -newkey rsa:2048 -nodes -keyout server.key -out server.crt -days 365
+-newkey rsa:2048 => khác với -new chỉ tạo CSR, -newkey sinh cặp keypair mới (RSA 2048 bits) và yêu cầu cấp chứng chỉ CSR luôn cùng lúc
+sinh key và yêu cầu cấp chứng chỉ CSR, khác với -new chỉ dùng khi tạo mỗi CSR
+
 Hệ thống có nhiều server gọi API của 1 server, có thể tái sử dụng 1 key-cert cho nhiều server hoặc mỗi server có 1 key-cert riêng. 
-Việc dùng cert TLS là đủ để mã hóa và xác thực trong hệ thống luôn mà k cần bất cứ phương pháp gì thêm. Vì bên ngoài k thể có được CA, key, cert để call. Tương tự pp này cũng sử dụng khi connect vào DB hay bất cứ 1 thứ gì mà cần xác thực và mã hóa 2 bên.
+Việc dùng cert TLS là đủ để mã hóa và xác thực trong hệ thống luôn mà k cần bất cứ phương pháp gì thêm. Vì bên ngoài k thể có được CA, key, cert để call. 
+Các pp như connect vào db hay socket cơ chế có thể khác nhưng về bảo mật vẫn phải tạo secure connection với cơ chế khoá chung tương tự
 
-Tùy biến:
-Có options là chuẩn chung ở server có thể set là: rejectUnauthorized: true => từ chối request nếu client không có chứng chỉ hợp lệ
-req.socket.authorized trường check xem client có chứng chỉ hợp lệ hay không.
-Option rejectUnauthorized luôn có thể set ở client và server. Bản chất khi dựng 1 server self-sign truy cập qua browser thì sẽ hiện 1 trang cảnh báo vì key-cert từ server k đến từ 1 CA public nào cả, ấn continue chính là set rejectUnauthorized false để bỏ qua việc check mà vẫn tạo TLS connection bth.
-VD nếu server set rejectUnauthorized false thì client không cần gửi cert cũng được, server k cần có chứng chỉ CA để check nữa, request vẫn được server xử lý bình thường, kết nối TLS vẫn được thiết lập kể cả cert k hợp lệ. Khi đó client có thể bị giả mạo và tạo kết nối tới server.
-VD nếu client set rejectUnauthorized false thì client cũng k check cert đến từ server và server có thể bị giả mạo. Nhưng lưu ý là server vẫn phải gửi cert tới client, nếu k sẽ k thiết lập được connection TLS. Server luôn phải có cert để tạo TLS, k thì phải quay về http.
-
-=> Hệ thống này có cần thiết dùng TLS không? Có vì server nội bộ giao tiếp với nhau thì bên ngoài kb, nhưng nếu có nhân viên làm r nghỉ việc sẽ biết các API public k được bảo vệ. Nếu hiểu bản chất sẽ thấy có thể bỏ qua việc xác thực server ở client vì hệ thống nội bộ với url chuẩn thì khó mà giả mạo server kia được.
+-> K cần CA:
+- Khi self sign trong web server: ta sinh key và cert lưu vào server, khi client kết nối thì gửi cert cho client. Browser nhận cert thấy self sign sẽ đưa warning, hoặc là chủ động cài cert vào máy client, hoặc ấn để ignore là được.
+Dùng self sign thì browser hiện trang cảnh báo, khác với certbot sinh free SSL cert từ Let's Encrypt sẽ k hiện trang cảnh báo. 
+certbot chỉ dùng sinh ssl cho 1 text domain public, chứ localhost hay ip address thì k được mà phải self sign, vẫn có 1 số ít CA cho phép ký ip address. VD dùng localhost để test buộc phải tự ký openssl. VD digital ocean hosting cung domain nhưng k hỗ trợ sẵn ssl thì có thể dùng certbot.
+- Nếu chỉ có 2 server tương tác với nhau, server A có thể lưu cert của server B vào trusted CA của mình rồi tương tác https có SSL bth.
 
 
 

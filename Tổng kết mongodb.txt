@@ -117,7 +117,7 @@ db.getMongo().setReadPref('secondary') => Mặc định mongodb chỉ cho đọc
 
 # Dùng lib mongoose
 Object Data Modeling (ODM) là kỹ thuật ánh xạ dữ liệu từ db vào các đối tượng trong mã code NoSQL, còn ORM của relational db thôi.
-Mongoose là 1 ODM cho mongodb. URL: https://mongoosejs.com/docs/ => nên dùng drizzle hơn
+Mongoose là 1 ODM cho mongodb. URL: https://mongoosejs.com/docs/ => nên dùng prisma hơn, drizzle k hỗ trợ
 
 Dùng extension mongodb snippets for node-js. Gõ: !dmbg
 Dùng kèm lib: 
