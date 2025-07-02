@@ -42,7 +42,7 @@ Nếu nginx và express server là connect nội bộ cùng 1 máy or cùng mạ
 
 
 # Chia file BE hệ thống lớn
-Best practice vẫn là chia theo chức năng, bên trong từng chức năng chia theo file từng module
+Best practice vẫn là chia theo chức năng, bên trong từng chức năng chia theo file từng module. Chứ nếu chia theo module lỡ cần common lại k có chỗ viết.
 Tính năng
   Tính năng con
     Module
@@ -216,7 +216,7 @@ RBAC khó mở rộng trong vài TH:
 Nếu muốn chủ của comment có thể xoá comment thì phải thêm vào 1 permision mới là delete:ownedComments, mọi nơi vẫn phải check thủ công user.id==authorId. 
 Nếu user và moderator đều có quyền đó sẽ phải thêm delete:ownedComments ở cả 2 roles.
 
---> Clert giúp authorization RBAC chuẩn cho FE: https://www.youtube.com/watch?v=5GG-VUvruzE&list=WL&t=1011s => Clerk sẽ lo logic signin provider, organization, gán roles cho user, user login sẽ lưu vào clerk và ta tuỳ ý chỉnh, lấy roles ở FE dễ dàng. Còn roles gắn với permission nào vẫn lưu ở DB của ta.
+--> Clerk giúp authorization RBAC chuẩn cho FE: https://www.youtube.com/watch?v=5GG-VUvruzE&list=WL&t=1011s => Clerk sẽ lo logic signin provider, organization, gán roles cho user, user login sẽ lưu vào clerk và ta tuỳ ý chỉnh, lấy roles ở FE dễ dàng. Còn roles gắn với permission nào vẫn lưu ở DB của ta.
 Clerk dùng webhook, là 1 cơ chế giao tiếp realtime không cần polling. Tạo 1 url listen sẵn, khi có update thì gửi vào đó là xong. Webhook 1 chiều, muốn 2 chiều thì 2 bên đều phai là server lắng nghe 1 port.
 
 --> Mở rộng RBAC như gg drive, nó còn cho phép user share người khác edit và view docs file.

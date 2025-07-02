@@ -27,3 +27,5 @@ Có 5 chế độ là dev, combine, common, short, tiny
 dev cho đầu ra ngắn gọn => nên dùng môi trường dev
 common cho ra chi tiết hơn theo chuẩn của apache
 combine còn cho ra chi tiết hơn nữa như request được gọi bằng tool gì => nên dùng cho production
+
+-> Có package ESM cho phép dùng import/export trong commonjs. Hoặc dùng dynamic import cho cả commonjs và ES6 đều được.

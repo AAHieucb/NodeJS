@@ -1,16 +1,205 @@
 # NodeJS
-Luôn dùng nvm: Để update nvm lên version mới, phải tải lại từ github về file setup.exe và chạy mới lại
+-> Để update nvm lên version mới, phải tải lại từ github về file setup.exe và chạy mới lại
 
 -> node cli: 
 node -> http.STATUS_CODES / Date.now()
-node --watch
+node --watch => dùng thực tế cho development => ref tới "BlogWebBE"
+node --run => thay thế hoàn toàn npm run, nhanh hơn tẹo
 
--> file.mjs là ES module js, file.cjs là file dùng common js. Có thể import lẫn nhau
-Nodejs dùng .js sẽ tự dùng commonjs, muốn dùng .js là es module phải thêm type module, nhưng nếu dùng đúng đuôi file sẽ tự dùng chuẩn loại
 
-Dùng top-level statement fetch api được.
-node --run <tên command script trong package json> => giúp chạy script trực tiếp trong cmd
-for await (const value of promises) { console.log(value); } => chờ lần lượt từng promies thực hiện xong
+
+# Dùng typescript trong nodejs
+BE viết bằng JS mà lại dùng package viết bằng typescript được là vì package luôn được compile thành js sẵn rồi.
+Check reference package hiện file typescript là vì npm vẫn giữ code typescript của nó thôi.
+
+-> Cách dùng:
+Trong môi trường dev, cài ts-node là 1 package giúp chạy trực tiếp file typescript với lệnh "ts-node index.ts". Cơ chế nó build typescript trong quá trình chạy nên tốc độ chậm và k dùng cho production 
+Trong production, cài package "typescript" cung lệnh tsc. Viết file tsconfig.json để setup config. Trước khi start server, phải chạy lệnh "npx tsc" để biên dịch index.ts thành index.js trước r chạy như bth "node index.js"
+
+
+
+# Master require, import, module.export và export, dynamic import
+Cần tránh circular dependencies
+
+-> Cơ chế là object được module.exports sẽ chỉ chạy qua 1 lần rồi lưu cache, tức object dùng như 1 singleton.
+Khi dùng async để khởi tạo biến, logic chạy như bth, require như bth, hàm chạy xong sẽ dùng được biến thôi.
+
+VD1: const x = new Class(); 
+module.exports = x; hoặc module exports = { x }; hoặc module.exports = { x: new Class() };
+VD2: Class { static method() {} }
+module.exports = Class; 
+const Class = require("./Class"); Class.method();
+=> Object là singleton chỉ khởi tạo 1 lần.
+
+VD3: module.exports = () => new Class(); 
+const createInstance = require("./Class"); const x = createInstance();
+VD4: module.exports = Class;
+const Class = require("./Class"); const x = new Class();
+=> Mỗi lần dùng là 1 lần new Class được tạo mới
+
+VD5: class MyClass { 
+  constructor() { this.initialize(); } 
+  async initialize() { } 
+  static getInstance() { 
+    if(!MyClass.instance) MyClass.instance = new MyClass();  
+    return MyClass.instance; 
+  } 
+}
+const instance = Database.getInstance();
+module.exports = instance;
+const instance = require('./file');
+=> Khởi tạo bằng hàm async và lấy singleton export ra dùng. Đảm bảo initialize async hoàn thành mới dùng biến là được => best practice
+
+->*** Bản chất lỗi async: gọi hàm async, bên trong hàm gán giá trị cho 1 biến và k chờ nó, sau đó ta export biến ra sẽ lỗi vì khi export, nó sẽ copy state hiện tại của biến vào cache (khi chưa thực hiện xong await) và bị sai => nói chung là như copy constructor
+VD: let x = 1; async function runSleep() { await sleep(2000); x = 2; } runSleep(); module.exports = { x };
+
+Ta nghĩ là object export ra sẽ bị copy vào cache. Nhưng là copy địa chỉ, chứ giá trị 1 trường mà đổi async thì vẫn thấy bth thôi. 
+Ta có thể fix bằng cách export 1 hàm trong file trả về biến đó thì hàm bị copy cache, còn biến vẫn chạy và k bị xoá do hàm vẫn gọi tới. 
+VD: let x = 1; async function runSleep() { await sleep(2000); x = 2; } function getX(){ return x; } runSleep(); module.exports = { getX: getX };
+Ta có thể wrap nó vào 1 biến khác thì biến bao ngoài bị copy, vẫn trỏ tới trường bên trong k bị copy thôi 
+VD: let client = {}; client.x = x; module.exports = client; => sẽ cache client copy ngay, vùng nhớ x vẫn có ref tới nên k bị xóa, async chạy xong là dùng bth thôi.
+
+-> Nhanh:
+- Biến module.exports + require nhiều lần luôn là singleton và sẽ copy vùng nhớ, nên đổi 1 trường trong hàm async thì ok chứ gán = 1 vùng nhớ khác sẽ k hoạt động.
+- Dùng dynamic import với await import("") có thể giúp dùng module ESM trong commonjs vì k dùng được require. Dùng vì lazy load.
+
+
+
+# Dùng biến môi trường
+Chỉ dùng .env nếu cần lưu thông tin nhạy cảm, nếu k thì file config là đủ rồi vì config thậm chí lưu được nhiều kiểu data phức tạp hơn là chỉ string.
+
+-> 3 cách:
+Dùng "node --env-file=.env server.js" => k cài thêm package, xác định .env file cần lấy ngay trong command để chia môi trường => best practice
+Dùng dotenv để lấy data từ file .env => thêm require("dotenv").config(); sẽ mặc định lấy .env, có thể chỉnh lấy rõ file .env nào trong code
+Dùng "cross-env NODE_ENV=pro node server.js" => lấy trực tiếp process.env.NODE_ENV, cái này đè lên file .env
+
+--> Phải có "npm install --save-dev cross-env" để dùng trực tiếp tham số trong câu lệnh chạy được với mọi OS. Vì mặc định nó chỉ chạy được với linux và macos thôi, mở dự án trên máy win sẽ k chạy.
+
+--> Dùng dotenv kết hợp dotenv-expand còn giúp tạo biến môi trường mà dựa trên biến môi trường khác
+VD dotnev kết hợp cross-env để chọn .env file ngay trong command:
+require('dotenv').config({
+  path: `.env.${process.env.NODE_ENV}`
+});
+
+
+
+# Toàn bộ multithread, multiprocess, worker thread
+-> PM2 chạy nhiều instance của server. PM2 tự phân bố mỗi process trên 1 CPU core để tối ưu. Nếu máy chỉ có 1 cores, việc chạy nhiều instance với PM2 sẽ k có ích gì. Default dùng round robin để phân bố request vào các instances. Auto restart khi server crash, kiểm soát resource, live reload với --watch, xem log.
+Dự án chạy với PM2 thì nên cài vào package.json, còn tự cài global để xem quản lý log các thứ nếu cần thôi. Dùng được với FE nhưng chỉ cần dùng với BE thôi.
+Cơ chế tạo ra 1 process master quản lý các process worker, các worker cùng listen trên 1 port.
+
+PM2 có 2 chế độ là forkmode và cluster mode:
+- Fork mode: "pm2 start app.js --name my-api" => lệnh chạy 1 instance duy nhất. Muốn chạy nhiều instance thì phải chạy nhiều lần script đó. Mỗi instance là độc lập và OS tự kiểm soát việc phân bổ vào CPU core nào, có thể là cùng cores.
+- Cluster mode: "pm2 start app.js -i 0" => PM2 sẽ tự phân bổ instance vào các cores khác nhau theo round robin => luôn dùng
+
+--> Tổng kết lệnh:
+pm2 start app.js => k tham số sẽ mặc định chạy 1 tiến trình duy nhất
+  -f => force chạy, khởi động lại tiến trình file đó nếu có đang chạy
+  --name appname
+  --max-memory-restart 100M => 1 instance dùng max 100MB mem, nếu quá sẽ tự restart lại
+  -i max => max là dùng max số process = số core trong máy, hoặc 1 số gì đó chỉ định số lượng instance.
+  --watch => restart các instance khi code change
+  --node-args='--env-file=.env' => thêm params cho lệnh chạy nodejs
+  --no-daemon => k chạy trong background nữa. Khi dùng với docker thì nên có vì nếu chạy bth thì docker dừng luôn vì nó tưởng tiến trình đã kết thúc.
+pm2 start ecosystem.config.js => chạy theo config
+  -only name1 => chỉ chạy app tên là name1 theo file config
+  -only "name1,name2,name3" => chạy 3 app theo file config
+  --env production => chạy theo env "production"
+pm2 stop appname => or id, or all
+pm2 restart appname/id/app.js
+pm2 delete appname
+pm2 show appname => xem chi tiết app
+pm2 list => list các app đang chạy
+pm2 logs => xem log mọi apps
+pm2 logs appname => xem log cụ thể 1 app
+pm2 monit => Giao diện giám sát realtime (CPU, RAM,...)
+pm2 flush => xoá mọi log
+pm2 delete all => xoá mọi app
+
+VD PM2 để chia môi trường production và development:
+module.exports = {
+  apps: [
+    {
+      name: 'my-app',
+      script: 'app.js',
+      watch: true,
+      env_production: { // Dùng env var khi chạy với pm2 start ecosystem.config.js --env production
+        NODE_ENV: 'production'
+      },
+      env_development: { // Dùng env var khi chạy với pm2 start ecosystem.config.js --env development
+        NODE_ENV: 'development'
+      }
+    }
+  ]
+};
+
+--> Tự chạy server khi máy khởi động lại với "startup"
+pm2 startup => hiển thị câu lệnh sudo và chạy câu lệnh đó để setup pm2 với systemd
+pm2 save => lưu danh sách app hiện tại đang có 
+Từ giờ mỗi khi khởi động lại máy sẽ tự chạy pm2. Mỗi khi xoá hay thêm app cần chạy lại pm2 save để cập nhật list app chạy startup lại cùng hệ thống.
+pm2 unstartup => tắt tính năng
+
+-> Dùng os: Chrome V8 là 1 js engine dùng libuv viết bằng C++ để tương tác với phần cứng và thực hiện các task nặng.
+Khi dùng hàm sync thì nodejs sẽ khoá event loop. Còn hàm async vẫn tự chuyển sang thread pool thread pool nhờ libuv để chạy nền cho nhanh. Khi dùng await, nó đợi nhưng thực tế main thread vẫn chạy event loop các task khác, khi libuv xử lý task nặng xong sẽ trả về callback vào event loop xử lý đoạn code dưới await.
+Biến môi trường process.env.UV_THREADPOOL_SIZE thiết lập kích thước threadpool mà libuv tự sử dụng cho các tác vụ async và I/O. Thường ta k cần sửa mà để default là 4, trừ khi server có nhiều task nặng chạy và máy có nhiều cores hơn bth.
+URL bản chất libuv và threadpool để nodejs single thread xử lý được task nặng: https://www.youtube.com/watch?v=Vej327jN8WI
+
+Phân biệt PM2 chia ra nhiều process, mỗi process là 1 cores do OS phân bổ. Còn UV_THREADPOOL_SIZE là số lượng thread, 1 core có thể chạy nhiều thread, tức số thread > số core thì các thread sẽ cạnh tranh để dùng CPU core.
+
+--> Có 2 loại, 1 là các task I/O bound thực sự như đọc file, call api, query db. Hoặc các hàm là CPU bound nhưng nodejs đẩy vào threadpool của libuv để k chặn event loop thì nó giống như I/O bound. 
+VD logic hash nặng là CPU bound mà ta dùng như I/O bound bằng cách cho vào thread pool. Nếu tăng UV_THREADPOOL_SIZE thì ta sẽ cho phép nhiều tác vụ hash chạy song song hơn.
+
+=>*** Khi dùng kết hợp PM2 và UV_THREADPOOL_SIZE thì nên set tổng threads (PM2 process × UV_THREADPOOL_SIZE) nên ≤ (số core × 2) để tránh quá tải. 
+Nếu I/O bound nhiều thì PM2 để là 2 instance và UV_THREADPOOL_SIZE min là 4. Nếu CPU bound nhiều thì PM2 để là 4 instance và UV_THREADPOOL_SIZE min là 2.
+Cụ thể CPU bound nhiều thì PM2 instance nên cao, đó là khi xử lý logic trên dữ liệu lớn, tính toán số, xử lý json synchronouse, thuật toán nặng như xử lý ảnh. I/O bound nhiều như truy vấn DB, đọc file, mã hoá async thì nên set UV_THREADPOOL_SIZE cao. 
+Phải set UV_THREADPOOL_SIZE trước khi server chạy mới có tác dụng. VD set trong .env và dùng dotenv sẽ k được vì app chạy rồi mới load. Phải dùng inline hoặc --env-file.
+
+-> worker_threads là module có sẵn trong nodejs giúp custom dùng libuv.
+Mặc định libuv chỉ dùng cho các task như DNS lookup, đọc file, I/O, mã hoá. Các task nặng ta tự tạo, VD tính tổng từ 1 tới 1 tỷ, là hàm sync sẽ block mainthread. worker_threads giúp custom chạy hàm đó trên thread riêng bằng libuv.
+Libuv bth luôn an toàn và k sợ data race vì data trong các thread luôn độc lập, dùng worker_threads cũng vậy. Chỉ vài case hiếm dùng với SharedArrayBuffer có bị data race.
+
+-> Nhanh: 
+Dùng PM2 kết hợp set process.env.UV_THREADPOOL_SIZE trước khi chạy app.
+Dùng worker_threads nếu có task riêng thực sự nặng muốn chạy hoàn toàn độc lập trên worker_threads
+
+
+
+# Server tránh xung đột biến global
+Khi làm việc với C# ASP.NET, mỗi client là 1 thread riêng nên mỗi request sẽ dùng biến độc lập trong từng thread. Ta vẫn có thể tạo class singleton dùng chung được. Xong ta còn phải xử lý các biến khi vào các async context chạy song song thì dùng chung giá trị hay độc lập.
+Trong nodejs là single thread và dù nhiều request đến mấy cũng chạy lần lượt và asynchronous nhau. Tức dù k bị conflict write biến đồng thời thì các request vẫn có thể dùng chung biến của nhau loạn xạ dẫn đến kết quả k mong muốn. Thông thường ta tạo biến local cho từng request nên k sợ bị xung đột, hiếm khi dùng biến global.
+
+Module "async" đảm bảo chỉ 1 luồng có thể truy cập và sửa biến global cùng một thời điểm. Cơ chế là add đoạn mã và 1 queue thực hiện lần lượt.
+VD: const async = require('async');
+let globalVariable = 0; // Khai báo biến global
+const lock = async.queue(
+  async (task, done) => { 
+    try { // Đoạn mã trong này chỉ được thực thi bởi một yêu cầu tại một thời điểm
+      const newValue = await performSomeOperation(task.value);
+      globalVariable = newValue;
+      done();
+    } catch (error) {
+      done(error);
+    }
+  }
+);
+function performSomeOperation(value) { // Hàm side effect
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      const result = globalVariable + value;
+      resolve(result);
+    }, 1000); // Giả định thời gian chậm trễ 1 giây
+  });
+}
+function yourApiEndpoint(req, res) { // VD hàm gọi ở API endpoint
+  const valueFromClient = req.body.value;
+  lock.push({ value: valueFromClient }, (error) => { // Thêm yêu cầu vào hàng đợi để có đồng bộ
+    if (error) {
+      return res.status(500).json({ error: 'Đã xảy ra lỗi trong quá trình xử lý yêu cầu.' });
+    }
+    return res.status(200).json({ message: 'Yêu cầu đã được xử lý thành công.' });
+  });
+}
+=> Dùng `async.queue` để tạo một hàng đợi đồng bộ hóa. Hàm đưa vào hàng đợi sẽ kbh thực hiện song song.
 
 
 
@@ -164,24 +353,11 @@ app.set("trust proxy", '127.0.0.1, 192.168.0.1, 192.168.0.2'); => tin 3 proxy c�
 
 
 
-# Dùng biến môi trường
-Chỉ dùng .env nếu cần lưu thông tin nhạy cảm, nếu k thì file config là đủ rồi vì config thậm chí lưu được nhiều kiểu data phức tạp hơn là chỉ string.
-
--> 3 cách:
-Dùng dotenv để lấy data từ file .env => thêm require("dotenv").config();
-Dùng "node --env-file .env server.js" => dùng file .env trong nodejs v20
-Dùng "NODE_ENV=pro node server.js" => tự lấy với process.env.NODE_ENV => Cái này đè lên file .env => best practice
-
--> Dùng dotenv kết hợp dotenv-expand còn giúp tạo biến môi trường mà dựa trên biến môi trường khác
-Dùng cross-env có thể quyết định môi trường NODE_ENV trong command như bth, nhưng nó còn ghê gớm khi tự động lấy tên file .env chuẩn luôn.
-
-
-
 # Nén data truyền qua API
 Nhiều nền tảng như Cloudflare cũng hỗ trợ sẵn nén data: Client <---10KB--- Cloudflare <---100KB--- Origin server
 
 compression: lib nén giảm lượng dữ liệu cần truyền qua mạng với gzip. Lưu ý tốc độ nhanh hơn nhưng tăng áp lực lên CPU => nên dùng mọi lúc trừ khi CPU server yếu
-shrink-ray-current*: dùng thuật toán brotli mới của google còn giúp nén mạnh hơn nữa => best practice
+shrink-ray-current*: dùng thuật toán brotli mới của google còn giúp nén mạnh hơn nữa => best practice, éo được với v23
 
 
 
@@ -233,45 +409,6 @@ const socket = io(BASE_URL, {
   reconnection: true,
 });
 Nếu có authentication khi truyền sẽ phải thêm token để server check quyền với "query":"token="+Auth.getToken()
-
-
-
-# Server tránh xung đột biến global
-Khi làm việc với C# ASP.NET, mỗi client là 1 thread riêng nên mỗi request sẽ dùng biến độc lập trong từng thread. Ta vẫn có thể tạo class singleton dùng chung được. Xong ta còn phải xử lý các biến khi vào các async context chạy song song thì dùng chung giá trị hay độc lập.
-Trong nodejs là single thread và dù nhiều request đến mấy cũng chạy lần lượt và asynchronous nhau. Tức dù k bị conflict write biến đồng thời thì các request vẫn có thể dùng chung biến của nhau loạn xạ dẫn đến kết quả k mong muốn. Thông thường ta tạo biến local cho từng request nên k sợ bị xung đột, hiếm khi dùng biến global.
-
-Module "async" đảm bảo chỉ 1 luồng có thể truy cập và sửa biến global cùng một thời điểm. Cơ chế là add đoạn mã và 1 queue thực hiện lần lượt.
-VD: const async = require('async');
-let globalVariable = 0; // Khai báo biến global
-const lock = async.queue(
-  async (task, done) => { 
-    try { // Đoạn mã trong này chỉ được thực thi bởi một yêu cầu tại một thời điểm
-      const newValue = await performSomeOperation(task.value);
-      globalVariable = newValue;
-      done();
-    } catch (error) {
-      done(error);
-    }
-  }
-);
-function performSomeOperation(value) { // Hàm side effect
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const result = globalVariable + value;
-      resolve(result);
-    }, 1000); // Giả định thời gian chậm trễ 1 giây
-  });
-}
-function yourApiEndpoint(req, res) { // VD hàm gọi ở API endpoint
-  const valueFromClient = req.body.value;
-  lock.push({ value: valueFromClient }, (error) => { // Thêm yêu cầu vào hàng đợi để có đồng bộ
-    if (error) {
-      return res.status(500).json({ error: 'Đã xảy ra lỗi trong quá trình xử lý yêu cầu.' });
-    }
-    return res.status(200).json({ message: 'Yêu cầu đã được xử lý thành công.' });
-  });
-}
-=> Dùng `async.queue` để tạo một hàng đợi đồng bộ hóa. Hàm đưa vào hàng đợi sẽ kbh thực hiện song song.
 
 
 
@@ -351,153 +488,3 @@ SIGTERM: khi có request program to terminate, VD ta chạy lệnh kill tiến t
 VD: process.on("uncaughtException", unexpectedErrorHandler); Trong unexpectedErrorHandler thg có process.exit(0); 
 Ta có thể override để tắt các connection tới database, socket, close server. Thực tế, nếu tắt process, nó cũng tự close các connection kia rồi, và các công nghệ hiện đại đủ để tự xử lý khi 1 bên tự bị close, phía bên kia cũng tự hiểu điều đó mà ta k cần làm gì thêm.
 
-
-
-# Master require, import, module.export và export, dynamic import
-Dùng module.exports = { x: new Class() } + require ở nhiều file sẽ chỉ chạy qua 1 lần đầu tiên rồi lưu cache. Object export ra dùng như 1 singleton.
-Khi dùng async để khởi tạo biến, logic chạy như bth, require như bth, hàm chạy xong sẽ dùng được biến thôi.
-Cần tránh circular dependencies
-
--> Code example:
-const x = new Class(); 
-module.exports = x; hoặc module exports = { x }; hoặc module.exports = { x: new Class() };
-=> Export singleton, có gọi constructor khởi tạo
-
-Class { static method() {} }
-module.exports = Class;
-const Class = require("./Class"); Class.method();
-=> Export singleton 
-
-module.exports = () => new Class(); 
-const createInstance = require("./Class"); const x = createInstance();
-Hoặc:
-module.exports = Class;
-const Class = require("./Class"); const x = new Class();
-=> Mỗi lần dùng là 1 lần tạo mới
-
-class MyClass { 
-  constructor() { this.initialize(); } 
-  async initialize() { } 
-  static getInstance() { 
-    if(!MyClass.instance) MyClass.instance = new MyClass();  
-    return MyClass.instance; 
-  } 
-}
-const instance = Database.getInstance();
-module.exports = instance;
-const instance = require('./file');
-=> Khởi tạo async và lấy singleton ra dùng. Đảm bảo initialize async hoàn thành mới dùng biến là được => best practice
-
-->*** Bản chất lỗi async: gọi hàm async, bên trong hàm gán giá trị cho 1 biến và k chờ nó, sau đó ta export biến ra sẽ lỗi vì khi export, nó sẽ copy state hiện tại của biến vào cache (khi chưa thực hiện xong await) và bị sai => nói chung là như copy constructor
-VD: let x = 1; async function runSleep() { await sleep(2000); x = 2; } runSleep(); module.exports = { x };
-
-Để fix, phải export 1 hàm trong file trả về biến đó thì hàm bị copy cache, còn biến vẫn chạy và k bị xoá do hàm vẫn gọi tới. 
-VD: let x = 1; async function runSleep() { await sleep(2000); x = 2; } function getX(){ return x; } runSleep(); module.exports = { getX: getX };
-Hoặc wrap nó vào 1 biến khác thì biến bao ngoài bị copy, vẫn trỏ tới trường bên trong k bị copy thôi: let client = {}; client.x = x; module.exports = client; => nó sẽ cache client copy ngay, vùng nhớ x vẫn có ref tới nên k bị xóa, async chạy xong là vùng nhớ có giá trị và dùng thôi
-
--> Có package ESM cho phép dùng import/export trong commonjs
-Hoặc dùng dynamic import cho cả commonjs và ES6 đều được, phải import thông qua promise.
-
-
-
-# Toàn bộ multithread, multiprocess, cluster, worker thread
--> Dùng PM2: Tool chạy nhiều instance của server. Khi máy có nhiều CPU cores, PM2 sẽ tự tối ưu hóa bằng cách chạy mỗi process trên 1 core. Khi đó, PM2 tự dùng round robin để phân bố request cho các instance khác nhau. Còn nếu máy chỉ có 1 cores, việc chạy nhiều instance với PM2 sẽ k có ích gì.
-PM2 đảm bảo auto restart khi server crash. Tuỳ ý kiểm soát từng process, giám sát resource (monit), tự động reload server khi code đổi như nodemon (--watch), xem log.
-Nên dùng file ecosystem.config.js để thiết lập cấu hình cho pm2 stable.
-Dự án chạy với PM2 thì nên cài vào package.json, còn tự cài global để xem quản lý log các thứ nếu cần thôi
-
-Cơ chế khi chạy, nó tạo ra 1 process master quản lý các process worker. Các process worker cùng listen trên 1 port.
-VD: NODE_PORT=3002 pm2 start -i 2 app.js => sinh ra 2 worker process cùng listen 1 port để xử lý logic. -i max là dùng max số process = số core trong máy.
-VD: pm2 start app.js --name "my-app" --max-memory-restart 100M => 1 instance dùng max 100MB mem, nếu quá sẽ tự restart lại
-Có thể chạy với option --no-daemon thì sẽ k chạy trong background nữa, VD pm2 start --no-daemon. Khi dùng với docker thì nên có vì nếu chỉ chạy server với "pm2 start index.json" thì docker dừng luôn vì nó tưởng tiến trình đã kết thúc.
-
-PM2 có 2 chế độ là forkmode và cluster mode:
-- Fork mode: Chạy 1 instance duy nhất với "pm2 start app.js --name my-api"
-Nếu muôn chạy nhiều instance thì chạy nhiều lần script đó. Mỗi instance là độc lập và OS tự kiểm soát việc phân bổ vào CPU core nào, có thể là cùng cores.
-- Cluster mode: VD "pm2 start app.js -i 0" sẽ chạy ứng dụng với max số CPU cores => luôn dùng
-Cluster mode sẽ tự phân bổ instance vào các cores khác nhau. PM2 cũng tự dùng cơ chế load balancing là round-robin
-
---> Tổng kết lệnh:
-PM2_INSTANCE=2 pm2 start app.js 
-  --name appname
-  -i max => hoặc 1 số gì đó chỉ định số lượng instance
-  --watch => restart các instance khi code change
-  --node-args='--env-file=.env' => thêm params cho lệnh chạy nodejs
-  --no-daemon => khi dùng với docker
-pm2 start ecosystem.config.js => chạy theo config
-pm2 stop appname
-pm2 restart appname
-pm2 delete appname
-pm2 show appname => xem chi tiết app
-pm2 list => list các app đang chạy
-pm2 logs => xem log mọi apps
-  appname => xem log cụ thể 1 app
-pm2 monit => Giao diện giám sát realtime (CPU, RAM,...)
-
-pm2 flush => xoá mọi log
-pm2 delete all => xoá mọi app
-
---> VD dùng PM2 để chia môi trường production và development với biến NODE_ENV:
-module.exports = {
-  apps: [
-    {
-      name: 'my-app',
-      script: 'app.js',
-      watch: true,
-      env_production: { // Biến môi trường khi chạy với --env production
-        NODE_ENV: 'production'
-      },
-      env_development: { // Biến môi trường khi chạy với --env development
-        NODE_ENV: 'development'
-      }
-    }
-  ]
-};
-Chạy production: pm2 start ecosystem.config.js --env production
-Chạy development: pm2 start ecosystem.config.js --env development
-
---> Cluster là gì? 
-Cluster trong hệ phân tán là 1 nhóm máy tính (nodes) làm việc cùng nhau để chia tải công việc, cùng cung ra 1 dịch vụ. VD 1 hệ thống có 1 chức năng cụ thể, ta mở rộng bằng cách triển khai chức năng đó trên nhiều máy khác nhau mà hoạt động như 1 máy duy nhất cung ra dịch vụ chức năng đó
-Cluster cũng chỉ việc chạy nhiều process trên cùng 1 máy cung ra 1 chức năng. Ở từng máy sẽ chạy nhiều instance để tận dụng tối đa số CPU cores trong máy đó. Khi đó, các instance độc lập nhau về main memory, còn đĩa cứng với file thì vẫn chung.
-Logic chia instance trong 1 máy chỉ đúng với nodejs là ngôn ngữ đơn luồng, còn ASP.NET thông qua thread async await tự chia task tối ưu cho multicore CPU rồi.
-
---> NodeJS có built-in package cluster giúp chạy nhiều instance của server trên 1 máy custom mạnh => thay thế bằng PM2.
-URL: https://www.youtube.com/watch?v=_74_z2-uOys
-Cơ chế khi chạy sẽ tạo 1 instance isMaster, fork ra hàng loạt instance isWorker chạy dự án lại từ trên xuống. Master có thể dùng quản lý các instance worker. 
-Nó tự tận dụng mỗi core CPU là 1 process, mỗi process vẫn đơn luồng trong nodejs, sẽ chịu tải đồng thời tốt hơn. 
-Số instance k nên set là max số CPU cores mà nên trải qua thực nghiệm để tối ưu. VD máy 10 cores chạy được 20 instances thì chỉ nên chạy tầm 10 intances, còn lại dành cho task khác để tránh quá tải sẽ chậm hơn trước. Nó chạy chung 1 cổng và tự dùng cơ chế load balancing tối ưu của hđh để xử lý, thường là round robin, ta k cần đụng.
-
--> Dùng os: Chrome V8 là 1 js engine dùng thư viện libuv viết bằng C++ giúp tương tác với phần cứng và thực hiện các task nặng.
-Bản chất nodejs đơn luồng là cái event loop luôn chạy trên 1 main thread duy nhất kbh dừng, nhưng các tác vụ nặng vẫn tự chuyển sang thread pool nhờ libuv để làm nền cho nhanh. 
-Khi dùng các hàm sync sẽ khoá event loop thật. Còn khi dùng hàm async or promise thì main thread luôn chạy tiếp event loop, còn task promise nặng sẽ giao cho libuv thread pool xử lý ngầm.
-Biến môi trường process.env.UV_THREADPOOL_SIZE thiết lập kích thước threadpool mà libuv tự sử dụng cho các tác dụng async I/O. Thường ta k cần sửa mà để default là 4, trừ khi server có nhiều task nặng chạy trên thread pool và máy có nhiều cores hơn bth. Nếu máy cùi k có nhiều cores thì set lớn hơn cũng chả có tác dụng gì. 
-
-URL bản chất libuv và threadpool để nodejs single thread xử lý được task nặng: https://www.youtube.com/watch?v=Vej327jN8WI&list=WL
-Khi dùng await, nó đợi nhưng thực tế main thread vẫn chạy event loop các task khác, khi libuv xử lý task nặng xong sẽ trả về callback vào event loop xử lý đoạn code dưới await.
-
-Chú ý là PM2 chia ra nhiều process, mỗi process là 1 cores do OS phân bổ. Còn UV_THREADPOOL_SIZE là số lượng thread, 1 core có thể chạy nhiều thread, tức số thread > số core thì các thread sẽ cạnh tranh để dùng core. Có thể dùng kết hợp cả 2, mỗi loại đều khiến cores phải xử lý thêm các task và chịu tải nhiều hơn nên cần set giá trị hợp lý.
-
---> Có 2 loại là I/O bound thực sự như đọc file, call api, query db. Hoặc các hàm là CPU bound nhưng nodejs đẩy vào threadpool của libuv để k chặn event loop thì nó giống như I/O bound. Do đó nếu mã hoá async nặng CPU nhưng thực hiện trong threadpool, nên nếu tăng UV_THREADPOOL_SIZE thì ta sẽ cho phép nhiều tác vụ hash chạy song song hơn.
-
-=>*** Khi dùng kết hợp PM2 và UV_THREADPOOL_SIZE thì nên set tổng threads (PM2 process × UV_THREADPOOL_SIZE) nên ≤ (số core × 2) để tránh quá tải. 
-Cụ thể thì CPU bound nhiều thì PM2 instance nên cao, đó là khi xử lý logic trên dữ liệu lớn, tính toán số, xử lý json synchronouse, thuật toán nặng tối ưu hoá ảnh. I/O bound nhiều như truy vấn DB, đọc file, mã hoá async thì nên set UV_THREADPOOL_SIZE cao. 
-Thường deploy 1 máy production ta mới tính và set fix cứng cho số instance PM2 và UV_THREADPOOL_SIZE. Nhưng cũng có thể set dynamic:
-- Nếu I/O bound nhiều thì PM2 cố định 2 instance và tính số cores x2, rồi tính UV_THREADPOOL_SIZE min là 4
-- Nếu CPU bound nhiều thì PM2 cố định 4 instance và tính số cores x2, rồi tính UV_THREADPOOL_SIZE min là 2.
-- Thích balance thì để fix cứng pm2 là 3.
-
--> worker_threads là module có sẵn trong nodejs giúp custom dùng libuv.
-Mặc định libuv chỉ dùng cho các task như DNS lookup, đọc file, I/O, mã hoá. Các task nặng ta tự tạo, VD tính tổng từ 1 tới 1 tỷ, là hàm sync sẽ block mainthread. worker_threads giúp custom chạy hàm đó trên thread riêng bằng libuv.
-Libuv bth luôn an toàn và k sợ data race vì data trong các thread luôn độc lập, dùng worker_threads cũng vậy. Chỉ có vài case dùng với SharedArrayBuffer có bị data race.
-
-
-
-# Dùng typescript trong nodejs
-Trong môi trường dev, phải cài ts-node là 1 package giúp chạy trực tiếp file typescript với lệnh "ts-node index.js". Cơ chế nó build typescript trong quá trình chạy nên tốc độ chậm và k dùng cho production.
-Trong production, phải viết file tsconfig.json. Trước khi start server, phải chạy lệnh tsx để biên dịch sang JS trước. 
-VD tsconfig.json có compilerOptions target là es6 để compile thành index.js rồi mới chạy server bth với node index.js được
-
-BE viết bằng JS mà lại dùng package viết bằng typescript được là vì package luôn được compile thành js sẵn rồi.
-Check reference package hiện file typescript là vì npm vẫn giữ code typescript của nó thôi.
-
--> BE và FE đều có thẻ dùng ESModule và CommonJS. Cộng đồng đang chuyển hết sang ESModule chạy 1 kiểu duy nhất thôi, nhưng BE có nhiều package vẫn dùng CommonJS k hỗ trợ.

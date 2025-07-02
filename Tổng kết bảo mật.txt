@@ -330,4 +330,3 @@ VD server max 100 request 1s, trung bình 50 active user 1 lúc thì rate limit 
 
 Thuật toán leaky bucket: 1 xô có tốc độ rò rỉ. VD xô chứa max 100 ô, rò rỉ 10 ô 1s, nếu 200 gói tin đến thì 100 gói bị loại, 100 gói vào xô, sau 1s nữa xô mới trống 10 ô và cứ thế. Cũng giúp xử lý burst.
 
-
