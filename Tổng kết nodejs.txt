@@ -132,6 +132,7 @@ module.exports = {
     }
   ]
 };
+=> set env var trực tiếp trong file config như vậy hoặc chỉ định dùng file env cụ thể với option --node-args='--env-file=.env.production'
 
 --> Tự chạy server khi máy khởi động lại với "startup"
 pm2 startup => hiển thị câu lệnh sudo và chạy câu lệnh đó để setup pm2 với systemd
@@ -165,22 +166,23 @@ Dùng worker_threads nếu có task riêng thực sự nặng muốn chạy hoà
 
 
 # Server tránh xung đột biến global
-Khi làm việc với C# ASP.NET, mỗi client là 1 thread riêng nên mỗi request sẽ dùng biến độc lập trong từng thread. Ta vẫn có thể tạo class singleton dùng chung được. Xong ta còn phải xử lý các biến khi vào các async context chạy song song thì dùng chung giá trị hay độc lập.
-Trong nodejs là single thread và dù nhiều request đến mấy cũng chạy lần lượt và asynchronous nhau. Tức dù k bị conflict write biến đồng thời thì các request vẫn có thể dùng chung biến của nhau loạn xạ dẫn đến kết quả k mong muốn. Thông thường ta tạo biến local cho từng request nên k sợ bị xung đột, hiếm khi dùng biến global.
+Khi làm việc với C# ASP.NET, mỗi client là 1 thread riêng nên mỗi request sẽ dùng biến độc lập trong từng thread. Ta vẫn có thể tạo class singleton dùng chung được. Ta có thể custom các biến khi vào các async context chạy song song thì dùng chung giá trị hay độc lập.
+Trong nodejs là single thread thì các request sẽ chạy lần lượt theo kiểu asynchronous. Tức dù k bị conflict write biến đồng thời thì các request vẫn có thể dùng chung biến của nhau loạn xạ dẫn đến kết quả k mong muốn. Thông thường ta tạo biến local cho từng request nên k sợ bị xung đột, hiếm khi dùng biến global.
 
-Module "async" đảm bảo chỉ 1 luồng có thể truy cập và sửa biến global cùng một thời điểm. Cơ chế là add đoạn mã và 1 queue thực hiện lần lượt.
+-> Module async có hàm queue tạo 1 hàng đợi đồng bộ hoá, hàm trong queue sẽ thực hiện song song với số lượng chỉ định. Nếu set là 1 thì hàm này luôn chạy tuần tự.
 VD: const async = require('async');
 let globalVariable = 0; // Khai báo biến global
 const lock = async.queue(
   async (task, done) => { 
-    try { // Đoạn mã trong này chỉ được thực thi bởi một yêu cầu tại một thời điểm
+    try { // Đoạn mã trong này chỉ được thực thi bởi 1 yêu cầu tại một thời điểm vì dưới set là 1
       const newValue = await performSomeOperation(task.value);
       globalVariable = newValue;
       done();
     } catch (error) {
       done(error);
     }
-  }
+  },
+  1 // Là chỉ 1 task dược chạy đồng thời
 );
 function performSomeOperation(value) { // Hàm side effect
   return new Promise((resolve) => {
@@ -199,7 +201,7 @@ function yourApiEndpoint(req, res) { // VD hàm gọi ở API endpoint
     return res.status(200).json({ message: 'Yêu cầu đã được xử lý thành công.' });
   });
 }
-=> Dùng `async.queue` để tạo một hàng đợi đồng bộ hóa. Hàm đưa vào hàng đợi sẽ kbh thực hiện song song.
+=> Nó khiến 1 hàm không thể chạy 2 lần, chứ không lock biến bên trong nên bên ngoài mà thay đổi biến song song bởi nhièu luồng vẫn được.
 
 
 
