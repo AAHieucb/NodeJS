@@ -19,6 +19,7 @@ VD DHKE:
 -- Client nhận B tính S=B^a mod p=(g^b)^a mod p
 -- Server nhận A tính S=A^b mod p=(g^a)^b mod p là khóa chung.
 => Khóa này dùng để mã hóa mọi data truyền qua, nên sau đó password gõ trực tiếp để connect k bị lộ. Khóa cũng tạo mới mỗi lần connect.
+=> p và g là theo quy ước, chứ không phải public key
 
 - Client và server thiết lập SSH key.
 Client dùng mật khẩu cũng được nhưng gặp vấn đề bảo mật từ key logger hoặc brute-force mật khẩu, khuyên tạo SSH key càng sớm càng tốt.
@@ -104,14 +105,13 @@ openssl pkcs12 -export -out client.pfx -inkey client-key.pem -in client-cert.pem
 - CA được lưu ở đâu? Ta có thể dựng 1 server riêng lưu CA để các server gửi cert đến check cho giống web server. Nhưng ở đây các server đều do ta quản lý nên có thể lưu pivkey của CA ở 1 nơi bí mật, khi cần sinh them cert thì lấy ra ký, còn cert của CA thì clone ra lưu vào trusted CA ở mọi server luôn.
 Khi call API thì các server sẽ check cert của nhau bằng cert của CA nó lưu sẵn, chỉ chấp nhận các cert được ký bởi cert này là được.
 
-- Note:
-Cách tạo nhanh key và cert luôn trong 1 request: openssl req -x509 -newkey rsa:2048 -nodes -keyout server.key -out server.crt -days 365
--newkey rsa:2048 => khác với -new chỉ tạo CSR, -newkey sinh cặp keypair mới (RSA 2048 bits) và yêu cầu cấp chứng chỉ CSR luôn cùng lúc
-sinh key và yêu cầu cấp chứng chỉ CSR, khác với -new chỉ dùng khi tạo mỗi CSR
-
-Hệ thống có nhiều server gọi API của 1 server, có thể tái sử dụng 1 key-cert cho nhiều server hoặc mỗi server có 1 key-cert riêng. 
-Việc dùng cert TLS là đủ để mã hóa và xác thực trong hệ thống luôn mà k cần bất cứ phương pháp gì thêm. Vì bên ngoài k thể có được CA, key, cert để call. 
-Các pp như connect vào db hay socket cơ chế có thể khác nhưng về bảo mật vẫn phải tạo secure connection với cơ chế khoá chung tương tự
+Note:
+- Cách tạo nhanh key và cert luôn trong 1 request: openssl req -x509 -newkey rsa:2048 -nodes -keyout server.key -out server.crt -days 365 => -newkey rsa:2048 
+Khác với -new chỉ tạo CSR, -newkey sinh cặp keypair mới (RSA 2048 bits) và yêu cầu cấp chứng chỉ CSR luôn cùng lúc, khác với -new chỉ dùng khi tạo mỗi CSR
+- Hệ thống có nhiều server gọi API của 1 server, có thể tái sử dụng 1 key-cert cho nhiều server hoặc mỗi server có 1 key-cert riêng. 
+- Việc dùng cert TLS là đủ để mã hóa và xác thực trong hệ thống luôn mà k cần bất cứ phương pháp gì thêm. Vì bên ngoài k thể có được CA, key, cert để call. 
+- Các pp như connect vào db hay socket cơ chế có thể khác nhưng về bảo mật vẫn phải tạo secure connection với cơ chế khoá chung tương tự
+- Khi 1 member devops rời comp, phải xoá tk root và rotate cert. Khi tạo cert mới cho CA, phải sinh lại cert cho từng server vì cert mới sẽ k verify được các thứ tạo từ cert cũ. Đó cũng là lý do cert luôn có hạn, nếu k họ cứ cho vô hạn và dùng luôn pivkey chứ sinh cert làm gì. Nếu thành viên biết cả private key thì phải rotate private key luôn.
 
 -> K cần CA:
 - Khi self sign trong web server: ta sinh key và cert lưu vào server, khi client kết nối thì gửi cert cho client. Browser nhận cert thấy self sign sẽ đưa warning, hoặc là chủ động cài cert vào máy client, hoặc ấn để ignore là được.
@@ -124,7 +124,7 @@ certbot chỉ dùng sinh ssl cho 1 text domain public, chứ localhost hay ip ad
 # Usecase socket chat bảo mật cao với TLS/SSL
 Client server gửi message trong môi trường k an toàn, k thể message nào cũng gửi kèm password được.
 
-Luồng: sinh 1 cert lưu ở cả client và server. Từ cert, sinh ra pubkey và pivkey lưu ở server. Khi bắt đầu connect, client request pubkey từ server và dùng cert có sẵn check key hợp lệ. Dùng pubkey mã hoá random sharekey sinh ra và gửi tới server. Server giải mã và lưu vào db, v là client server đều có chung 1 sharekey.
+Luồng: Sinh ra pubkey và pivkey lưu ở server, sinh cert từ key lưu ở cả client và server. Khi bắt đầu connect, client request pubkey từ server và dùng cert có sẵn check key hợp lệ. Dùng pubkey mã hoá random sharekey sinh ra và gửi tới server. Server giải mã và lưu vào db, v là client server đều có chung 1 sharekey.
 Certificate chứa thông tin công khai nhận dạng 1 tổ chức hay 1 cá nhân. VD nó chứa tên tổ chức, public key của server, tên của CA phát hành cái cert đó, ngày hết hạn của cert.
 
 VD sinh cert và key:
@@ -163,11 +163,10 @@ Là cơ chế giúp 2 thiết bị truyền tải data an toàn trong 1 tunnel �
 
 
 ## Bảo mật server
-# XSS và blind ssrf
-Khi server có 1 api nhận input của user làm params để call 1 external api khác rất nguy hiểm. 
-Khi call external api, phải tính input của user là bất cứ thứ gì, kể cả dạng raw # % / hoặc dạng url encoded %23 %27. 
+# Blind ssrf
+Blind SSRF là dạng SSRF mà attacker không thấy ngay kết quả server fetch: 
 
--> FE gửi cho BE phải encode nếu input của user là params.
+-> Khi call external api, phải tính input của user là bất cứ thứ gì, kể cả dạng raw # % / hoặc dạng url encoded %23 %27. Phải chú ý encode.
 VD input "a#b"
 Nếu k encode sẽ gửi https://xxx/test?input=a#b => BE nhận input=a 
 Nếu encode sẽ gửi https://xxx/test?input=a%23b => BE nhận input=a#b
@@ -191,6 +190,10 @@ Input của user là 1 giá trị như username hay gì thì chỉ cần encode 
 Nhưng nếu input của user là 1 phần của url kiểu "../sites" thì phải để nguyên như vậy. Khi đó chỉ cần lọc # thành %23 để tránh tấn công đổi url thôi. Hoặc xoá mọi % nếu input k thể chứa %
 Sẽ có case k thể fix được như khi api nhận cả các ký tự # / %, thì tuỳ vào độ ảnh hưởng, có modify data nhạy cảm không, có lộ thông tin của user khác không mà xử lý. Nhiều case api bên thứ 3 xử lý lỗi r, nhưng vẫn nên chặn ở server của ta nếu tìm thấy để tránh đổi api bị sai.
 
+-> Nhanh:
+- Validate format và list input chuẩn
+- Nếu k được thì buộc phải lọc # và % thôi
+
 
 
 # Bảo mật server thông dụng
@@ -200,37 +203,48 @@ VD "openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365" 
 C2 dùng Let's script và Certbot:
 Let's script là tổ chức CA uy tín cung chứng chỉ free. Nên dùng kết hợp certbot là tool giúp cài và gia hạn chứng chỉ free từ Let's script.
 
--> Dùng thư viện chống XSS: validator, express-validator, DOMPurify. Bản chất nó sẽ validate regexp email, sanitize string, convert sang html entities.
-
 -> CSRF (Cross site request forgery) là lừa trình duyệt thực hiện hành động không mong muốn trong ứng dụng người dùng đã đăng nhập.
-VD: B là 1 người muốn phá hủy 1 dự án mà A đang làm. B đăng tải 1 bài lên diễn đàn www.webapp.com nhưng kèm theo 1 đoạn code kiểu: <img height="0" width="0" src="http://www.webapp.com/project/1/destroy">. A vào đăng nhập vào diễn đàn như thường lệ và xem bài viết của B. Khi đó, browser của A đã cố gắng load ảnh nhưng thực tế lại gửi câu lệnh destroy vào địa chỉ này để xóa project có id là 1. Access token hợp lệ vì người dùng đã đăng nhập. Chú ý là request có thể đến từ cùng trang web hoặc từ 1 trang web khác.
-VD biến thể tinh vi hơn: hacker dùng 1 url rất mượt mà kiếu: <img height="0" width="0" src="http://www.ahackersite.com/abc.jpg"/> => xong cấu hình lại máy chủ: Redirect 302/abc.jpg http://www.webapp.com/project/1/destroy"/> thì người dùng k thể phát hiện ra được. Vấn đề này là phía người làm web cần phải xử lý.
+VD: B là 1 người muốn phá hủy 1 dự án mà A đang làm. B đăng tải 1 bài lên diễn đàn www.webapp.com nhưng kèm theo 1 đoạn code kiểu: <img height="0" width="0" src="http://www.webapp.com/project/1/destroy">. A vào đăng nhập vào diễn đàn như thường lệ và xem bài viết của B. Khi đó, browser của A đã cố gắng load ảnh nhưng thực tế lại gửi câu lệnh destroy vào địa chỉ này để xóa project có id là 1. Access token hợp lệ vì người dùng đã đăng nhập.
+VD: hacker dùng 1 url rất mượt mà kiếu: <img height="0" width="0" src="http://www.ahackersite.com/abc.jpg"/> => xong cấu hình lại máy chủ: Redirect 302/abc.jpg http://www.webapp.com/project/1/destroy"/> thì người dùng k thể phát hiện ra được => case này không xảy ra vì lệnh call sang web redirect k có credentials gì cả.
 
---> Chặn bằng CRSF token trong form ẩn:
-Trong mỗi phiên làm việc sinh ra duy nhất 1 crsftoken mới và FE cho vào form ẩn để gửi kèm. VD action gửi tiền:
-<form action="http://bank.com/transfer.do" method="post">
+Note:
+- Chú ý là request có thể đến từ cùng trang web hoặc từ 1 trang web khác. Vì user vào webA bị lừa thực hiện request tới webB trên browser, browser vẫn tự thêm đúng cookie của webB ở request đó nếu đã từng login webB.
+- Giả sử webB dùng cors không cho phép webA vẫn k cản được CSRF vì cors chỉ cản user đọc response trên browser, chứ thực tế request vẫn được gửi đi rồi. 
+
+--> Thực tế CSRF là kiểu cross-site, còn hacker khiến server gọi các request tới chính nó gọi là Server-Side Request Forgery (SSRF): 
+VD: Server có url http://localhost/admin cho người dùng input 1 url ảnh để nó fetch về. Hacker input luôn http://localhost/admin/delete, server lấy url về và thử fetch thì lại gọi hàm của chính nó. Do server tự gọi chính nó nên request thành công. Nó thiên về XSS hơn.
+
+--> Cách ngăn chặn: 
+1) Dùng localStorage để lưu token xác thực cho mọi request update, k dùng cookie. Hacker lừa người dùng thực hiện request sẽ k thể đụng vào localStorage được.
+Tuy nhiên nếu hacker kết hợp các kiểu tấn công khác như XSS để lấy được token trong localStorage thì lại hack được với CSRF => rất khó. 
+Nếu web của hacker nhúng web này trong iframe và UI lại code để luôn lấy token từ localStorage trước khi call api thì có thể lừa ngừoi dùng thực hiện request không mong muốn trên UI đó bên trong iframe, thì sẽ request vẫn sẽ thành công => cần luôn cản web khác nhúng iframe web ta.
+2) Lưu credentials vào cookie và dùng cookie option SameSite.
+Nếu set là Strict, thì request từ web khác sẽ k thể gửi kèm cookie thì an toàn
+Nếu set là Lax cũng tương tự nhưng request GET vẫn gửi kèm cookie => khi đó phải đảm bảo mọi request GET ở server phải code đúng, k update data gì cả là được.
+=> Nó cản mọi CSRF từ website khác, nhưng vẫn bị CSRF từ chính website của ta, VD blogweb chứa url call tới API xoá data. Vẫn bị CSRF nếu popup website và lừa ngừoi dùng call api. Do đó vẫn phải bảo mật cẩn thận trong chính site của ta.
+3) Double Submit Cookie: nếu buộc dùng cookie mà buộc phải set None hoặc option LAX nhưng có API GET update data.
+Khi login trong 1 phiên sẽ có 1 random value lưu vào cookie -> FE setup để các form trong web có hidden field gắn giá trị random đó (k fix cứng), hoặc mọi chỗ call api sẽ gán giá trị random đó -> thực hiện request thì server check random val trong cookie với trong hidden field giống nhau là được. 
+Mỗi khi vào web, FE có thể lấy CSRF token từ cookie (nếu k set http only) hoặc từ 1 api riêng (nên dùng), rồi setup để gắn CSRF token vào header X-CSRF-Token (nên dùng), hoặc trong hidden form field đều được. 
+
+VD: <form action="http://bank.com/transfer.do" method="post">
   <input name="amount" value="100000"/>
   <input type="hidden" name="csrf_token" value="{{csrf_token}}">
   <button type="submit">Submit</button>
 </form>
-Khi thực hiện action, server check có csrftoken hợp lệ mới cho thực hiện là được. Hacker k biết giá trị trường này sẽ k thể CSRF được.
 
---> Chặn bằng SameSite option của cookie: Lax, Strict, None.
-SameSite là attribute của cookie quyết định việc gửi cookie cho cross site, ta cần đảm bảo request chỉ đến từ web của ta. 
-=> Vượt qua Lax bằng cách pop up website và thực hiện. Khi ta thấy duyệt 1 site mà pop up lên 1 site khác và thông tin cá nhân bị đổi là hiểu vấn đề.
+VD: dùng package csurf nodejs sẽ tạo middleware chống crsf attack. Token csrf đảm bảo reset sau mỗi phiên dùng của user. Nếu là react phải cung 1 API lấy token về trước.
+Cơ chế nó gắn 1 token gửi tới client để client gửi lại trong header r check thôi.
 
---> Double Submit Cookie: cách tốt nhất
-Người dùng vào thì gửi 1 random val lưu vào cookie (tạo mới random) -> các form trong web sẽ có hidden field gắn giá trị random đó (k fix cứng) -> thực hiện request thì server check random val trong cookie với trong hidden field giống nhau là được.
-WebA call tới API webB thì nên nhớ dù gửi lại có cookie của webB thì vẫn k đọc được cookie đó là gì nên k thêm đúng trường như frontend chuẩn được (or dùng header X-CSRF-Token)
+-> Dùng SSL chống MITM nhưng vẫn bị replica attack. 
+SSL đã cản sẵn replay attack ở tầng transport, nếu 1 request gửi 2 lần ở cùng 1 kết nối sẽ bị cản vì có sequence number cản tái phát request trong cùng 1 kết nối. Hacker vẫn có thể replay ở tầng application bằng cách thiết lập 1 https connection mới và gửi request y hệt. 
+Replay attack chỉ cần chặn trong trường hợp có data quan trọng, và việc replay request có gây ảnh hưởng. VD chuyển tiền, login 1 lần, tạo đơn hàng. Vd xoá 1 blog trên web mà replay 2 lần, chả sao cả vì lần 2 k xoá được thôi.
 
---> Dùng package csurf trong nodejs: tạo middleware chống crsf attack. Cơ chế nó gắn 1 token gửi tới client để client gửi lại r check thôi
-Token csrf đảm bảo reset sau mỗi phiên dùng của user. Nếu là react phải cung 1 API lấy token về trước.
+JWT token không có tác dụng gì ở đây. User có thể bị cài malware hoặc keylogger thì hacker biết request trước khi chúng được gửi đi. Hoặc hacker điều khiển LAN, bắt được gói tin từ 1 máy và replica mà k cần giải mã HTTPS luôn. 
 
--> SSL chống MITTM nhưng vẫn bị replica attack. 2 pp:
-- Timestamp: VD ta cấm 1 request được lặp lại trong quá 1p bằng cách lưu dấu thời gian lại r check. Chú ý xử lý múi giờ khác nhau. 
+--> Cách chống:
+1) Timestamp: VD ta cấm 1 request được lặp lại trong quá 1p bằng cách lưu dấu thời gian lại r check. Chú ý xử lý múi giờ khác nhau. 
 Nhược điểm là vẫn replicate được trong 1p đó, an toàn hơn là dùng nonce
-- Nonce: Cơ chế chống replicate attack. Client gửi request tới server thêm nonce cho server lưu và nếu 1 nonce từng được sử dụng sẽ lỗi luôn.
-Có thể dùng sessionid nếu nó thay đổi ở mỗi request. Server nên lưu redis.
+2) Nonce: Client gửi request tới server thêm nonce cho server lưu và nếu 1 nonce từng được sử dụng sẽ lỗi luôn. Server nên lưu redis => nên dùng
 
 Để tránh redis phải lưu nonce quá tải thì dùng kèm cả 2 cách là tốt nhất. Vd: signature = md5(uid=1001&stime=19h00&nonce=sessionId-123456 + key)
 Phía server: - Vẫn check timestamp chưa quá 1p
@@ -238,12 +252,12 @@ Phía server: - Vẫn check timestamp chưa quá 1p
 - if(redis.hasKey('sessionid-123456')) { return false; } else { redis lưu lại nonce vói expire time là 1p }
 => Nhờ v sau 1p nonce bị xóa thì redis sẽ k tốn
 
--> Signature Generation: VD MITM bắt request chuyển tiền và sửa payload người nhận thành hacker. Điều này thực tế khó xảy ra vì các app quan trọng như ngân hàng, github thường gửi thẳng OTP về điện thoại, google authen. Giải pháp là ký payload bằng khóa của người dùng thì nếu hacker đổi payload sẽ k khớp với sig nữa. 
-=> Cơ chế cặp khoá ở đây có thể làm như SSH key. 
+-> Signature Generation: VD MITM bắt request chuyển tiền và sửa payload người nhận thành hacker => khó xảy ra vì các app quan trọng như ngân hàng, github thường gửi thẳng OTP về điện thoại, google authen, hoặc mã hoá rất kỹ. 
+Giải pháp là ký payload bằng khóa của người dùng thì nếu hacker đổi payload sẽ k khớp với sig nữa. Cơ chế cặp khoá ở đây có thể làm như SSH key. 
 
--> Server-Side Request Forgery (SSRF): Hacker khiến server gọi các request tới chính nó.
-VD: Server có url http://localhost/admin cho người dùng input 1 url ảnh để nó fetch về. Hacker input luôn http://localhost/admin/delete, server lấy url về và thử fetch thì lại gọi hàm của chính nó. Do server tự gọi chính nó nên request thành công. 
-Tức hacker có thể khiến server gọi API thực hiện hành động gì tuỳ ý nó, hoặc khiến server gọi vào API khác mà nó có quyền để lấy data nhạy cảm về. Cuối cùng trả ra FE hiển thị dưới dạng ảnh nhưng thực chất là hiển thị thông tin nhạy cảm cho hacker.
+-> Nhanh:
+- Luôn cần chống CSRF: dùng localStorage thì k sao. Dùng cookie thì dùng LAX và đảm bảo request GET sẽ k update data, k thì phải kèm package csurf để double submit cookie. Browser tự gửi cookie và cors k cản request.
+- Chống replay attack khi có data nhạy cảm và replay gây ảnh hưởng: client gửi thêm nonce cho server lưu vào redis, kèm timestamp check cách k quá 1 phút.
 
 
 
