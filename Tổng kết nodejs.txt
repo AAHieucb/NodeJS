@@ -51,13 +51,13 @@ const instance = require('./file');
 => Khởi tạo bằng hàm async và lấy singleton export ra dùng. Đảm bảo initialize async hoàn thành mới dùng biến là được => best practice
 
 ->*** Bản chất lỗi async: gọi hàm async, bên trong hàm gán giá trị cho 1 biến và k chờ nó, sau đó ta export biến ra sẽ lỗi vì khi export, nó sẽ copy state hiện tại của biến vào cache (khi chưa thực hiện xong await) và bị sai => nói chung là như copy constructor
-VD: let x = 1; async function runSleep() { await sleep(2000); x = 2; } runSleep(); module.exports = { x };
+VD: let x = 1; async function runSleep() { await sleep(2000); x = 2; } runSleep(); module.exports = { x }; => chỉ export ra 1
 
 Ta nghĩ là object export ra sẽ bị copy vào cache. Nhưng là copy địa chỉ, chứ giá trị 1 trường mà đổi async thì vẫn thấy bth thôi. 
-Ta có thể fix bằng cách export 1 hàm trong file trả về biến đó thì hàm bị copy cache, còn biến vẫn chạy và k bị xoá do hàm vẫn gọi tới. 
+Ta có thể fix bằng cách export 1 hàm trong file trả về biến đó thì hàm bị copy cache, còn biến trước khi copy vẫn chạy và k bị xoá do hàm vẫn gọi tới. 
 VD: let x = 1; async function runSleep() { await sleep(2000); x = 2; } function getX(){ return x; } runSleep(); module.exports = { getX: getX };
-Ta có thể wrap nó vào 1 biến khác thì biến bao ngoài bị copy, vẫn trỏ tới trường bên trong k bị copy thôi 
-VD: let client = {}; client.x = x; module.exports = client; => sẽ cache client copy ngay, vùng nhớ x vẫn có ref tới nên k bị xóa, async chạy xong là dùng bth thôi. Chỉ thg được export trong object trực tiếp là bị copy state ngay 
+Ta có thể wrap nó vào 1 biến khác thì biến bao ngoài bị copy, vẫn trỏ tới trường bên trong k bị copy thôi => bỏ, k được
+VD: let client = {}; client.x = x; module.exports = client; => sẽ cache client copy ngay, vùng nhớ x vẫn có ref tới nên k bị xóa, async chạy xong là dùng bth thôi. Chỉ thg được export trong object trực tiếp là bị copy state ngay => bỏ, k được
 
 -> Nhanh:
 - Biến module.exports + require nhiều lần luôn là singleton và sẽ copy vùng nhớ, nên đổi 1 trường trong hàm async thì ok chứ gán = 1 vùng nhớ khác sẽ k hoạt động.
@@ -141,7 +141,7 @@ Từ giờ mỗi khi khởi động lại máy sẽ tự chạy pm2. Mỗi khi x
 pm2 unstartup => tắt tính năng
 
 -> Dùng os: Chrome V8 là 1 js engine dùng libuv viết bằng C++ để tương tác với phần cứng và thực hiện các task nặng.
-Khi dùng hàm sync thì nodejs sẽ khoá event loop. Còn hàm async vẫn tự chuyển sang thread pool thread pool nhờ libuv để chạy nền cho nhanh. Khi dùng await, nó đợi nhưng thực tế main thread vẫn chạy event loop các task khác, khi libuv xử lý task nặng xong sẽ trả về callback vào event loop xử lý đoạn code dưới await.
+Khi dùng hàm sync thì nodejs sẽ khoá event loop. Còn hàm async vẫn tự chuyển sang thread pool nhờ libuv để chạy nền cho nhanh. Khi dùng await, nó đợi nhưng thực tế main thread vẫn chạy event loop các task khác, khi libuv xử lý task nặng xong sẽ trả về callback vào event loop xử lý đoạn code dưới await.
 Biến môi trường process.env.UV_THREADPOOL_SIZE thiết lập kích thước threadpool mà libuv tự sử dụng cho các tác vụ async và I/O. Thường ta k cần sửa mà để default là 4, trừ khi server có nhiều task nặng chạy và máy có nhiều cores hơn bth.
 URL bản chất libuv và threadpool để nodejs single thread xử lý được task nặng: https://www.youtube.com/watch?v=Vej327jN8WI
 
@@ -160,6 +160,7 @@ Việc dùng thread hay không không phụ thuộc vào dùng await hay then m�
 -> worker_threads là module có sẵn trong nodejs giúp custom dùng libuv.
 Mặc định libuv chỉ dùng cho các task như DNS lookup, đọc file, I/O, mã hoá. Các task nặng ta tự tạo, VD tính tổng từ 1 tới 1 tỷ, là hàm sync sẽ block mainthread. worker_threads giúp custom chạy hàm đó trên thread riêng bằng libuv.
 Libuv bth luôn an toàn và k sợ data race vì data trong các thread luôn độc lập, dùng worker_threads cũng vậy. Chỉ vài case hiếm dùng với SharedArrayBuffer có bị data race.
+Phía FE dùng web worker, phía BE dùng worker thread
 
 -> Nhanh: 
 Dùng PM2 kết hợp set process.env.UV_THREADPOOL_SIZE trước khi chạy app.
@@ -361,7 +362,7 @@ app.set("trust proxy", '127.0.0.1, 192.168.0.1, 192.168.0.2'); => tin 3 proxy c�
 Nhiều nền tảng như Cloudflare cũng hỗ trợ sẵn nén data: Client <---10KB--- Cloudflare <---100KB--- Origin server
 
 compression: lib nén giảm lượng dữ liệu cần truyền qua mạng với gzip. Lưu ý tốc độ nhanh hơn nhưng tăng áp lực lên CPU => nên dùng mọi lúc trừ khi CPU server yếu
-shrink-ray-current*: dùng thuật toán brotli mới của google còn giúp nén mạnh hơn nữa => best practice, éo được với v23
+shrink-ray-current*: dùng thuật toán brotli mới của google còn giúp nén mạnh hơn nữa => best practice, éo được với v23 nhưng có thể để nginx dùng.
 
 
 

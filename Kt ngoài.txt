@@ -1,35 +1,32 @@
 # Cache memory trong máy
 -> Internal memory có 2 loại là cache và main memmory. External memory là CD hay hard drive.
-Ứng dụng ban đầu lưu trên hard disk, mở lên sẽ lưu trong RAM, các tác vụ nhỏ sẽ lưu trên cache. Vì cache nhanh hơn RAM, cache dùng SRAM còn nhanh nữa, nhưng bộ nhớ ít và đăt.
+Ứng dụng ban đầu lưu trên hard disk, mở lên sẽ lưu trong RAM, các tác vụ nhỏ sẽ lưu trên cache. Vì cache nhanh hơn RAM, cache dùng SRAM còn nhanh nữa, nhưng bộ nhớ nhỏ và đăt. 
+Có 2 loại instruction cache và data cache.
+Multilevel cache: Cache L1 là 1 phần của CPU, Cache L2 bên ngoài chip, lớn hơn L1. Cache level1 chú trọng hit time ngắn, cache level2 lớn hơn chú trọng miss rate thấp để vừa có hit time ngắn và miss rate thấp. Nếu dùng 1 cache lớn duy nhất rất khó đạt được điều này.
 
-Cache L1: là 1 phần của microprocessor chip; Cache L2: bên ngoài chip, lớn hơn L1. Có 2 loại instruction cache và data cache.
-Multilevel cache: cache level1 chú trọng hit time ngắn, cache level2 lớn hơn chú trọng miss rate thấp để vừa có hit time ngắn và miss rate thấp. Nếu dùng 1 cache to đùng duy nhất rất khó đạt được điều này.
-
-VD cache có số lượng ô nhớ là 8 block. Lấy address của data block %8 sẽ biết cần lưu nó vào block nào. Cache chỉ cần lưu higher order bit là mọi bits trừ 3 bits cuối ở đây. Sau đó có thể tự compute ra full khi lấy với: [high order bit] + [3 bits cuối là index of block trong cache] 
+VD cache có số lượng ô nhớ là 8 block, lấy address của data block %8 sẽ biết cần lưu nó vào block nào. Cache chỉ cần lưu higher order bit là mọi bits trừ 3 bits cuối, sau đó có thể tự compute ra full khi lấy với: [high order bit] + [3 bits cuối là index of block trong cache] 
 VD cache có 64 blocks và 1 block 16 bytes thì address 1200 sẽ ánh xạ đến block có thứ [1200/16]=75 vì 1 address refer đến 1 bytes mà. Block thứ 75 trong cache đâu có tồn tại nên nó phải refer đến cache block thứ 75%64=11 để biết hit hay miss
 
-2 cách đồng bộ cache với main memory internal trong máy
+2 cách đồng bộ cache với main memory trong máy
 Write through: update cache với main mem đồng thời, sẽ bị chậm => thường dùng
-Write back: chỉ update cache, khi data trong cache bị replaced mới update vào mainmem => chỉ dùng khi cache size lớn, cần tốc độ cao mà update main mem bị chậm
+Write back: chỉ update cache, khi data trong cache bị replaced mới update vào mainmem => chỉ dùng khi cache size lớn, cần tốc độ cao k chấp nhận việc update main mem bị chậm
 
 -> 3 loại cache: direct map, fullly associative, n way set associative
 - Direct map dùng 1 bảng hash hash và lưu theo hash để tìm tốc độ O(1)
 - Fully associative lưu mỗi cục block data là 1 cục block cache luôn, khi cần tìm sẽ search tuyến tính, lưu vị trí nào cũng được. VD cache có 8 entry thì 1 block có thể lưu vào bất cứ entry nào trong cache đó => Khi search sẽ ngốn O(n) với n là số entry trong cache, chậm hơn direct map O(1) nhưng ít miss hơn, cache size nên nhỏ thôi
 - n way set associative thì cache lưu nhiều set theo hash search O(1), rồi search tuyến tính từng entry trong set.
 VD: one way tức là số lượng set bằng số lượng entry và giống Direct map
-VD: ta nhìn ký hiệu Cache Level2 4-way => tưc cache level2 dùng 4 entry trong 1 sets, level 1 k có thông tin nhưng nếu miss thì sẽ search trong level2
+VD: ta nhìn ký hiệu Cache Level2 4-way, tức cache level2 dùng 4 entry trong 1 sets, level 1 k có thông tin nhưng nếu miss thì sẽ search trong level2
 Với direct map ta chỉ có 1 cách để replace, còn với associative bắt đầu sinh ra nhiều PP để quyết định bỏ block nào khỏi cache khi 1 block mới cần được thêm vào. VD Dùng LRU là xóa bỏ cái k dùng đến trong ktg xa nhất => Nên dùng khi cần lưu lượng lớn data.
 
--> Mạng internet có DNS cache, ARP cache. 
-VD: CDN server cung static data cũng có cache. Khi user request data k có trong CDN cache thì CDN server mới request tài nguyên này trên server gốc để lưu vào cache
-
-Load balancer tương tự cũng query từ server gốc lưu vào cache của nó. User khác cũng request same content thì có luôn
+-> Mạng internet có DNS cache, ARP cache. VD: CDN server cung static data cũng có cache. Khi user request data k có trong CDN cache thì CDN server mới request tài nguyên này trên server gốc để lưu vào cache
+Load balancer cũng query từ server gốc lưu vào cache của nó. User khác cũng request same content thì có luôn
 Message broker như Kafka cũng cache hàng loạt message trên disk của nó cho người dùng lấy nhanh
 Full text search engine như Elastic search cũng dùng cache để cải thiện hiệu suất query của người dùng
 Database cũng có plan cache, buffer pool lưu kết quả truy vấn, transaction, replication log.
 
 In-Memory Cache là cache ngay trên các ứng dụng FE, Browser, DB, Server đang có
-Distributed Cache thì cache là server độc lập, có thể 1, replica or nhiều server phân tán, giúp tăng hiệu suất, khả năng chịu lỗi.
+Distributed Cache thì cache là server độc lập, có thể 1, replica or nhiều server phân tán chia sẻ chung, giúp tăng hiệu suất và khả năng chịu lỗi.
 Họ có thể chia cache nhiều tầng: dùng In-Memory Cache làm level 1, Distributed Cache cho level 2. Khi restart API server thì In-Memory Cache mất, Distributed Cache vẫn ok.
 
 -> Nếu tự implement cache key-val trong JS thì nên dùng con trỏ yếu như WeakMap 
@@ -37,38 +34,36 @@ Best practice tự implement là dùng LRU cache, số lượng cố định, tr
 
 
 
-# So sánh về memory giữa các ngôn ngữ, k xét tốc độ
+# So sánh memory các lang, k xét tốc độ
 Rust tokio vẫn là ngôn ngữ tốn ít memory nhất so với mọi ngôn ngữ khác
 NodeJS tốn ít memory hơn C# khi có 100 ngàn task đồng thời, nhưng khi lên mức 1 triệu task thì C# tốn ít hơn NodeJS, hiẹu năng cũng cao hơn. Do đó dự án lớn ưu tiên dùng C#.
-Go cũng tốn memory ít khi chạy ít task nhưng số lượng task đồng thời tăng nhanh sẽ khiến nó tốn lượng memory tăng vọt. Python cũng vậy.
 
 
 
 # Event loop của nodejs
-Event liên tục được bắt để add vào queue theo thứ tự: Timer event (timeout, interval) -> IO callback -> Idle (nội bộ k qt) -> Poll (Tìm kiếm sự kiện IO mới đang polling) -> Check(xử lý callback của setImmediate)-> Close Callbacks(xử lý các callback ngắt kết nối) -> quay lại Timer
-Khi có event -> gửi event cho C++ xử lý, xong thì sẽ gửi callback cần thực hiện vào event queue của JS. 
+Event liên tục được bắt để add vào queue theo thứ tự: Timer event (timeout, interval) -> IO callback (read file) -> Idle (nội bộ) -> Poll (Tìm kiếm sự kiện IO mới đang polling) -> Check (xử lý callback của setImmediate) -> Close Callbacks (xử lý các callback ngắt kết nối) -> quay lại Timer
+Khi có event sẽ gửi cho C++ xử lý, xong thì sẽ gửi callback cần thực hiện vào event queue của JS. 
 
-VD: ta gọi setImmediate và setTimeout 0s cạnh nhau coi là cùng lúc, thì thứ tự sẽ phụ thuộc vào cái loop thêm event vào queue kia đang ở giai đoạn Check hay Timer. 
-Nếu cho setImmediate và setTimeout 0s vào 1 luồng IO/callback là fs.readFile thì chắc chắn setImmediate thực hiện trước setTimeout. NN là vì nó sang giai đoạn Check trước giai đoạn Timer kể từ IO/callback. setImmediate xử lý khi event queue chạy vào Check, còn setTimeout xử lý trong giai đoạn Timer.
-VD: Khi loop hiện tại kết thúc, trước khi vòng sau bắt đầu sẽ thực hiện theo thứ tự: callback của process.nextTick (callback) -> promise -> callback của setImmediate
+VD gọi setImmediate và setTimeout 0s cạnh nhau cùng lúc, thì thứ tự sẽ phụ thuộc vào cái loop thêm event vào queue kia đang ở giai đoạn Check hay Timer. Nếu là IO callback thì setImmediate thực hiện trước vì nó sang giai đoạn Check trước giai đoạn Timer.
+VD khi loop hiện tại kết thúc, trước khi vòng sau bắt đầu sẽ thực hiện theo thứ tự: callback của process.nextTick (callback) -> promise -> callback của setImmediate
 
--> Mã nguồn core của nodejs: gồm 2 thành phần là javascript và C++ => C++ bao gồm các xử lý tới các thư viện bên ngoài quan trọng như V8, libuv.
+-> Mã nguồn core của nodejs gồm 2 thành phần là JS và C++, và C++ bao gồm các xử lý tới các thư viện bên ngoài như V8, libuv.
 stack: nơi chứa các lệnh nó chạy theo thứ tự LIFO từ code của ta, thực hiện hàm lần lượt gọi là call stack
-heap: nơi chứa các kết quả tạm phục vụ cho việc thực thi các hàm trong stack. Heap càng lớn thì tính toán càng nhanh. Trong C/C++ thì dùng nó là cấp phát động 
+heap: nơi chứa các kết quả tạm phục vụ cho việc thực thi các hàm trong stack. Heap càng lớn thì tính toán càng nhanh. Trong C++ thì dùng nó là cấp phát động 
 js engine: là nền tảng thông dịch mã JS bao gồm heap và stack. NodeJS xây dựng trên JS engine là V8 Chorme
 event: là thứ chứa các thông tin về sự kiện chờ xử lý
 callback function và listener: là cái bind cùng với event, là cái sẽ được thực hiện khi event đó được gọi. 
-eventLoop: event loop tồn tại trong Ct vĩnh viễn miễn CT chưa bị tắt. 
+eventLoop: event loop tồn tại trong chương trình vĩnh viễn miễn chưa bị tắt. 
 
--> Cơ chế: Mã nguồn của ta thực hiện tuần tự trong V8, gặp hàm thì đưa vào stack và thực hiện, dữ liệu hàm trả ra lưu vào heap. Nếu k có hàm bất đồng bộ thì sẽ thực hiện tuần tự r kết thúc. Nếu có hàm bất động bộ như callback, sự kiện,.. thì lời gọi đó như 1 request xử lý trong OS hoặc thực thi các WebAPI(quản lý bởi libuv của C++), lúc này stack kia vẫn thực hiện bth còn cái request kia đồng thời bị đẩy ra ngoài độc lập như v nhờ WebAPIs. Request này sẽ được core của CPU thực hiện, cái này do C++ dùng thread pool xử lý nên các tác vụ ở đây được xử lý đồng thời rồi mới đưa vào event queue (VD nếu ta dùng setTimeout 5s thì WebAPIs sẽ k gửi ngay mà 5s sau mới gửi hàm cho queue, nếu ta fetch API thì multithread của CPU sẽ xử lý). CV tốn thời gian đó sẽ được xử lý trên C++ Thread Pool, tức là xử lý multithread và còn cho phép ta tương tác với database, file system,.. Cái nào xong trước thì callback của nó sẽ được đưa vào event queue. Event loop kiểm tra nếu stack trống thì kiểm tra callback queue, stackqueue k có sự kiện thì loop vẫn có nhưng chả làm gì, nếu event queue có sự kiện thì nó sẽ xử lý. Nó sẽ xử lý yêu cầu và xác định hàm callback của yêu cầu đó gửi vào callstack để xử lý. Nếu callstack vẫn có dữ liệu thì eventqueue sẽ k làm gì cả, chờ stack thực hiện callback event đó xong trống mới vô đc, do đó nếu đưa vào event queue mà k đc thực hiện ngay vì trong queue đó có các thứ khác thì thời gian thực hiện có thể lâu hơn dẫn đến setTimeout chỉ là thời gian tối thiểu công việc chạy chứ kp thời gian chính xác.
-VD cụ thể: ấn nút gọi setTimeout gọi hàm fetch API xong callback in ra màn hình. Compile đến sự kiện -> web APIs lưu nó -> emitter phát sự kiện -> web APIs bắt sự kiện -> đưa cho C++ thread pool xử lý, lúc này nó chả làm gì mà gửi luôn call back của sự kiện cho event queue. Trong lúc này Ct vẫn chạy đồng thời các sự kiện khác và bất đồng bộ thì vẫn đưa vào C++ thread pool xử lý, cái này với cái kia, cái nào xong trước thì gửi vào event queue trước thôi. Event loop lấy nó gửi sang stack. Stack thực hiện nó lại thấy 1 hàm bất đồng bộ là setTimeout lại gửi sang cho WebAPIs. Còn các hàm đồng bộ khác bên trong nó thì vẫn thực hiện tiếp. WebAPIs gửi nó cho thread pool xử lý. Sau ktg set Timeout pool đó sẽ đưa hàm callback của setTimeout vào queue r vào stack nếu stack trống r thực hiện -> thực hiện thì lại bắt gặp hàm fetch API -> lại đưa sang WebAPIs, nó lại đưa vào pool xử lý bất đồng bộ. Lúc này stack trống và có thể thực hiện tiếp các hàm khác. Pool thực hiện xong sẽ lại đưa callback của hàm đó vào event queue -> event loop lại lấy ra đưa vào stack để thực hiện nếu stack trống, lúc này sẽ thực hiện in ra màn hình
+-> Cơ chế: Mã nguồn thực hiện tuần tự trong V8, gặp hàm thì đưa vào stack và thực hiện, dữ liệu hàm trả ra lưu vào heap. Nếu k có hàm bất đồng bộ thì sẽ thực hiện tuần tự r kết thúc. Nếu có hàm bất động bộ thì request đó sẽ bị đẩy ra ngoài độc lập nhờ WebAPIs (libuv quản lý). Request này sẽ được core của CPU thực hiện, cái này do C++ dùng thread pool xử lý nên các tác vụ ở đây được xử lý đồng thời rồi mới đưa vào event queue (VD nếu ta dùng setTimeout 5s thì WebAPIs sẽ k gửi ngay mà 5s sau mới gửi hàm cho queue, nếu ta fetch API thì multithread của CPU sẽ xử lý). Việc tốn thời gian đó sẽ được xử lý trên C++ Thread Pool, tức là xử lý multithread và còn cho phép ta tương tác với database, file system,.. Cái nào xong trước thì callback của nó sẽ được đưa vào event queue. Event loop kiểm tra nếu stack trống thì kiểm tra callback queue để xử lý, đưa hàm callback của yêu cầu đó vào callstack để xử lý. Nếu callstack vẫn có dữ liệu thì eventqueue sẽ k làm gì cả, chờ stack thực hiện callback event đó xong trống mới vô đc, do đó nếu đưa vào event queue mà k đc thực hiện ngay vì trong queue đó có các thứ khác thì thời gian thực hiện có thể lâu hơn, dẫn đến setTimeout chỉ là thời gian tối thiểu công việc chạy chứ kp thời gian chính xác.
+VD cụ thể: ấn nút gọi setTimeout gọi hàm fetch API xong callback in ra màn hình. Compile đến sự kiện -> web APIs lưu nó -> emitter phát sự kiện -> web APIs bắt sự kiện -> đưa cho C++ thread pool xử lý, lúc này nó chả làm gì mà gửi luôn call back của sự kiện cho event queue. Trong lúc này Ct vẫn chạy đồng thời các sự kiện khác và bất đồng bộ thì vẫn đưa vào C++ thread pool xử lý, cái này với cái kia, cái nào xong trước thì gửi vào event queue trước. Event loop lấy nó gửi sang stack. Stack thực hiện nó lại thấy 1 hàm bất đồng bộ là setTimeout lại gửi sang cho WebAPIs. Còn các hàm đồng bộ khác bên trong nó thì vẫn thực hiện tiếp. WebAPIs gửi nó cho thread pool xử lý. Sau ktg setTimeout, pool đó sẽ đưa hàm callback của setTimeout vào queue r vào stack nếu stack trống r thực hiện -> thực hiện thì lại bắt gặp hàm fetch API -> lại đưa sang WebAPIs, nó lại đưa vào pool xử lý bất đồng bộ. Lúc này stack trống và có thể thực hiện tiếp các hàm khác. Pool thực hiện xong sẽ lại đưa callback của hàm đó vào event queue -> event loop lại lấy ra đưa vào stack để thực hiện nếu stack trống, r sẽ chạy in kết quả ra màn hình.
 
 
 
 # Method OPTIONS 
-Khi client gửi OPTIONS tới server, server phản hồi với thông tin chứa các HTTP Method mà client có thể sử dụng cho url đó. 
-Trình duyệt tự động gửi preflight request như vậy khi FE và server ở 2 domain khác nhau để kiểm tra xem server có cho phép yêu cầu từ origin đó k, hoặc khi dùng method k an toàn như PATCH để update data. Cùng origin sẽ k gửi.
-Đây là mặc định bảo mật của trình duyệt, ta cũng k cần code thêm gì ở server. Server tự xử lý và trả về các header cors như Access-Control-Allow-Origin, Access-Control-Allow-Methods, Access-Control-Allow-Headers. Nó giúp chặn các request không mong muốn mà server k chấp nhận.
+Khi client gửi OPTIONS tới server, server phản hồi với thông tin chứa các HTTP Method mà server support với url đó. 
+Trình duyệt tự động gửi preflight request như vậy khi FE và server ở 2 domain khác nhau để kiểm tra xem server có cho phép yêu cầu từ origin đó k, hoặc khi dùng method k an toàn như PATCH để update data. Cùng origin sẽ k gửi preflight request.
+Đây là cơ chế bảo mật mặc định của trình duyệt để chặn các request không mong muốn mà server k chấp nhận, k cần code gì thêm. Server tự xử lý và trả về các header cors như Access-Control-Allow-Origin, Access-Control-Allow-Methods, Access-Control-Allow-Headers. 
 
 
 
@@ -89,7 +84,7 @@ const initAppBootstrap = async () => {
   } 
 }
 module.exports = initAppBootstrap;
-=> Có thể dùng Docker chạy cho an toàn
+=> Nên setup chạy trên Docker cho an toàn
 
 
 
@@ -120,3 +115,246 @@ Javascript engine là trình thông dịch mã js. Ngoài V8 thì cũng có các
 
 -> file.mjs là ES module js, file.cjs là file dùng common js. Có thể import lẫn nhau
 Nodejs dùng .js sẽ tự dùng commonjs, muốn dùng .js là es module phải thêm type module => tốt nhất là nodejs dùng commonjs
+
+-> Về tốc độ, thư viện HyperExpress của nodejs là nhanh nhất > nitro > express.js
+HyperExpress thậm chí nhanh hơn Deno nhưng vẫn thua Bun.
+
+
+
+# Tạo streaming server cho video
+Dùng link youtube, ipfs, đăng lên cdn cloud tốt hơn là dựng hẳn 1 streaming server vì tốn, trừ các web chuyên về video k muốn phụ thuộc bên thứ 3.
+Cơ chế streaming server: Mỗi đoạn của video khi xem sẽ gửi http request nhận về 1 lượng bytes kể từ vị trí đó trở đi và tiếp tục cho đến hết video, thông tin này nằm trong header. Ở FE, video player của html5 hỗ trợ sẵn việc gửi request đi và xử lý response nhận về như nào rồi, server chỉ cần gửi lại đúng format response là được
+
+-> Cơ chế tính lượt view cho video không phải là số lần gọi request GET và cũng k yêu cầu phải lấy xem hết mọi bytes của video. 
+VD chọn 1 mốc 30s và chia khoảng 30s đó khắp video thay đổi vị trí random liên tục. Vd 10s đầu ở đoạn 1p->1p10s, 10s sau ở 2p->2p10s, 10s cuối ở 3p50s->4p => user phải xem đúng các đoạn đó mới +1 view. 
+
+VD 1 giải pháp chống spam view là lưu IP user vào cache tự hết hạn và bị xóa sau khoảng 5p. Mỗi khi định tăng view bởi 1 ip sẽ check ip vẫn có trong database thì k cộng view lên. Tức là người dùng refresh liên tục trong 5p sẽ k có tác dụng vì ip vẫn có trong DB, video length > 5p. Tức max 1 người trong 5p chỉ được 1 view.
+=> Thực ra lưu ip k ổn VD nhiều người cùng bắt VPN hay chung mạng LAN sẽ k chuẩn, ta có thể tạo 1 userid ảo dù chưa login và lưu 1 id vào cookies chứ kp lưu ip, mỗi request phải gửi kèm cookies lên để server check.
+
+VD các nghệ sĩ nổi tiếng khi cộng lượt view tăng quá nhanh, chắc chắn DB k thể sử dụng MySQL hay MongoDB mà phải sử dụng cache như redis.
+Nên thêm ratelimit và black list chặn ip truy cập bất thường. VD 1 IP truy cập đồng thời tới cả nghìn lần 1p thì khá vô lý cho 1 mạng LAN thì sẽ bị chặn ngay. VD Dùng nginx làm reserve proxy có thể lấy được ip của user trong header trường X-Forwarded-For
+
+
+
+# Dùng HTTP2 HTTP3
+HTTP1 thì mỗi yêu cầu là 1 connection TCP riêng.
+
+HTTP1.1 duy trì kết nối cho phép nhiều yêu cầu tới 1 server được xử lý trong cùng một kết nối TCP.
+Head-of-Line Blocking là hiện tượng response request trước quá lâu làm cho các requests sau bị blocked. Http1.1 đỡ hơn vì có HTTP pipelining cho phép gửi nhiều request đồng thời trên cùng 1 TCP connection mà không cần chờ request trước done, nhưng response vẫn trả về phải đúng thứ tự trong 1 connection, nên HoL k đươc cản hoàn toàn.
+Để đảm bảo k bị lỗi đơ luôn, browser duy trì nhiều TCP connection tới server và gửi song song, chứ k chỉ 1 connection.
+
+HTTP2 dùng HTTP stream. Trong 1 TCP connection có thể gửi hàng loạt các stream request và các stream k cần đúng thứ tự nữa, giải quyết vấn đề Head-of-Line Blocking ở tầng application nhưng vẫn bị ở tầng transport với TCP: Client <--- 1 TCP connection [Stream1 header, stream2 header, stream1 data, stream3 header, ...] ---> Server
+Server push new data tới client khi có update mà k cần client phải poll liên tục, giảm sô request. Dùng HPACK nén giảm kích thước header. Dùng binary format nhanh hơn so với định dạng văn bản của HTTP/1.x.
+
+HTTP3 dùng protocol QUIC, dựa trên UDP ở ngay tầng transport nhưng nó chỉnh sửa để UDP mà tốt hơn TCP, vẫn có cơ chế phục hồi gói tin khi bị mất.
+Client <--- 1 QUIC/UDP connection [Stream1, stream2, stream3, ...] ---> Server
+QUIC cũng được dùng để đổi mạng trong điện thoại mà k bị lag vì dùng chung 1 connection id.
+
+=> Cũng có thể dựng 1 proxy nginx server dùng HTTP2, khi đó sẽ k tận dụng hết dược sức mạnh của HTTP2: Client <-- HTTP2 --> Nginx <-- HTTP1.1 --> Server
+
+-> Nginx và ASP.NET hỗ trợ HTTP3
+NodeJS có built-in node:http2 nhưng k dùng được cho expressjs, k hỗ trợ http3. 
+spdy là 1 giao thức tiền thân của http2, nên dùng package spdy khi cần expressjs http2. Khi k support http2, tự downgrade http1.1 ok. Package này có code ở client side để call api tới server trong trường hợp client side k hỗ trợ http2 => k cần thiết vì FE luôn hỗ trợ
+
+-> Từ HTTP2 trở đi, luôn phải có SSL.
+Giả sử host lên VPS và cấu hình nginx dùng http2 với ssl ok. Browser query api sẽ dùng http2 gửi đến máy VPS rồi vào nginx thiết lập connection. Giả sử cấu hình nginx chuyển tiếp vào expressjs dùng http2 ssl thì nginx và express server cũng tương tác với nhau qua giao thức http2. SSL ở nginx và express server là độc lập, có thể dùng chung cert ok.
+
+-> Nhanh: 
+Best practice là nginx dùng http3, nodejs dùng http là tối ưu tốc độ cho server expressjs.
+Dùng spdy nếu nodejs cần http2. Sẽ cần SSL.
+
+
+
+# Chia file BE hệ thống lớn
+Best practice vẫn là chia theo chức năng, bên trong từng chức năng chia theo file từng module. Chứ nếu chia theo module lỡ cần common lại k có chỗ viết.
+Tính năng
+  Tính năng con
+    Module
+      Module con
+  Common
+
+1) NodeJS: việc chia file khá hiển nhiên.
+src
+  api
+    v1
+    v2
+      routes
+        auth.route.js
+        blog.route.js
+      controllers
+        auth.controller.js
+        blog.controller.js
+        index.js
+      utils
+        staticvalidationhelper.js
+        staticutility.js
+      middlewares
+      models  
+        blog.js
+        bloguser.js
+      services
+        jwt.service.js
+        blog.service.js
+      validations
+      logs
+  config
+    database.config.js
+    redis.config.js
+    index.js
+tests
+.env.dev
+.env.prod
+database.j
+index.js => run main function
+server.js => start server nodejs
+test.http
+
+2) ASP.NET hướng đối tượng phức tạp:
+Smp.Web (dự án chính)
+  Controllers (folder)
+    Voice (folder)
+      VoicePolicyController.cs
+      VoiceUserController.cs
+    Teams (folder)
+    HomeController.cs
+    EmailController.cs
+  Attributes (folder)
+    LicenseAttribute.cs
+    AuditorAttribute.cs
+  Middlewares (folder)
+  Models (folder) => model mà chỉ dùng trong Smp.Web
+  appsettings.Development.json
+  appsettings.Production.json
+  Program.cs => chạy hàm main
+  Startup.cs => file setup
+Voice (folder)
+  Voice.Service (library)
+    Actions (folder)
+      VoiceScanPolicyAction.cs
+      VoiceScanCallQueueAction.cs
+    Interface (folder)
+    Service (folder)
+      VoicePolicyService.cs
+      VoiceCallQueueService.cs
+PowerPlatform (folder)
+  PowerPlatform.Service (library)
+    Impl (folder)
+      PowerApps(folder)
+        PowerPlatformPowerAppsService.cs
+        PowerPlatformPowerAppsFromDBService.cs
+      Environment (folder)
+Common (folder)
+  Smp.Database.Core (library)
+  Smp.Common(library)
+    Job (folder)
+      IJobAction.cs
+      JobContext.cs
+    Helpers (folder)
+      CipherHelper.cs
+      LoginHelper.cs
+    Models (folder)
+      AuditorInfo.cs
+      ProcessCenterModel.cs
+  Smp.Service.Common (library)
+    GraphClient (folder)
+    Login (folder)
+      LoginService.cs
+      PrincipalService.cs
+    Storage (folder)
+      BlobStorageService.cs
+      TableStorageService.cs
+
+
+
+# Kiểu data nested và graph 
+VD workflow condition khi AND OR lồng nhiều cấp, nested comment.
+Requirements: chèn, sửa, thêm data nhanh, 1 node đổi vị trí trong cây; lấy mọi nodes con của 1 node cha nhanh; 1 con nhiều cha hay 1 cha nhiều con; Lấy node cha của node con; Có hướng hay vô hướng; Có quan tâm thú tự các con trong 1 cha không; thứ tự duyệt các node.
+
+- Database lưu data recursive dưới dạng json string, deserialize ra nested class object trực tiếp được, mỗi lần lấy tất cả r xử lý bằng code. 
+Hoặc database lưu parentid là foreign key tới chính nó được, sẽ lưu dưới dạng adjacent list. Con nối với 1 cha thôi. Có thể dùng binary tree.
+Database lưu thêm 1 trường chỉ định vị trí nested và thứ tự. VD: path="1.2.3" là con của row có path="1.2", tìm kiếm mọi con với WHERE path LIKE '1.2.%'
+Database lưu mỗi row có 1 trường left và right (nested set model). VD X có left=1, right=10 thì tìm mọi con của X với WHERE left > 1 AND right < 10. Khi update phải update left right mọi con.
+Đơn giản là lưu như flat nhưng thêm 1 trường là parentId. Lấy list data từng cấp rất nhanh: lv1 lấy mọi comment k có parentid, view more 1 comment lv1 thì lấy mọi comment có parentId là id comment đó là xong.
+
+- Class object có thể chứa trường tự nested đệ quy được. Có thể lưu như 1 adjacent list, chỉ cần id của node cha thôi.
+Với dạng graph nhiều node 2 chiều, class object nên lưu kiểu graph. Số lượng k nên quá nhiều. Áp dụng các thuật toán tìm kiếm trên graph được.
+Class object có thể lưu dạng đường path "1.2.3", lưu left và right đánh dấu vị trí hiện tại trên cây.
+
+- Xử lý recursive thì gọi hàm recursive, hoặc convert sang vòng while bằng cách dùng stack or queue.
+Với data lưu dạng phẳng thì viết hàm xử lý bth.
+
+
+
+# json-server http-server
+FreeAPI: https://jsonplaceholder.typicode.com/posts
+
+-> json-server / lite-server có thể dùng 1 file text bth làm db, chú ý là k có tính ACID của DB bth.
+
+json-server --watch <link đến file db.json> --port 4000 => file db thay đổi sẽ update realtime.
+GET /employees/1/?_sort=firstName&amp;_order=desc
+GET /employees?_page=7&amp;_limit=20
+
+-> Còn có http-server dựng http server nhanh: cd thư mục -> http-server -c-1 (-c-1 để disable cache) => thêm file html vào thư mục để serve nó
+
+
+
+# Publish package npm
+Tạo file readme
+package.json cần có các thông tin như: license, git repo, name, version, bugs, homepage có thể hiển thị trên các nền tảng như npm, github, document, 1 số loại IDE
+Phải push code lên github
+Package phải có file export tính năng cho ứng dụng dùng.
+
+Tạo 1 folder ngoài cùng để test package
+Vào folder test "npm link <tên package>" => Lệnh này sẽ import cái package của ta vào trong node_modules của folder test. Mọi lệnh sửa ở 1 trong 2 folder test hay folder package sẽ đều tự sửa ở folder còn lại, giúp ta có thể test liên tục mà k cần sửa 2 nơi thủ công. Đây cũng là cách để chạy package local cho dự án mà k cần publish lên npm
+
+Tạo tk trên npmjs.com và chạy "npm login"
+Check xem trên trang chủ phải chưa có package nào trùng tên với package của ta
+Vào folder package "npm publish"
+Khi sửa package, nhớ push lại lên git, sửa version, "npm login", "npm publish" lại
+
+Nếu tạo package cho frontend, phải build thành ESModule bằng bundler hoặc code luôn type module. Và khuyến khích dùng typescript để cung cho frontend dùng đúng kiểu khi frontend dùng typescript. 
+
+-> yalc giúp dùng local package trong project, thay cho npm link
+Dùng package bên trong dự án luôn mà k cần publish lên npm: Vào trong thư mục chứa package: "yalc publish" -> quay lại thư mục chứa package.json của dự án: "yalc add <tên package>" -> yalc sẽ tự thêm vào package.json đường dẫn local đến package và ta import dùng như bth
+Để remove package: cd vào folder chứa package.json của project -> yalc remove my-package
+Đẻ upgrade package: sửa code package như bth -> lặp lại: cd ../my-package -> yalc publish -> cd ../my-project -> yalc update my-package
+
+
+
+# Thiết kế FE cho handling permission
+-> Dự án nhỏ với vài role cơ bản có thể check trực tiếp ở mọi chỗ
+{ user.role == "admin" && <></>} => chỉ admin mới hiện component
+{ user.role == "admin" || user.role == "moderator" || user.id == authorId && <></>} => mở rộng để moderator và chủ của bài viết cũng có thể xem component
+
+-> RBAC: User gắn với nhiều roles. Roles có nhiều permission. 1 permission gồm action:resource.
+Sửa quyền của role chỉ cần sửa ở 1 nơi duy nhất, và cung ra hàm check 1 role có quyền gì.
+VD https://github.com/WebDevSimplified/permission-system/blob/main/auth-rbac.ts
+
+Có nhiều cách nâng cấp trong hệ thống lớn:
+- User có thể thuộc 1 group, gán quyền cho group thì mọi user trong group sẽ có quyền đó
+- Data cũng có thể chia theo container, gán container cho user để chỉ dịnh user đó được quyền truy cập vào các data nào.
+- VD untrest họ chia role chính là permission groups, dùng 1 bảng ánh xạ user với 1 permission group, còn tài nguyên chia theo tenant và container. Khi check sẽ check user có gán cho permission group chứa container của data và action permission k.
+User / Group -- [UserRoles] -- Role -- [RolePermissions] -- Permission
+
+RBAC khó mở rộng trong vài TH:
+Nếu muốn chủ của comment có thể xoá comment thì phải thêm vào 1 permision mới là delete:ownedComments, mọi nơi vẫn phải check thủ công user.id==authorId. 
+Nếu user và moderator đều có quyền đó sẽ phải thêm delete:ownedComments ở cả 2 roles.
+
+--> Clerk giúp authorization RBAC chuẩn cho FE: https://www.youtube.com/watch?v=5GG-VUvruzE&list=WL&t=1011s => Clerk sẽ lo logic signin provider, organization, gán roles cho user, user login sẽ lưu vào clerk và ta tuỳ ý chỉnh, lấy roles ở FE dễ dàng. Còn roles gắn với permission nào vẫn lưu ở DB của ta.
+Clerk dùng webhook, là 1 cơ chế giao tiếp realtime không cần polling. Tạo 1 url listen sẵn, khi có update thì gửi vào đó là xong. Webhook 1 chiều, muốn 2 chiều thì 2 bên đều phai là server lắng nghe 1 port.
+
+--> Mở rộng RBAC như gg drive, nó còn cho phép user share người khác edit và view docs file.
+Giải pháp là vẫn dùng như trên, nhưng mỗi 1 tài nguyên có thể chia sẻ sẽ có role riêng. VD:
+Shared File -- [UserFileRole] -- FileRole -- [FileRolePermission] -- Permission
+                    |                                                   /
+                  User -- [UserRoles] -- Role -- [RolePermissions] ---
+                              |
+                          Organization(tenant, container)
+=> Mỗi khi user tương tác 1 file, sẽ check user có role nào đối với file không: fileid - userid - filerole
+
+-> ABAC: Subject thực hiện Action tương tác Resource.
+URL: https://github.com/WebDevSimplified/permission-system/blob/main/auth-abac.ts
+Cơ chế check dựa vào hàm tính toán giữa các thuộc tính của object và user. Export ra 1 hàm duy nhất gọi các hàm check đó với từng resource. Có cả blockUsers, inviteUsers
+
+
+

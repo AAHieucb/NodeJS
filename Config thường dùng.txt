@@ -132,6 +132,12 @@ app.use(cors({
   optionsSuccessStatus: 200 // some legacy browsers (IE11, various SmartTVs) choke on 204 nên phải convert về 200 để tương thích
 }));
 
+---> origin: "*" cho phép mọi domain, header Access-Control-Allow-Origin trong response cũng là *, nhưng k sử dụng được credentials options. Y hệt app.use(cors()) k options
+origin: true tương đương hàm callback luôn trả true thì cho phép mọi domain và header response Access-Control-Allow-Origin sẽ trả đúng từ Origin của request
+Tránh nhầm, cái origin là "domain + port + protocol" của nơi host FE, chứ kp của từng client. Nếu chạy local thì nơi host FE và client cùng là máy ta.
+---> credentials: true. Nếu client và server khác origin mà client muốn gửi kèm cookie thì fetch sẽ có credentials 'include', khi đó server phải set cors origin được phép gửi kèm và dùng options này để nhận về cookies các thứ.
+Nó cũng khiến server gửi response với Access-Control-Allow-Credentials true.
+
 --> express-rate-limit:
 app.use("/", rateLimit({
   windowMs: 15 * 60 * 1000, // 15p

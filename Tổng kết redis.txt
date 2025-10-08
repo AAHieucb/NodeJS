@@ -345,6 +345,7 @@ Bộ nhớ rẻ, check nhanh, xác suất càng chuẩn thì càng nhiều hàm 
 Khi thêm hay xoá phần tử cũng phải update bloom filter. Nhưng khi xoá thì k update được nên phải dùng kiểu Counting Bloom Filter không lưu dãy bit mà lưu dãy số đếm mới được.
 
 
+
 # Usecase Instagram muốn map 300M bức ảnh với userid tương ứng, yêu cầu tốc độ cao truy cập theo khoá và bộ nhớ k quá 15GB (EC2)
 K nên dùng SQL vì các bản ghi kbh update, chỉ insert, chả cần tx, chả có quan hệ bảng => dùng redis. 
 

@@ -19,7 +19,7 @@ VD DHKE:
 -- Client nhận B tính S=B^a mod p=(g^b)^a mod p
 -- Server nhận A tính S=A^b mod p=(g^a)^b mod p là khóa chung.
 => Khóa này dùng để mã hóa mọi data truyền qua, nên sau đó password gõ trực tiếp để connect k bị lộ. Khóa cũng tạo mới mỗi lần connect.
-=> p và g là theo quy ước, chứ không phải public key
+=> p và g là theo quy ước và là public, nhưng không phải public key
 
 - Client và server thiết lập SSH key.
 Client dùng mật khẩu cũng được nhưng gặp vấn đề bảo mật từ key logger hoặc brute-force mật khẩu, khuyên tạo SSH key càng sớm càng tốt.
@@ -67,7 +67,7 @@ Browser và server sẽ trao đổi qua giao thức HTTP, mọi data trao đổi
 TLS handshake có thể keep alive để tái dùng cho nhiều request chứ kp mỗi request là check cert 1 lần. Connection này có sessionid riêng.
 
 -> Usecase dựng 1 server cung API, nhiều server khác có thể call API của server đó. Tất cả server đều do ta quản lý nội bộ.
-Các server tương tác phải mã hoá đường truyền và nhận biết nhau. Ta k muốn bất cứ client nào cũng gọi được mà chỉ 1 vài server chỉ định thôi nên dùng mTLS, cả 2 bên phải xác thực lẫn nhau mới được gọi
+Các server tương tác phải mã hoá đường truyền và nhận biết nhau. Ta k muốn bất cứ client nào cũng gọi được mà chỉ 1 vài server chỉ định thôi nên dùng mTLS, cả 2 bên phải xác thực lẫn nhau mới được gọi. Chứ browser với server bth thì là TLS, kp mTLS.
 Cơ chế y hệt browser tương tác web server, nhưng ở đây mà chỉ các server nội bộ do ta quản lý, nên ta tự tạo cert expires vĩnh viễn cho các server xác thực nhau.
 => Hệ thống này có cần thiết dùng TLS không? Có vì server nội bộ giao tiếp với nhau thì bên ngoài kb, nhưng nếu có nhân viên làm r nghỉ việc sẽ biết các API public k được bảo vệ. Nếu hiểu bản chất sẽ thấy có thể bỏ qua việc xác thực server ở client vì hệ thống nội bộ với url chuẩn thì khó mà giả mạo server kia được.
 
@@ -233,7 +233,7 @@ VD: <form action="http://bank.com/transfer.do" method="post">
 </form>
 
 VD: dùng package csurf nodejs sẽ tạo middleware chống crsf attack. Token csrf đảm bảo reset sau mỗi phiên dùng của user. Nếu là react phải cung 1 API lấy token về trước.
-Cơ chế nó gắn 1 token gửi tới client để client gửi lại trong header r check thôi.
+Cơ chế nó gắn 1 token gửi tới client để client gửi lại trong header r check thôi. Thêm vào header ấy, r cản iframe là được.
 
 -> Dùng SSL chống MITM nhưng vẫn bị replica attack. 
 SSL đã cản sẵn replay attack ở tầng transport, nếu 1 request gửi 2 lần ở cùng 1 kết nối sẽ bị cản vì có sequence number cản tái phát request trong cùng 1 kết nối. Hacker vẫn có thể replay ở tầng application bằng cách thiết lập 1 https connection mới và gửi request y hệt. 
@@ -247,7 +247,7 @@ Nhược điểm là vẫn replicate được trong 1p đó, an toàn hơn là d
 2) Nonce: Client gửi request tới server thêm nonce cho server lưu và nếu 1 nonce từng được sử dụng sẽ lỗi luôn. Server nên lưu redis => nên dùng
 
 Để tránh redis phải lưu nonce quá tải thì dùng kèm cả 2 cách là tốt nhất. Vd: signature = md5(uid=1001&stime=19h00&nonce=sessionId-123456 + key)
-Phía server: - Vẫn check timestamp chưa quá 1p
+Phía server: - Vẫn check timestamp chưa quá 1p => k cần thiết nữa
 - Check nonce chưa có trong redis ok
 - if(redis.hasKey('sessionid-123456')) { return false; } else { redis lưu lại nonce vói expire time là 1p }
 => Nhờ v sau 1p nonce bị xóa thì redis sẽ k tốn
@@ -257,7 +257,7 @@ Giải pháp là ký payload bằng khóa của người dùng thì nếu hacker
 
 -> Nhanh:
 - Luôn cần chống CSRF: dùng localStorage thì k sao. Dùng cookie thì dùng LAX và đảm bảo request GET sẽ k update data, k thì phải kèm package csurf để double submit cookie. Browser tự gửi cookie và cors k cản request.
-- Chống replay attack khi có data nhạy cảm và replay gây ảnh hưởng: client gửi thêm nonce cho server lưu vào redis, kèm timestamp check cách k quá 1 phút.
+- Chống replay attack khi có data nhạy cảm và replay gây ảnh hưởng: client gửi thêm nonce cho server lưu vào redis, kèm timestamp check cách k quá 100 phút.
 
 
 
@@ -343,4 +343,42 @@ VD server max 100 request 1s, trung bình 50 active user 1 lúc thì rate limit 
 => Lib rate-limiter-flexible cho implement Token Bucket.
 
 Thuật toán leaky bucket: 1 xô có tốc độ rò rỉ. VD xô chứa max 100 ô, rò rỉ 10 ô 1s, nếu 200 gói tin đến thì 100 gói bị loại, 100 gói vào xô, sau 1s nữa xô mới trống 10 ô và cứ thế. Cũng giúp xử lý burst.
+
+
+
+# Chống bots và DDoS
+-> Các pp cơ bản:
+Dùng rate limit, cors. 
+Lọc header bất thường hoặc chỉ cho phép request đến từ các nguồn chỉ định. 
+Cache static data, CDN giảm tải server gốc.
+Nếu có cơ sở hạ tầng lớn, dùng Anycast Routing để nhiều máy chủ chia sẻ cùng 1 IP. Request client sẽ chia tải nhiều điểm, dùng server gần nhất (Cloudflare).
+
+-> Dùng JS/cookie challenge: Các trang web dễ bị quá tải tấn công thì nên dùng như ai chat bot.
+- Bảo vệ data api ở nodejs server cho CSR, hoặc navigate tới 1 trang ở giữa trước cho giải challenge rồi redirect về web gốc.
+Tự implement ở server or cài ở nginx or dùng cloudflare.
+- Người dùng gửi request thì server phải check xem có phải bots không? Token vẫn hợp lệ.
+Phía FE, định kỳ track hành động của ngừoi dùng gửi về server log, track cả click chuột hay bôi đen text. Có mixpanel or google analytics hỗ trợ sẵn.
+Server lưu credentials kèm ip, nếu credentials hợp lệ mà khác ip thì lỗi. Có thể là bot hoặc bật VPN. IP từ source k thể fake vì ở tầng TCP/IP, kp client.
+Server check nếu request gửi liên tục mà user k có click chuột hay hành động gì.
+Server có thể check ip đáng ngờ từ blacklist của IPQualityScore, check user agent phải từ browser, geolocation từ MaxMind.
+1 API quan trọng bỗng dưng được 1 IP gọi nhiều trong 1 time window, dù k vượt rate limit nhưng k có con người nào làm thế cả.
+- Điều này đồng nghĩa các api cần bảo vệ thì client phải gửi kèm credentials, server phải check token hợp lệ như bth và check cả xem có phải bots không.
+- Có nguy cơ là bots thì client sẽ query api để challenge. Server tạo challenge gửi client xác thực
+Server lưu token vẫn hợp lệ nhưng bị mark là bot, cần challenge để đổi thành human. 
+Có thể dùng cookie challenge là 1 token độc lập, các API sẽ check thêm challenge token. Verify challenge hợp lệ sẽ sinh 1 token mới cho user. Challenge token này sẽ bị xoá và invalid khi hết hạn hoặc lần mark là bot tiếp theo.
+
+1) Server tạo 1 phép toán đơn giản lưu vào db or biến global <challengeid, answer>, gửi lại <challangeid, question>. Client trả lời sẽ gửi lại kết quả.
+Có thể dùng lib tạo captcha có cơ chế tương tự. 
+2) Server làm tương tự nhưng gửi lại client 1 đoạn script chèn vào code, script tự chạy phía client giải ra answer gửi server. Nếu bots k chạy code js sẽ k thể giải challenge.
+Dùng cloudflare cơ chế tương tự nhưng nó tracking chuột phức tạp hơn. Nó có thể hiện dialog rồi tự tắt, hoặc navigate đến 1 page trung gian r redirect về page đích.
+Việc tự động chạy có thể bị bot giả lập, hoặc React CSR k thể navigate, có rất nhiều cách thay thế:
+- Server gửi lại client 1 token, client gửi lại token đó vào api khác, có thể làm thế nhiều lần, bot thường k cấu hình xử lý qua nhiều steps như v
+- Server trả lại pages có nút continue after 5s (waiting room)
+- Dùng thêm canvas fingerprinting: tạo 1 thẻ canvas vẽ bất kỳ thứ gì lên, toDataUrl và gửi cho server lưu, server check hợp lệ. Bots thường k vẽ canvas được.
+Ngoài ra còn có WebGL fingerprint, Audio context fingerprint.
+
+Note:
+- Chia cấp độ. VD IP nghi ngờ mà đến từ geolocation trong blacklist của MaxMind thì multistep verification kết hợp captcha. IP hơi nghi ngờ thôi thì dùng challenge auto ok.
+- Có thể tuỳ biến các api nhạy cảm thì dùng JS challenge bất cứ khi nào call tới chứ k chỉ cho DDoS. VD có faucet dùng captcha mỗi khi lấy.
+
 
