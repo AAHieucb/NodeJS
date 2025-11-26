@@ -29,3 +29,17 @@ common cho ra chi tiết hơn theo chuẩn của apache
 combine còn cho ra chi tiết hơn nữa như request được gọi bằng tool gì => nên dùng cho production
 
 -> Có package ESM cho phép dùng import/export trong commonjs. Hoặc dùng dynamic import cho cả commonjs và ES6 đều được.
+
+-> minimist package bổ trợ cho yargs để parse process.argv thoải mái
+
+-> slugify: biến string thành chuỗi slug dùng trong url
+
+-> node-cache*: cache trong nodejs bằng biến local. Cần chú ý api nào update data thì phải stale cache đó. 
+Nếu data update nhiều thì k cần dùng cache
+Nếu data update ít hoặc k yêu cầu realtime quá mà query nhiều thì nên dùng.
+
+-> telegraf / node-telegram-bot-api: giúp tương tác với telegram, tạo bot tự động nhắn tin vào channel thay thế email. Cần api key của tele.
+
+-> node-schedule: giúp lập lịch => thay bằng bullmq
+
+-> @google-cloud/text-to-speech

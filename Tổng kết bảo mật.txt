@@ -1,51 +1,3 @@
-# SSH
-Khác với TLS thì SSH dùng cặp khóa công khai id_rsa.pub và khóa riêng id_rsa. Thường 1 máy chỉ cần 1 cặp này duy nhất thôi.
-SSH dùng để xác thực, dùng cặp khóa SSH để login mà k cần nhập mk mỗi lần (github).
-SSH dùng để chuyển file 2 máy, máy này call tới máy khác để thực thi lệnh, tạo đường hầm bảo mật mã hóa kết nối khi truy cập từ xa.
-
--> SSH dùng để đăng nhập vào máy chủ từ xa 1 cách an toàn
-
-- Lần đầu tiên login phải dùng mật khẩu.
-Để tránh MITM giả mạo server, server thường có cặp private key và public key duy nhất trong hệ thống, gửi public key cho client.
-Lần đầu tiên sẽ luôn hỏi user xác nhận ip của server để thêm vào known_hosts cùng public key được hashed: "The authenticity of host 'server.com (192.168.1.1)' can't be established. ECDSA key fingerprint is SHA256:abcd1234..."
-Các lần sau server luôn gửi lại public key, client check ip và hash key này khớp với known_hosts là ok. Server đổi key phải update vào client.
-Pubkey pivkey của máy hiện tại và máy khác mà máy này ssh tới đều lưu tại ~/.ssh với ~ đại diện cho thư mục home của user "/Users/<tên user>"
-
-Sau khi xác thực server, client và server phải thiết lập 1 khóa chung bằng Diffie-Hellman Key Exchange (DHKE) hoặc Elliptic Curve Diffie-Hellman (ECDH).
-VD DHKE: 
--- client và server sinh 2 số random a và b.
--- Client tính A = g^a mod p và gửi A cho server.
--- Server tính B = g^b mod p và gửi B cho client.
--- Client nhận B tính S=B^a mod p=(g^b)^a mod p
--- Server nhận A tính S=A^b mod p=(g^a)^b mod p là khóa chung.
-=> Khóa này dùng để mã hóa mọi data truyền qua, nên sau đó password gõ trực tiếp để connect k bị lộ. Khóa cũng tạo mới mỗi lần connect.
-=> p và g là theo quy ước và là public, nhưng không phải public key
-
-- Client và server thiết lập SSH key.
-Client dùng mật khẩu cũng được nhưng gặp vấn đề bảo mật từ key logger hoặc brute-force mật khẩu, khuyên tạo SSH key càng sớm càng tốt.
-Sau khi thiết lập khóa chung, client sinh cặp pivkey pubkey. Gửi pubkey tới server lưu lại.
-Khi connect tới server bằng SSH key. Server gửi 1 challenge tới client, client dùng pivkey ký challenge đó gửi lại, server dùng pubkey check chữ ký đúng là ok.
-Lần sau login, pivkey của client có sẵn trong máy tự lấy ra ký challenge là xong mà k cần nhập mk.
-
-- 2 bên tiếp tục tạo khóa chung bằng DHKE hoặc ECDH để mã hóa trao đổi message như thường
-Việc tạo khóa chung là thuật toán xdùng trong nhiều hệ thống, kp chỉ riêng SSH. SSH chỉ là phần client xác thực server bằng pubkey của server. Server xác thực client bằng challenge gửi cho client thôi.
-
--> SSH chỉ giúp connect vào terminal của 1 máy khác, nếu cần vào giao diện phải dùng giao thức RDP. 
-Máy server phải hỗ trợ SSH ở 1 port thường là cổng 22 để client connect vào. Chú ý cấu hình tường lửa.
-SSH k thể thay thế SSL mã hóa giao tiếp giữa client-server. SSL dùng chứng chỉ số cấp bởi CA. Còn SSH kết nối chậm, k hỗ trợ mã hóa cho https, api mà thường dùng cho kiểu connect git, tunneling.
-Lệnh: ssh <username>@<serverip> để connect vào server. Nếu setup pivkey r sẽ tự dùng, nếu k sẽ phải nhập mk.
-Extension Remote SSH của VSC có thể connect vào server mở thư mục ngay trên VSC hiện tại.
-
-
-
-# RDP
-Là giao thức connect vào server và dùng cả giao diện.
-Giao thức này sẽ connect client vào cổng 3389 của server. Cơ chế thì giống SSH, vẫn nhập mk hoặc dùng 1 pivkey trong máy để xác thực.
-VD 1 VM server chạy trên máy window phải hỗ trợ RDP cho client connect chứ hỗ trợ SSH thôi thì chỉ vào được terminal của server đó.
-Phải dùng qua ứng dụng như Remote Desktop Connection, VSC k có extension nào hỗ trợ RDP.
-
-
-
 # SSL/TLS
 -> Luồng SSL trong web server
 - Tổ chức CA được thành lập
@@ -59,11 +11,10 @@ CA check CSR hợp lệ, đã trả phí, thì dùng cert của mình ký thông
 
 - Browser vào web sẽ tạo TLS handshake với server serve FE trước rồi mới giao tiếp request HTTP.
 Browser nhận về cert rồi gửi tới CA check. CA check cert được tạo ra từng đúng cert của CA đó, check các trường ok.
-Từ cert của server, browser và server sẽ trao đổi 1 khoá bí mật chung bằng Diffie-Hellman như bth. Khoá này chính là TLS handshake giữa 2 bên. 
-Có nhiều PP khác như TLS1.3 Key Share. Bước này tự động ta k nhìn thấy.
-Browser và server sẽ trao đổi qua giao thức HTTP, mọi data trao đổi được mã hoá bằng TLS handshake.
+Từ cert của server, browser và server sẽ trao đổi 1 khoá bí mật chung bằng Diffie-Hellman như bth. Khoá này chính là TLS handshake giữa 2 bên, có nhiều PP khác như TLS1.3 Key Share. Bước này tự động ta k nhìn thấy.
+Browser và server sẽ trao đổi qua giao thức HTTP, mọi data trao đổi được mã hoá bằng TLS handshake vừa tạo.
 
-- Khi FE call tới API server cũng tạo TLS handshake mới và check SSL cert của server hợp lệ trước, rồi mới giao tiếp HTTP.
+- Khi FE call từng request tới API server cũng tạo TLS handshake mới và check SSL cert của server hợp lệ trước, rồi mới giao tiếp HTTP.
 TLS handshake có thể keep alive để tái dùng cho nhiều request chứ kp mỗi request là check cert 1 lần. Connection này có sessionid riêng.
 
 -> Usecase dựng 1 server cung API, nhiều server khác có thể call API của server đó. Tất cả server đều do ta quản lý nội bộ.
@@ -102,29 +53,28 @@ openssl req -new -key client-key.pem -out client-req.pem -subj "/CN=Client"
 openssl x509 -req -in client-req.pem -CA ca-cert.pem -CAkey ca-key.pem -CAcreateserial -out client-cert.pem -days 365
 openssl pkcs12 -export -out client.pfx -inkey client-key.pem -in client-cert.pem -certfile ca-cert.pem -passout pass:mypassword
 
-- CA được lưu ở đâu? Ta có thể dựng 1 server riêng lưu CA để các server gửi cert đến check cho giống web server. Nhưng ở đây các server đều do ta quản lý nên có thể lưu pivkey của CA ở 1 nơi bí mật, khi cần sinh them cert thì lấy ra ký, còn cert của CA thì clone ra lưu vào trusted CA ở mọi server luôn.
+- CA được lưu ở đâu? Ta có thể dựng 1 server riêng lưu CA để các server gửi cert đến check cho giống web server. Nhưng ở đây các server đều do ta quản lý nên có thể lưu pivkey của CA ở 1 nơi bí mật, khi cần sinh thêm cert thì lấy ra ký, còn cert của CA thì clone ra lưu vào trusted CA ở mọi server luôn.
 Khi call API thì các server sẽ check cert của nhau bằng cert của CA nó lưu sẵn, chỉ chấp nhận các cert được ký bởi cert này là được.
 
 Note:
 - Cách tạo nhanh key và cert luôn trong 1 request: openssl req -x509 -newkey rsa:2048 -nodes -keyout server.key -out server.crt -days 365 => -newkey rsa:2048 
 Khác với -new chỉ tạo CSR, -newkey sinh cặp keypair mới (RSA 2048 bits) và yêu cầu cấp chứng chỉ CSR luôn cùng lúc, khác với -new chỉ dùng khi tạo mỗi CSR
-- Hệ thống có nhiều server gọi API của 1 server, có thể tái sử dụng 1 key-cert cho nhiều server hoặc mỗi server có 1 key-cert riêng. 
-- Việc dùng cert TLS là đủ để mã hóa và xác thực trong hệ thống luôn mà k cần bất cứ phương pháp gì thêm. Vì bên ngoài k thể có được CA, key, cert để call. 
+- Hệ thống có nhiều server gọi API của 1 server, có thể tái sử dụng 1 key-cert cho nhiều server hoặc mỗi server có 1 key-cert riêng. Nên tạo riêng tăng bảo mật.
+- Việc dùng cert TLS là đủ để mã hóa và xác thực trong hệ thống luôn mà k cần bất cứ phương pháp gì thêm. Vì bên ngoài k thể có được CA, key, cert để call.
 - Các pp như connect vào db hay socket cơ chế có thể khác nhưng về bảo mật vẫn phải tạo secure connection với cơ chế khoá chung tương tự
 - Khi 1 member devops rời comp, phải xoá tk root và rotate cert. Khi tạo cert mới cho CA, phải sinh lại cert cho từng server vì cert mới sẽ k verify được các thứ tạo từ cert cũ. Đó cũng là lý do cert luôn có hạn, nếu k họ cứ cho vô hạn và dùng luôn pivkey chứ sinh cert làm gì. Nếu thành viên biết cả private key thì phải rotate private key luôn.
 
--> K cần CA:
+-> Ký SSL free:
 - Khi self sign trong web server: ta sinh key và cert lưu vào server, khi client kết nối thì gửi cert cho client. Browser nhận cert thấy self sign sẽ đưa warning, hoặc là chủ động cài cert vào máy client, hoặc ấn để ignore là được.
-Dùng self sign thì browser hiện trang cảnh báo, khác với certbot sinh free SSL cert từ Let's Encrypt sẽ k hiện trang cảnh báo. 
-certbot chỉ dùng sinh ssl cho 1 text domain public, chứ localhost hay ip address thì k được mà phải self sign, vẫn có 1 số ít CA cho phép ký ip address. VD dùng localhost để test buộc phải tự ký openssl. VD digital ocean hosting cung domain nhưng k hỗ trợ sẵn ssl thì có thể dùng certbot.
-- Nếu chỉ có 2 server tương tác với nhau, server A có thể lưu cert của server B vào trusted CA của mình rồi tương tác https có SSL bth.
+- Dùng self sign thì browser hiện trang cảnh báo, khác với certbot tương tụ sinh free SSL cert từ Let's Encrypt sẽ k hiện trang cảnh báo. 
+certbot chỉ dùng sinh ssl cho 1 text domain public, chứ localhost hay ip address thì k được mà phải self sign, vẫn có 1 số ít CA cho phép ký ip address. VD dùng localhost để test buộc phải tự ký openssl. VD digital ocean hosting cung domain nhưng k hỗ trợ sẵn ssl thì có thể dùng certbot lấy ssl free.
+- Nếu chỉ có 2 server tương tác với nhau, server A có thể lưu cert của server B vào trusted CA của mình luôn rồi tương tác https có SSL mà k cần CA. Có người rời sẽ phải rotate.
 
 
 
-# Usecase socket chat bảo mật cao với TLS/SSL
-Client server gửi message trong môi trường k an toàn, k thể message nào cũng gửi kèm password được.
-
-Luồng: Sinh ra pubkey và pivkey lưu ở server, sinh cert từ key lưu ở cả client và server. Khi bắt đầu connect, client request pubkey từ server và dùng cert có sẵn check key hợp lệ. Dùng pubkey mã hoá random sharekey sinh ra và gửi tới server. Server giải mã và lưu vào db, v là client server đều có chung 1 sharekey.
+# Giao tiếp môi trường k an toàn tương tự TLS/SSL
+Vấn đề: client server gửi message trong môi trường k an toàn nên k thể message nào cũng gửi kèm password được. VD app chat
+Giải pháp: Sinh ra pubkey và pivkey lưu ở server, sinh cert từ key lưu ở cả client và server. Khi bắt đầu connect, client request pubkey từ server và dùng cert có sẵn check key hợp lệ. Dùng pubkey mã hoá random sharekey sinh ra và gửi tới server. Server giải mã và lưu vào db, v là client server đều có chung 1 sharekey.
 Certificate chứa thông tin công khai nhận dạng 1 tổ chức hay 1 cá nhân. VD nó chứa tên tổ chức, public key của server, tên của CA phát hành cái cert đó, ngày hết hạn của cert.
 
 VD sinh cert và key:
@@ -136,33 +86,10 @@ openssl rsa -in server.key -pubout > publickey.txt => sinh ra public key đưa c
 -> Giao thức HTTP cũng dùng cơ chế symmetric cipher tương tự:
 Client phải gửi request trước để yêu cầu thiết lập secure connection. Server gửi lại SSL/TLS certificate của nó bao gồm public key. Cert chứa mọi thông tin nhận dạng server.
 Client check cái cert đó bằng trusted root CA. Nếu hợp lệ thì client sinh tiếp ra 1 random sharekey chỉ dùng cho session hiện tại. Encrypt sharekey bằng pubkey ở server và gửi cho server.
-Server decrypt ra bằng private key của mình và dùng sharekey trong phiên đó. Cả client và server dùng chung sharedkey để trao đổi =
+Server decrypt ra bằng private key của mình và dùng sharekey trong phiên đó. Cả client và server dùng chung sharedkey để trao đổi
 
 
 
-# GPG trong git
-Cơ chế tạo 1 cặp key trong máy, máy lưu pivkey và dùng để ký commit, pubkey đăng lên git để xác thực chữ ký là của người đó và hiện "Verified".
-Nó cũng có thời hạn như bth. Xác minh rằng 1 người tạo 1 commit sẽ k thể chối việc đã tạo nó.
-
-
-
-## VSC
-# Dùng LiveShare
-Giúp nhiều người cùng vào code trên VSC, làm việc nhóm, tích hợp chat, audio, phân quyền, share terminal thời gian thực. 
-Tắt máy là tắt share
-
-
-
-# VSC có sẵn Remote Tunnel 
-Là cơ chế giúp 2 thiết bị truyền tải data an toàn trong 1 tunnel được mã hoá. Thao tác trên vscode client sẽ trực tiếp chạy lệnh trên máy remote. Điều này là do khi sử dụng, 1 vscode server sẽ được thiết lập trên máy remote.
-
--> Connect remote vào mac:
-1) Sạc + dùng remote tunnel dạng service. Chọn option wake for network access chỉ hiệu quả khi sạc. Đặt thời gian tối màn hình 1p để tối ưu hoá pin. Giảm độ sáng màn hình tối thiểu. Bật low power mode. Tắt vscode để tự tối màn.
-2) Dùng SSH, bật chế độ nhận network outside, luôn phải sạc pin, tắt vscode được, gập màn hình được, nhưng phải cấu hình router forward port 22 cho ip của mac.s
-
-
-
-## Bảo mật server
 # Blind ssrf
 Blind SSRF là dạng SSRF mà attacker không thấy ngay kết quả server fetch: 
 
@@ -171,11 +98,11 @@ VD input "a#b"
 Nếu k encode sẽ gửi https://xxx/test?input=a#b => BE nhận input=a 
 Nếu encode sẽ gửi https://xxx/test?input=a%23b => BE nhận input=a#b
 
--> BE nhận input từ FE rồi call api buộc phải lọc vì hacker bỏ qua FE mà call luôn.
-Nếu external api kiểm soát được thì ta thường encode BE như FE rồi gửi tiếp đi thôi.
+-> BE nhận input từ FE rồi call api buộc phải lọc ở BE vì hacker bỏ qua FE mà call luôn.
+Nếu external api kiểm soát được thì ta thường encode BE như FE rồi gửi tiếp đi thôi. BE check parameterized đúng tham số là được.
 Nếu external api bên thứ 3, thì kb họ có hỗ trợ hay không vì nhiều lúc truyền dạng encode, họ lại xử lý như path bình thường. Ta kb api bên thứ 3 làm gì, chỉ có cách call thử thôi. Có thể nó call tới db hoặc lại gọi cho bên thứ 4 nữa thì sao.
 
-VD tấn công khi gọi api bên thứ 3 bằng cách nối đuôi #: server concat nối url input của user có # ở cuối chặn mọi thứ, sẽ call vào url hack. Có thể cản ký tự # để chặn riêng case này.
+Có thể tấn công khi gọi api bên thứ 3 bằng cách nối đuôi #: server concat nối url input của user có # ở cuối chặn mọi thứ, sẽ call vào url hack. Có thể cản ký tự # để chặn riêng case này.
 VD: API bên thứ 3 https://xxx/test/{id}?input=a 
 User truyền id là ..%2f..%2fotherdata%2fconfiguration# 
 Server gọi vào API bên thứ 3: https://xxx/test/..%2f..%2fotherdata%2fconfiguration#?input=a
@@ -188,7 +115,7 @@ VD3: user input url để server gọi, kể cả k gây hại gì nhưng user i
 Validate input, nếu là Guid, weburl, email phải đúng format. Nếu chọn từ 1 list giới hạn giá trị thì phải check tồn tại trong list đó => best practice
 Input của user là 1 giá trị như username hay gì thì chỉ cần encode url format và gửi tới external server là xong. VD server nhận userInput là a&b=1 thì đúng value là "a&b=1" chứ k xử lý sai. Test thử nếu xử lý sai như VD1 thì phải dùng cách khác. 
 Nhưng nếu input của user là 1 phần của url kiểu "../sites" thì phải để nguyên như vậy. Khi đó chỉ cần lọc # thành %23 để tránh tấn công đổi url thôi. Hoặc xoá mọi % nếu input k thể chứa %
-Sẽ có case k thể fix được như khi api nhận cả các ký tự # / %, thì tuỳ vào độ ảnh hưởng, có modify data nhạy cảm không, có lộ thông tin của user khác không mà xử lý. Nhiều case api bên thứ 3 xử lý lỗi r, nhưng vẫn nên chặn ở server của ta nếu tìm thấy để tránh đổi api bị sai.
+Sẽ có case k thể fix được như khi api nhận cả các ký tự # / %, thì tuỳ vào độ ảnh hưởng, có modify data nhạy cảm không, có lộ thông tin của user khác không mà xử lý. Nhiều case api bên thứ 3 xử lý lỗi r, nhưng vẫn nên chặn ở server của ta nếu tìm thấy để tránh họ đổi api thành sai.
 
 -> Nhanh:
 - Validate format và list input chuẩn
@@ -197,34 +124,28 @@ Sẽ có case k thể fix được như khi api nhận cả các ký tự # / %,
 
 
 # Bảo mật server thông dụng
--> Free SSL:
-C1 là tự sinh SSL bằng openssl và dùng luôn cho web
-VD "openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365" sinh key và cert có hạn 365 ngày.
-C2 dùng Let's script và Certbot:
-Let's script là tổ chức CA uy tín cung chứng chỉ free. Nên dùng kết hợp certbot là tool giúp cài và gia hạn chứng chỉ free từ Let's script.
-
--> CSRF (Cross site request forgery) là lừa trình duyệt thực hiện hành động không mong muốn trong ứng dụng người dùng đã đăng nhập.
+-> CSRF (Cross site request forgery) lừa trình duyệt thực hiện hành động không mong muốn trong ứng dụng người dùng đã đăng nhập.
 VD: B là 1 người muốn phá hủy 1 dự án mà A đang làm. B đăng tải 1 bài lên diễn đàn www.webapp.com nhưng kèm theo 1 đoạn code kiểu: <img height="0" width="0" src="http://www.webapp.com/project/1/destroy">. A vào đăng nhập vào diễn đàn như thường lệ và xem bài viết của B. Khi đó, browser của A đã cố gắng load ảnh nhưng thực tế lại gửi câu lệnh destroy vào địa chỉ này để xóa project có id là 1. Access token hợp lệ vì người dùng đã đăng nhập.
-VD: hacker dùng 1 url rất mượt mà kiếu: <img height="0" width="0" src="http://www.ahackersite.com/abc.jpg"/> => xong cấu hình lại máy chủ: Redirect 302/abc.jpg http://www.webapp.com/project/1/destroy"/> thì người dùng k thể phát hiện ra được => case này không xảy ra vì lệnh call sang web redirect k có credentials gì cả.
+VD: hacker dùng 1 url rất mượt mà kiếu: <img height="0" width="0" src="http://www.ahackersite.com/abc.jpg"/> => xong cấu hình lại máy chủ: Redirect 302/abc.jpg http://www.webapp.com/project/1/destroy"/> thì người dùng k thể phát hiện ra được => case này không xảy ra vì lệnh call sang web redirect k có credentials của web gốc.
 
 Note:
 - Chú ý là request có thể đến từ cùng trang web hoặc từ 1 trang web khác. Vì user vào webA bị lừa thực hiện request tới webB trên browser, browser vẫn tự thêm đúng cookie của webB ở request đó nếu đã từng login webB.
 - Giả sử webB dùng cors không cho phép webA vẫn k cản được CSRF vì cors chỉ cản user đọc response trên browser, chứ thực tế request vẫn được gửi đi rồi. 
 
 --> Thực tế CSRF là kiểu cross-site, còn hacker khiến server gọi các request tới chính nó gọi là Server-Side Request Forgery (SSRF): 
-VD: Server có url http://localhost/admin cho người dùng input 1 url ảnh để nó fetch về. Hacker input luôn http://localhost/admin/delete, server lấy url về và thử fetch thì lại gọi hàm của chính nó. Do server tự gọi chính nó nên request thành công. Nó thiên về XSS hơn.
+VD server có url http://localhost/admin cho người dùng input 1 url ảnh để nó fetch về. Hacker input luôn http://localhost/admin/delete, server lấy url về và thử fetch thì lại gọi hàm của chính nó. Do server tự gọi chính nó nên request thành công. Nó thiên về XSS hơn.
 
---> Cách ngăn chặn: 
-1) Dùng localStorage để lưu token xác thực cho mọi request update, k dùng cookie. Hacker lừa người dùng thực hiện request sẽ k thể đụng vào localStorage được.
+--> Cách ngăn chặn CSRF (k tính SSRF):
+1) Dùng localStorage để lưu token xác thực cho mọi request update, k dùng cookie. Hacker lừa người dùng thực hiện request sẽ k thể đụng vào localStorage được. Nên để token trong header còn tốt hơn nữa.
 Tuy nhiên nếu hacker kết hợp các kiểu tấn công khác như XSS để lấy được token trong localStorage thì lại hack được với CSRF => rất khó. 
-Nếu web của hacker nhúng web này trong iframe và UI lại code để luôn lấy token từ localStorage trước khi call api thì có thể lừa ngừoi dùng thực hiện request không mong muốn trên UI đó bên trong iframe, thì sẽ request vẫn sẽ thành công => cần luôn cản web khác nhúng iframe web ta.
+Nếu web của hacker nhúng web này trong iframe và UI lại code để luôn lấy token từ localStorage trước khi call api thì có thể lừa ngừoi dùng thực hiện request không mong muốn trên UI đó bên trong iframe, thì sẽ request vẫn sẽ thành công => nên luôn cản web khác nhúng iframe web ta.
 2) Lưu credentials vào cookie và dùng cookie option SameSite.
 Nếu set là Strict, thì request từ web khác sẽ k thể gửi kèm cookie thì an toàn
 Nếu set là Lax cũng tương tự nhưng request GET vẫn gửi kèm cookie => khi đó phải đảm bảo mọi request GET ở server phải code đúng, k update data gì cả là được.
-=> Nó cản mọi CSRF từ website khác, nhưng vẫn bị CSRF từ chính website của ta, VD blogweb chứa url call tới API xoá data. Vẫn bị CSRF nếu popup website và lừa ngừoi dùng call api. Do đó vẫn phải bảo mật cẩn thận trong chính site của ta.
+=> Nó cản mọi CSRF từ website khác, nhưng vẫn bị CSRF từ chính website của ta, VD blogweb chứa url call tới API xoá data. Vẫn bị CSRF nếu popup website và lừa ngừoi dùng call api. Do đó vẫn phải bảo mật cẩn thận trong chính site của ta, validate XSS input người dùng thật chuẩn.
 3) Double Submit Cookie: nếu buộc dùng cookie mà buộc phải set None hoặc option LAX nhưng có API GET update data.
 Khi login trong 1 phiên sẽ có 1 random value lưu vào cookie -> FE setup để các form trong web có hidden field gắn giá trị random đó (k fix cứng), hoặc mọi chỗ call api sẽ gán giá trị random đó -> thực hiện request thì server check random val trong cookie với trong hidden field giống nhau là được. 
-Mỗi khi vào web, FE có thể lấy CSRF token từ cookie (nếu k set http only) hoặc từ 1 api riêng (nên dùng), rồi setup để gắn CSRF token vào header X-CSRF-Token (nên dùng), hoặc trong hidden form field đều được. 
+Mỗi khi vào web, FE có thể lấy CSRF token từ cookie (nếu k set http only) hoặc từ 1 api riêng (nên dùng), rồi setup để gắn CSRF token vào header X-CSRF-Token (nên dùng), hoặc trong hidden form field đều được.
 
 VD: <form action="http://bank.com/transfer.do" method="post">
   <input name="amount" value="100000"/>
@@ -233,7 +154,7 @@ VD: <form action="http://bank.com/transfer.do" method="post">
 </form>
 
 VD: dùng package csurf nodejs sẽ tạo middleware chống crsf attack. Token csrf đảm bảo reset sau mỗi phiên dùng của user. Nếu là react phải cung 1 API lấy token về trước.
-Cơ chế nó gắn 1 token gửi tới client để client gửi lại trong header r check thôi. Thêm vào header ấy, r cản iframe là được.
+Cơ chế nó gắn 1 token gửi tới client để client gửi lại trong header r check thôi. Thêm vào header ấy, r cản iframe, lọc XSS chuẩn là được.
 
 -> Dùng SSL chống MITM nhưng vẫn bị replica attack. 
 SSL đã cản sẵn replay attack ở tầng transport, nếu 1 request gửi 2 lần ở cùng 1 kết nối sẽ bị cản vì có sequence number cản tái phát request trong cùng 1 kết nối. Hacker vẫn có thể replay ở tầng application bằng cách thiết lập 1 https connection mới và gửi request y hệt. 
@@ -241,23 +162,34 @@ Replay attack chỉ cần chặn trong trường hợp có data quan trọng, v�
 
 JWT token không có tác dụng gì ở đây. User có thể bị cài malware hoặc keylogger thì hacker biết request trước khi chúng được gửi đi. Hoặc hacker điều khiển LAN, bắt được gói tin từ 1 máy và replica mà k cần giải mã HTTPS luôn. 
 
---> Cách chống:
-1) Timestamp: VD ta cấm 1 request được lặp lại trong quá 1p bằng cách lưu dấu thời gian lại r check. Chú ý xử lý múi giờ khác nhau. 
-Nhược điểm là vẫn replicate được trong 1p đó, an toàn hơn là dùng nonce
+--> 2 Cách chống:
+1) Timestamp: request gắn thêm trường timestamp, server check chưa quá 1p trôi qua so với timestamp thì ok. Quá 1p tức là hoặc mạng lag request đến quá lâu, hoặc bị replica thì báo lỗi. Server k lưu gì cả chỉ cần check thôi. Chú ý xử lý múi giờ khác nhau.
+Nhược điểm là vẫn replicate được trong phạm vi 1p đó.
 2) Nonce: Client gửi request tới server thêm nonce cho server lưu và nếu 1 nonce từng được sử dụng sẽ lỗi luôn. Server nên lưu redis => nên dùng
 
 Để tránh redis phải lưu nonce quá tải thì dùng kèm cả 2 cách là tốt nhất. Vd: signature = md5(uid=1001&stime=19h00&nonce=sessionId-123456 + key)
-Phía server: - Vẫn check timestamp chưa quá 1p => k cần thiết nữa
+Phía server lấy lại từng trường: 
+- Check timestamp chưa quá 1p
 - Check nonce chưa có trong redis ok
 - if(redis.hasKey('sessionid-123456')) { return false; } else { redis lưu lại nonce vói expire time là 1p }
 => Nhờ v sau 1p nonce bị xóa thì redis sẽ k tốn
 
 -> Signature Generation: VD MITM bắt request chuyển tiền và sửa payload người nhận thành hacker => khó xảy ra vì các app quan trọng như ngân hàng, github thường gửi thẳng OTP về điện thoại, google authen, hoặc mã hoá rất kỹ. 
-Giải pháp là ký payload bằng khóa của người dùng thì nếu hacker đổi payload sẽ k khớp với sig nữa. Cơ chế cặp khoá ở đây có thể làm như SSH key. 
+
+Luồng ký payload:
+Dùng diffle-hellman trao đổi 1 khoá chung giữa client server để trao đổi 1 secret.
+Client tạo ra signature từ: timestamp, random nonce, simplified request content, version, secret. Hash tất cả thành 1 string là signature.
+Server nhận sẽ check timestamp k quá xa. Sinh lại signature so khớp với client là được. Các trường kia đều gửi qua url hoặc trao đổi với server có hết r
+
+-> OTP:
+Gọi API đăng ký user thì server sinh ra 1 mã OTP random 6 số chẳng hạn. Có lib otp-generator hỗ trợ sinh số này.
+Server lưu lại vào db với thời gian hết hạn chỉ định và gửi mail or sms cho user. Hash với salt rồi lưu hash với bcrypt.genSalt và bcrypt.hash
+User lấy otp từ mail và input tới server, server check hợp lệ thì ok. Server có thể check bcrypt.compare thì k cần biết salt vẫn check được nhé.
 
 -> Nhanh:
-- Luôn cần chống CSRF: dùng localStorage thì k sao. Dùng cookie thì dùng LAX và đảm bảo request GET sẽ k update data, k thì phải kèm package csurf để double submit cookie. Browser tự gửi cookie và cors k cản request.
-- Chống replay attack khi có data nhạy cảm và replay gây ảnh hưởng: client gửi thêm nonce cho server lưu vào redis, kèm timestamp check cách k quá 100 phút.
+- Luôn cần chống CSRF: dùng localStorage; Dùng cookie LAX và đảm bảo request GET sẽ k update data; K thì phải kèm package csurf để double submit cookie. Phải check XSS, iframe.
+Browser luôn tự gửi cookie và cors k cản request mà chỉ cản browser đọc response.
+- Chống replay attack khi có data nhạy cảm và replay gây ảnh hưởng: client gửi thêm nonce cho server lưu vào redis, kèm timestamp check cách k quá hẳn 100 phút đi.
 
 
 
@@ -284,6 +216,7 @@ Object.setPrototypeOf(__proto__, new Proxy(__proto__, {
 
 -> Cách chống: 
 - Thêm for(;;;); vào đầu response, lúc xử lý thì lọc bỏ đi là được. Hoặc thêm bất cứ thứ gì miễn k thể parse JSON trực tiếp thành object là được.
+Vì parse json thành object xong gọi hàm đã bị sửa prototype sẽ trigger logic code của hacker.
 - Server dùng CORS, hoặc cấu hình CSP chuẩn nếu cho phép web khác gọi API, <script> qua mặt SOP nhưng k qua được CSP => nên giờ ít gặp kiểu tấn công này.
 
 
@@ -291,86 +224,103 @@ Object.setPrototypeOf(__proto__, new Proxy(__proto__, {
 # Hiểu về backdoor
 -> Backdoor bắt thông tin của người dùng gửi về server của hacker, VD hoạt động dưới dạng 1 middleware bắt request của user.
 VD: ta sử dụng 1 gói npm phổ biến A, trong gói A lại dùng package B, trong B có C nhưng thư viện C là 1 thư viện có backdoor mà chưa ai biết đến của hacker. 
-=> Cách chống là chỉ nên sử dụng các gói nổi tiếng, mã nguồn mở, sử dụng các công cụ giám sát các gói tin gửi đến máy chủ có gì lạ không
+=> Cách chống là chỉ nên sử dụng các gói nổi tiếng, mã nguồn mở, sử dụng các công cụ giám sát các gói tin gửi đến máy chủ xem có gì lạ không
 
 -> Backdoor còn có thể là 1 cổng không public cho phép 1 người xâm nhập vào hệ thống. Dev có thể chủ động tạo ra, nếu không có mục đích xấu thì họ làm vậy để có thể tự mình xâm nhập vào hệ thống sửa lỗi và bảo dưỡng. Backdoor cũng có thể do dev cùi tạo ngoài ý muốn. 
 Nhiều nơi, chính quyền còn bắt các nhà phát hành dịch vụ tạo ra các điểm truy cập là backdoor nhưng hợp pháp để nếu nhà nước dùng nó tìm ra tội phạm. Dev cũng có thể chủ ý cài backdoor xong lừa công ty đối thủ dùng nó. 
 Nhiều loại backdoor nguy hiểm có thể tự nhân bản hay tự che giấu. VD các backdoor chạy tiến trình trùng tên với các tiến trình trong hệ thống để không bị phát hiện.
 => Cách chống là k dùng phần mềm không đáng tin, nên chạy ứng dụng test trong môi trường đóng và cung cấp ít quyền nhất có thể.
 
-VD backdoor sử dụng với mục đích tốt: Các phần mềm tự thông báo cập nhật được vì nó được cài phần mềm gián điệp liên tục gửi thông tin về version hiện tại cho server từ xa và server sẽ check phần mềm đó cần update không và người dùng nhận dược thông báo nếu có. Tương tự các phần mềm check bản quyền họ sẽ có chức năng kiểm tra xem người dùng có license không. Đương nhiên việc kiểm tra bắt buộc phải gửi request lên server r thì phải dùng backdoor.
-Các website có thể có backdoor theo dõi người dùng đăng nhập và thực hiện hành động thông báo nào đó kiểu "Bạn vừa đăng nhập ở 1 thiết bị lạ". Cx là để bảo vệ khách hàng thôi.
+VD backdoor sử dụng với mục đích tốt: Các phần mềm tự thông báo cập nhật được vì nó được cài phần mềm liên tục gửi thông tin về version hiện tại cho server từ xa để check phần mềm đó cần update không và người dùng nhận dược thông báo nếu có. Tương tự các phần mềm check bản quyền họ sẽ có chức năng kiểm tra xem người dùng có license không.
+
+
+
+# Tấn công IDOR
+IDOR (Insecure Direct Object Reference): User query user detail dựa trên userid, server check token hợp lệ là chưa đủ, phải check tham số userid truyền vào đúng là user trong token mới được.
 
 
 
 # Rate limit chống DDoS
-Rate limit có thể set up ở nhiều tầng, từ database, server, reverse proxy, tầng mạng
+Rate limit có thể set up ở nhiều tầng, từ database, server, reverse proxy, tầng mạng. Ở server thì các request khác nhau cũng phải có rate limit khác nhau. 
+Request k cần xác thực cho rate limit thấp vì dễ DDoS, VD 10 request 1 phút 1 ip. Request đã xác thực cho 100 request 1 phút, VIP user 500 request 1 phút vì user có api key premium sẽ được nhiều request hơn user thường. Với các hệ thống cung API, có thể implement billing tuỳ tài nguyên nào được requests nhiều, tài nguyên nào bị hạn chế.
 
-Ở server thì các request khác nhau cũng phải có rate limit khác nhau. 
-Request chưa xác thực cho ít vì dễ DDoS, VD 10 request 1 phút 1 ip. Request đã xác thực cho 100 request 1 phút, VIP user 500 request 1 phút, user có api key premium sẽ được nhiều request hơn user thường. Request đặc biệt như reset password, forgot password thì 3 lần 1 ngày. Vd 
-Với các hệ thống cung API, có thể implement billing tài nguyên nào được requests nhiều, tài nguyên nào bị hạn chế.
-
-Usercase 1 user gửi 100 requests reset password cùng lúc. 
-- Reset password là 1 api đặc biệt cho rate limit cực nhỏ thôi, xử lý độc lập các request như bth.
-- Khi có 1 yêu cầu, gửi về mail và yêu cầu xác thực, nếu 1 yêu cầu tương tự cùng user mà mail chưa xác thực thì từ chối
-- Nới lỏng hơn là mã trong mail phải 1h sau mới hết hiệu lực, nhưng 1p sau mà reset password thì vẫn được, ghi đè cái trong mail luôn. Rate limit để 1p 1 lần.
-- reset password mà k cần mail mủng gì cả thì làm kiểu server sinh password và show luôn cho người dùng, thì cho rate limit 5s 1 lần ok luôn. Cách này ok và chỉ k đúng với case forgot password thôi.
+Usecase 1 user gửi 100 requests reset password cùng lúc:
+- Reset password, forgot password là api đặc biệt, có thể cho rate limit cực nhỏ như 3 lần 1 ngày.
+- Khi có 1 yêu cầu, gửi về mail và yêu cầu xác thực, nếu 1 yêu cầu tương tự cùng user mà mail cũ chưa xác thực thì từ chối
+- Nới lỏng hơn là mã trong mail phải 1h sau mới hết hiệu lực, nhưng 1p sau mà reset password tiếp thì vẫn được, ghi đè cái trong mail cũ luôn. Rate limit để 1p 1 lần.
+- reset password mà k cần mail gì cả thì làm kiểu server sinh password và show luôn cho người dùng, thì cho rate limit 5s 1 lần ok luôn. Cách này ok và chỉ k đúng với case forgot password thôi.
 
 Khi thực sự phát hiện ip spam api:
 BlackList: Cho người dùng hoặc IP nào spam vào blacklist cấm luôn, Vd khi 1 người dùng gửi quá nhiều request trong 10s liên tiếp. Có thể lưu vào redis chẳng hạn.
 WhiteList: cấm mọi thứ trừ các IP và user trong whitelist
 
--> Basic: Trong nodejs có thể dùng express-rate-limit kết hợp redis để tạo middleware xử lý rate limit và set cho từng route khác nhau.
-Vd redis lưu rate_limit:IP_1, rate_limit:user_123. Nếu timeout tự xóa khỏi redis, nếu request thì cộng lên, nếu full mà chưa hết time thì từ chối request.
-=> Đó là yêu cầu trong các hệ thống cần ratelimit nhiều tầng phức tạp.
-
---> Rate limit với redis:
-1) Lưu rate limit vào redis, và chạy 1 background song song để xóa key thừa, hoặc updateorinsertifnotexist cho trường expires trùng với rate time.
+-> Implement ratelimit trong nodejs: có thể implement common hoặc mỗi route 1 config ratelimit riêng 
+- Dùng package express-rate-limit
+- Dùng redis:
+1) Lưu rate limit vào redis, và chạy 1 background song song để xóa key thừa, hoặc dùng updateorinsertifnotexist cho trường expires trùng với rate time.
+Vd redis lưu rate_limit:IP_1, rate_limit:user_123. Nếu timeout tự xóa khỏi redis, nếu có request thì cộng lên, nếu full mà chưa hết time expires thì từ chối request.
 2) Dùng Lua script: Lua là 1 lang nhỏ gọn tích hợp vào redis cho phép thực thi script phức tạp ngay trên máy chủ redis. 
 VD dùng lua tăng giá trị 1 key: EVAL "return redis.call('INCR', KEYS[1])" 1 mykey => dùng như 1 ngôn ngữ lập trình chứ k chỉ giới hạn ở các cú pháp của redis-cli
 Redis cũng chỉ là lưu data của rate limit, nhưng Lua giúp thực hiện nhiều task phức tạp trong 1 transaction là 1 script, nhờ đó nhiều request cùng lúc đến xử lý rate limit data trong redis đều ok. Cũng chỉ là viết các logic check, tăng giảm value thôi.
 
--> Còn có package axios-rate-limit là rate limit phía client, quá nhiều request 1 lúc sẽ vào hàng đợi để delay. Các host khác nhau k ảnh hưởng lẫn nhau.
+Còn có axios-rate-limit là rate limit phía client. Khi quá nhiều request 1 lúc sẽ vào hàng đợi để delay. Các host khác nhau k ảnh hưởng lẫn nhau.
 Điều này là cần thiết vì nếu ta crawl data của bên thứ 3, nếu call liên tục quá nhiều họ có thể cho vào blacklist cấm server của ta luôn vì tưởng hacker DDoS.
 
--> Advance: Ratelimit dựa vào khả năng tải của server. Nếu server chịu 100 request/s thì tổng rate limit của 1 api nên khoảng 80% khả năng tối đa.
-Kỹ thuật slide window: thay vì reset cứng mỗi s là 5req/s thì cho phép 10req/2s ok hơn.
-Thường implement thêm hàng đợi để 1 lượng đi vào chờ trước khi từ chối thẳng thừng. 
+-> Các thuật toán ratelimit: Ratelimit dựa vào khả năng tải của server. Nếu server chịu 100 request/s thì tổng rate limit của 1 api nên khoảng 80% khả năng tối đa.
+Kỹ thuật slide window: thay vì reset cứng mỗi s là 5req/s thì cho phép 10req/2s ok hơn. Thường implement thêm hàng đợi để 1 lượng quá tải đi vào chờ trước khi từ chối thẳng.
 
-Thuật toán token bucket là thuật toán kiểm soát rate limit. Xô chứa max 10 token, cứ 1s 1 token thêm vào xô cho đến max là 10, 1 request sẽ lấy 1 token từ xô. Request tới mà xô hết token thì từ chối.
+Thuật toán token bucket: kiểm soát rate limit. Xô chứa max 10 token, cứ 1s 1 token thêm vào xô cho đến max là 10, 1 request sẽ lấy 1 token từ xô. Request tới mà xô hết token thì từ chối.
 Token bucket khác với rate limit bth là nó xử lý burst tạm thời trong thời gian ngắn. Vd nó cho trung bình 1 request 1s, nhưng nếu đột ngột lên 10req/1s vẫn xử lý được vì xô còn đủ token, rồi lại quay về 1 request 1s. Chờ 1 lát hồi sẽ lại cho burst 10req/1s.
 VD server max 100 request 1s, trung bình 50 active user 1 lúc thì rate limit 1 user là 2 request 1s cho phép burst bùng nổ tạm thời lên 5-10 request 1s trong 1-2s rồi giảm về 2 request/1s. 
 => Lib rate-limiter-flexible cho implement Token Bucket.
 
-Thuật toán leaky bucket: 1 xô có tốc độ rò rỉ. VD xô chứa max 100 ô, rò rỉ 10 ô 1s, nếu 200 gói tin đến thì 100 gói bị loại, 100 gói vào xô, sau 1s nữa xô mới trống 10 ô và cứ thế. Cũng giúp xử lý burst.
+Thuật toán leaky bucket: 1 xô có tốc độ rò rỉ. VD xô chứa max 100 ô, rò rỉ 10 ô 1s, nếu 200 gói tin đến thì 100 gói bị loại, 100 gói vào xô, sau 1s nữa xô mới trống 10 ô và cứ thế. Cơ chế tương tự cũng giúp xử lý burst.
+
+-> Implement multi-level rate limit:
+Giả sử server chịu tải 10k req/1s thì vẫn ổn định. Cơ chế chuẩn nhất là tự chia API thành 3 nhóm theo mức độ nặng của CPU là CHEAP MEDIUM EXPENSIVE.
+Set layer 1 là global rate limit 10k req/1s, burst max 20k req/1s. 
+Set layer 2 là endpoint ratelimit. CHEAP (cache, simple read) ta cho call free chỉ bị chặn bởi global rate limit. MEDIUM (write, DB-heavy) ta cho call 6000req/1s, burst 12000req/1s. EXPENSIVE (export, AI, search, report) cho call 4k req/1s, burst 8k req/1s.
+Set cả ratelimit per ip là 100req/1s là đủ tải cả tài nguyên đầu.
+Đầu tiên check req per ip pass rồi đến global ratelimit passed thì mới gọi endpoint ratelimit.
+
+Trường hợp khác không chia theo độ nặng CPU mà chia theo tier khách hàng. Cũng có thể chia nhóm API theo mức độ quan trọng và mức độ truy cập.
+Khi burst, rate vẫn gọi như cũ nhưng lượng thừa lưu hàng đợi, lượng quá burst mới bị huỷ bỏ.
+Global ratelimit đảm bảo server kbh quá tải. Endpoint ratelimit để tránh tranh giành nhau, VD endpoint A chiếm hết băng thông của endpoint B trong khi endpoint B là 1 endpoint quan trọng k nên để failed. Nếu các endpoint equal k có cái nào thực sự quan trọng hơn thì chỉ cần global ratelimit hoặc set ratelimit cho mọi endpoint trừ endpoint qtr.
+=>*** Cơ chế tự cải tiến, có thể code động để server tự đổi ratelimit. VD check log thấy endpoint A bị 429 (request hợp lệ kp ddos) mà global ratelimit vẫn chưa tới thì cân nhắc tăng ratelimit cho A.
+
+-> Nhanh:
+Reset password, forgot password nên cho rate limit nhỏ, có thể gửi mail hoặc trực tiếp, cho request mới sẽ vô hiệu request cũ.
+Dùng redis implement ratelimit trong nodejs. Dùng axios-rate-limit phía client cũng cần ratelimit.
+Dùng thuật toán token bucket set rate limit, tính cả bùng nổ tạm thời.
 
 
 
 # Chống bots và DDoS
 -> Các pp cơ bản:
 Dùng rate limit, cors. 
-Lọc header bất thường hoặc chỉ cho phép request đến từ các nguồn chỉ định. 
+Lọc header bất thường như block request k có User-Agent, block các header bot phổ biến
 Cache static data, CDN giảm tải server gốc.
-Nếu có cơ sở hạ tầng lớn, dùng Anycast Routing để nhiều máy chủ chia sẻ cùng 1 IP. Request client sẽ chia tải nhiều điểm, dùng server gần nhất (Cloudflare).
+Nếu có cơ sở hạ tầng lớn, mở rộng ngang dùng Anycast Routing để nhiều máy chủ chia sẻ cùng 1 IP, request client sẽ chia tải nhiều điểm, dùng server gần nhất.
 
--> Dùng JS/cookie challenge: Các trang web dễ bị quá tải tấn công thì nên dùng như ai chat bot.
-- Bảo vệ data api ở nodejs server cho CSR, hoặc navigate tới 1 trang ở giữa trước cho giải challenge rồi redirect về web gốc.
-Tự implement ở server or cài ở nginx or dùng cloudflare.
+-> Dùng JS/cookie challenge: phương pháp mạnh chủ động dùng để cản DDoS cho các trang web dễ bị quá tải tấn công như ai chat bot.
+- Giúp bảo vệ api ở nodejs server. SSR thì có thể navigate tới 1 trang ở giữa trước cho giải được challenge mới redirect về web gốc.
+Có thể tự implement ở server or cài ở nginx or dùng cloudflare.
 - Người dùng gửi request thì server phải check xem có phải bots không? Token vẫn hợp lệ.
 Phía FE, định kỳ track hành động của ngừoi dùng gửi về server log, track cả click chuột hay bôi đen text. Có mixpanel or google analytics hỗ trợ sẵn.
 Server lưu credentials kèm ip, nếu credentials hợp lệ mà khác ip thì lỗi. Có thể là bot hoặc bật VPN. IP từ source k thể fake vì ở tầng TCP/IP, kp client.
-Server check nếu request gửi liên tục mà user k có click chuột hay hành động gì.
-Server có thể check ip đáng ngờ từ blacklist của IPQualityScore, check user agent phải từ browser, geolocation từ MaxMind.
+Server có thể check ip đáng ngờ từ blacklist của IPQualityScore, check user agent phải từ browser, geolocation uy tín từ MaxMind.
+Server check nếu request gửi liên tục mà user k có click chuột hay hành động gì thì là bots.
 1 API quan trọng bỗng dưng được 1 IP gọi nhiều trong 1 time window, dù k vượt rate limit nhưng k có con người nào làm thế cả.
-- Điều này đồng nghĩa các api cần bảo vệ thì client phải gửi kèm credentials, server phải check token hợp lệ như bth và check cả xem có phải bots không.
-- Có nguy cơ là bots thì client sẽ query api để challenge. Server tạo challenge gửi client xác thực
+- Điều này đồng nghĩa các api cần bảo vệ thì client vẫn phải gửi kèm credentials, server phải check token hợp lệ như bth và check cả xem có phải bots không.
+- Có nguy cơ là bots thì server cản, buộc client query api để challenge. Server tạo challenge gửi client xác thực
 Server lưu token vẫn hợp lệ nhưng bị mark là bot, cần challenge để đổi thành human. 
 Có thể dùng cookie challenge là 1 token độc lập, các API sẽ check thêm challenge token. Verify challenge hợp lệ sẽ sinh 1 token mới cho user. Challenge token này sẽ bị xoá và invalid khi hết hạn hoặc lần mark là bot tiếp theo.
 
+Cơ chế challenge:
 1) Server tạo 1 phép toán đơn giản lưu vào db or biến global <challengeid, answer>, gửi lại <challangeid, question>. Client trả lời sẽ gửi lại kết quả.
-Có thể dùng lib tạo captcha có cơ chế tương tự. 
+Có thể dùng lib tạo captcha với cơ chế tương tự. 
 2) Server làm tương tự nhưng gửi lại client 1 đoạn script chèn vào code, script tự chạy phía client giải ra answer gửi server. Nếu bots k chạy code js sẽ k thể giải challenge.
-Dùng cloudflare cơ chế tương tự nhưng nó tracking chuột phức tạp hơn. Nó có thể hiện dialog rồi tự tắt, hoặc navigate đến 1 page trung gian r redirect về page đích.
+Dùng cloudflare cơ chế tương tự nhưng nó tracking chuột phức tạp hơn. Nó có thể hiện dialog rồi tự tắt, hoặc navigate đến 1 page trung gian r mới redirect về page đích.
 Việc tự động chạy có thể bị bot giả lập, hoặc React CSR k thể navigate, có rất nhiều cách thay thế:
 - Server gửi lại client 1 token, client gửi lại token đó vào api khác, có thể làm thế nhiều lần, bot thường k cấu hình xử lý qua nhiều steps như v
 - Server trả lại pages có nút continue after 5s (waiting room)
@@ -379,6 +329,62 @@ Ngoài ra còn có WebGL fingerprint, Audio context fingerprint.
 
 Note:
 - Chia cấp độ. VD IP nghi ngờ mà đến từ geolocation trong blacklist của MaxMind thì multistep verification kết hợp captcha. IP hơi nghi ngờ thôi thì dùng challenge auto ok.
-- Có thể tuỳ biến các api nhạy cảm thì dùng JS challenge bất cứ khi nào call tới chứ k chỉ cho DDoS. VD có faucet dùng captcha mỗi khi lấy.
+- Có thể tuỳ biến chỉ các api nhạy cảm mới dùng JS challenge bất cứ khi nào call tới chứ k chỉ cho DDoS. VD có faucet dùng captcha mỗi khi lấy.
+
+
+
+# SSH và RDP
+Khác với TLS thì SSH dùng cặp khóa công khai và khóa riêng id_rsa. Thường 1 máy chỉ cần 1 cặp này duy nhất thôi.
+SSH dùng để xác thực, dùng cặp khóa SSH để login mà k cần nhập mk mỗi lần (github).
+SSH dùng để tương tác 2 máy, tạo đường hầm bảo mật mã hóa để truy cập từ xa
+
+-> SSH dùng để đăng nhập vào máy chủ từ xa 1 cách an toàn:
+- Lần đầu tiên login phải dùng mật khẩu.
+Để tránh MITM giả mạo server, server thường có cặp private key và public key duy nhất trong hệ thống, gửi public key cho client.
+Lần đầu tiên sẽ luôn hỏi user xác nhận ip của server để thêm vào known_hosts cùng public key được hashed: "The authenticity of host 'server.com (192.168.1.1)' can't be established. ECDSA key fingerprint is SHA256:abcd1234..."
+Các lần sau server luôn gửi lại public key, client check ip và hash key này khớp với known_hosts là ok. Server đổi key phải update vào client thủ công.
+Pubkey pivkey của máy hiện tại và máy khác mà máy này ssh tới đều lưu tại ~/.ssh với ~ đại diện cho thư mục home của user "/Users/<tên user>"
+
+Sau khi xác thực server, client và server phải thiết lập 1 khóa chung bằng Diffie-Hellman Key Exchange (DHKE) hoặc Elliptic Curve Diffie-Hellman (ECDH).
+VD DHKE: 
+-- client và server sinh 2 số random a và b.
+-- Client tính A = g^a mod p và gửi A cho server.
+-- Server tính B = g^b mod p và gửi B cho client.
+-- Client nhận B tính S=B^a mod p=(g^b)^a mod p
+-- Server nhận A tính S=A^b mod p=(g^a)^b mod p là khóa chung.
+=> Khóa này dùng để mã hóa mọi data truyền qua, nên sau đó password gõ trực tiếp để connect k bị lộ. Khóa cũng tạo mới mỗi lần connect.
+=> p và g là theo quy ước và là public, nhưng không phải public key
+
+- Client và server thiết lập SSH key.
+Client dùng mật khẩu cũng được nhưng gặp vấn đề bảo mật từ key logger hoặc brute-force mật khẩu, khuyên tạo SSH key càng sớm càng tốt.
+Sau khi thiết lập khóa chung, client sinh cặp pivkey pubkey. Gửi pubkey tới server lưu lại.
+Khi connect tới server bằng SSH key. Server gửi 1 challenge tới client, client dùng pivkey ký challenge đó gửi lại, server dùng pubkey check chữ ký đúng là ok.
+Lần sau login, pivkey của client có sẵn trong máy tự lấy ra ký challenge là xong mà k cần nhập mk.
+
+- 2 bên tiếp tục tạo khóa chung bằng DHKE hoặc ECDH để mã hóa trao đổi message như thường
+Việc tạo khóa chung là thuật toán dùng trong nhiều hệ thống, kp chỉ riêng SSH. SSH chỉ là phần client xác thực server bằng pubkey của server. Server xác thực client bằng challenge gửi cho client thôi.
+
+-> Để connect SSH:
+Máy server phải hỗ trợ SSH ở 1 port thường là cổng 22 để client connect vào. Chú ý cấu hình tường lửa.
+SSH k thể thay thế SSL mã hóa giao tiếp giữa client-server. SSL dùng chứng chỉ số cấp bởi CA. Còn SSH kết nối chậm, k hỗ trợ mã hóa cho https, api mà thường dùng cho kiểu connect git, tunneling.
+- Lệnh ssh <username>@<serverip> để connect vào server. Nếu setup pivkey r sẽ tự dùng, nếu k sẽ phải nhập mk.
+- Extension Remote SSH của VSC có thể connect vào server mở thư mục ngay trên VSC hiện tại.
+
+-> SSH chỉ giúp connect vào terminal của 1 máy khác, nếu cần vào giao diện phải dùng giao thức RDP.
+VD 1 VM server chạy trên máy window phải hỗ trợ RDP cho client connect chứ hỗ trợ SSH thôi thì chỉ vào được terminal của server đó.
+Giao thức này sẽ connect client vào cổng 3389 của server. Cơ chế thì giống SSH, vẫn nhập mk hoặc dùng 1 pivkey trong máy để xác thực.
+Phải dùng qua ứng dụng như Remote Desktop Connection, VSC k có extension nào hỗ trợ RDP.
+
+
+
+# GPG trong git
+Cơ chế tạo 1 cặp key trong máy, máy lưu pivkey và dùng để ký commit, pubkey đăng lên git để xác thực chữ ký là của người đó và hiện "Verified".
+Nó cũng có thời hạn như bth. Xác minh rằng 1 người tạo 1 commit sẽ k thể chối việc đã tạo nó.
+
+
+
+# VSC có sẵn Remote Tunnel 
+Là cơ chế giúp 2 thiết bị truyền tải data an toàn trong 1 tunnel được mã hoá. Thao tác trên vscode client sẽ trực tiếp chạy lệnh trên máy remote, do khi sử dụng thì 1 vscode server sẽ được thiết lập trên máy remote.
+Dùng thay thế liveshare để truy cập VSC của máy khác được.
 
 

@@ -1,10 +1,10 @@
 # NodeJS
 -> Để update nvm lên version mới, phải tải lại từ github về file setup.exe và chạy mới lại
-
 -> node cli: 
 node -> http.STATUS_CODES / Date.now()
-node --watch => dùng cho development thôi vì tốn CPU => ref tới "BlogWebBE"
+node --watch => dùng cho development thôi vì tốn CPU
 node --run => thay thế hoàn toàn npm run, nhanh hơn tẹo
+node --expose-gc => bật quyền chạy gc tự động, VD gọi global.gc() để trigger thu gom rác
 
 
 
@@ -19,17 +19,15 @@ Trong production, cài package "typescript" cung lệnh tsc. Viết file tsconfi
 
 
 # Master require, import, module.export và export, dynamic import
-Cần tránh circular dependencies
-
 -> Cơ chế là object được module.exports sẽ chỉ chạy qua 1 lần rồi lưu cache, tức object dùng như 1 singleton.
 Khi dùng async để khởi tạo biến, logic chạy như bth, require như bth, hàm chạy xong sẽ dùng được biến thôi.
 
 VD1: const x = new Class(); 
-module.exports = x; hoặc module exports = { x }; hoặc module.exports = { x: new Class() };
+module.exports = x; hoặc module.exports = { x }; hoặc module.exports = { x: new Class() };
 VD2: Class { static method() {} }
 module.exports = Class; 
 const Class = require("./Class"); Class.method();
-=> Object là singleton chỉ khởi tạo 1 lần.
+=> Object đều là singleton chỉ khởi tạo 1 lần.
 
 VD3: module.exports = () => new Class(); 
 const createInstance = require("./Class"); const x = createInstance();
@@ -45,60 +43,53 @@ VD5: class MyClass {
     return MyClass.instance; 
   } 
 }
-const instance = Database.getInstance();
+const instance = MyClass.getInstance();
 module.exports = instance;
 const instance = require('./file');
 => Khởi tạo bằng hàm async và lấy singleton export ra dùng. Đảm bảo initialize async hoàn thành mới dùng biến là được => best practice
 
-->*** Bản chất lỗi async: gọi hàm async, bên trong hàm gán giá trị cho 1 biến và k chờ nó, sau đó ta export biến ra sẽ lỗi vì khi export, nó sẽ copy state hiện tại của biến vào cache (khi chưa thực hiện xong await) và bị sai => nói chung là như copy constructor
+->*** Lỗi async trong export: 
 VD: let x = 1; async function runSleep() { await sleep(2000); x = 2; } runSleep(); module.exports = { x }; => chỉ export ra 1
+Bản chất là nó copy địa chỉ vùng nhớ của từng trường trong exported object vào cache (singleton), nên nếu đổi x trực tiếp như này sẽ k tác dụng. Nếu đổi x.a = 2; thì lại ngon.
+Tương tự export ra 1 function trả ra biến, hoặc wrap biến vào 1 object và export object ở lv2 cũng được.
 
-Ta nghĩ là object export ra sẽ bị copy vào cache. Nhưng là copy địa chỉ, chứ giá trị 1 trường mà đổi async thì vẫn thấy bth thôi. 
-Ta có thể fix bằng cách export 1 hàm trong file trả về biến đó thì hàm bị copy cache, còn biến trước khi copy vẫn chạy và k bị xoá do hàm vẫn gọi tới. 
-VD: let x = 1; async function runSleep() { await sleep(2000); x = 2; } function getX(){ return x; } runSleep(); module.exports = { getX: getX };
-Ta có thể wrap nó vào 1 biến khác thì biến bao ngoài bị copy, vẫn trỏ tới trường bên trong k bị copy thôi => bỏ, k được
-VD: let client = {}; client.x = x; module.exports = client; => sẽ cache client copy ngay, vùng nhớ x vẫn có ref tới nên k bị xóa, async chạy xong là dùng bth thôi. Chỉ thg được export trong object trực tiếp là bị copy state ngay => bỏ, k được
+-> Cơ chế import tránh circular dependency: Khi file được require lần đầu sẽ chạy từ trên xuống, nếu file từng được require trong dự án rồi thì sẽ k chạy từ trên xuống của file require nữa mà lấy luôn biến export, nội dung file luôn chỉ thực thi 1 lần.
+Chạy theo thứ tự, 1 file k thể dùng data export của file khác nếu file đó chưa từng được chạy từ trên xuống và đi qua hàm export. VD: C require A, A require B, B lại require A. Chạy file C đầu tiên require A -> A require B -> B require A quay vòng, nhưng vì file A chưa được chạy từ trên xuống lần nào nên k thể nhảy vào lấy hàm exports của file A. A buộc chạy từ trên xuống nhưng lại require B tiếp tức quay vòng nên NodeJS bỏ qua.
 
--> Nhanh:
-- Biến module.exports + require nhiều lần luôn là singleton và sẽ copy vùng nhớ, nên đổi 1 trường trong hàm async thì ok chứ gán = 1 vùng nhớ khác sẽ k hoạt động.
-- Dùng dynamic import với await import("") có thể giúp dùng module ESM trong commonjs vì k dùng được require. Dùng vì lazy load.
+--> module.exports và exports từng cái: Nên dùng exports từng cái hơn vì module.exports đôi khi đổi thuộc tính xong nó k update lại instance export, khiến cho require vẫn là data cũ.
 
 
 
 # Dùng biến môi trường
-Chỉ dùng .env nếu cần lưu thông tin nhạy cảm, nếu k thì file config là đủ rồi vì config thậm chí lưu được nhiều kiểu data phức tạp hơn là chỉ string.
+Chỉ dùng .env nếu cần lưu thông tin nhạy cảm, nếu k thì file config là đủ rồi vì config lưu được nhiều kiểu data phức tạp hơn là chỉ string.
 
 -> 3 cách:
-Dùng "node --env-file=.env server.js" => k cài thêm package, xác định .env file cần lấy ngay trong command để chia môi trường => best practice
-Dùng dotenv để lấy data từ file .env => thêm require("dotenv").config(); sẽ mặc định lấy .env, có thể chỉnh lấy rõ file .env nào trong code
-Dùng "cross-env NODE_ENV=pro node server.js" => lấy trực tiếp process.env.NODE_ENV, cái này đè lên file .env
-
---> Phải có "npm install --save-dev cross-env" để dùng trực tiếp tham số trong câu lệnh chạy được với mọi OS. Vì mặc định nó chỉ chạy được với linux và macos thôi, mở dự án trên máy win sẽ k chạy.
-
---> Dùng dotenv kết hợp dotenv-expand còn giúp tạo biến môi trường mà dựa trên biến môi trường khác
-VD dotnev kết hợp cross-env để chọn .env file ngay trong command:
-require('dotenv').config({
-  path: `.env.${process.env.NODE_ENV}`
-});
+- Dùng "node --env-file=.env server.js" => k cài thêm package, xác định .env file cần lấy ngay trong command để chia môi trường => best practice
+- Dùng dotenv để lấy data từ file .env => thêm require("dotenv").config(); sẽ mặc định lấy .env. VD: require('dotenv').config({ path: `.env.${process.env.NODE_ENV}` });
+Có thể kết hợp dotenv-expand giúp tạo biến môi trường mà dựa trên biến môi trường khác. 
+Nhược điểm là dùng cho các biến môi trường cần set trước khi chạy dự án
+- Dùng "cross-env NODE_ENV=pro node server.js" => lấy trực tiếp process.env.NODE_ENV, cái này đè lên file .env
+Phải có "npm i --save-dev cross-env" để dùng trực tiếp tham số trong câu lệnh chạy được với mọi OS. Vì mặc định chỉ chạy được với linux, mở dự án trên máy win sẽ k chạy.
 
 
 
-# Toàn bộ multithread, multiprocess, worker thread
--> PM2 chạy nhiều instance của server. PM2 tự phân bố mỗi process trên 1 CPU core để tối ưu. Nếu máy chỉ có 1 cores, việc chạy nhiều instance với PM2 sẽ k có ích gì. Default dùng round robin để phân bố request vào các instances. Auto restart khi server crash, kiểm soát resource, live reload với --watch, xem log.
-Dự án chạy với PM2 thì nên cài vào package.json, còn tự cài global để xem quản lý log các thứ nếu cần thôi. Dùng được với FE nhưng chỉ cần dùng với BE thôi.
-Cơ chế tạo ra 1 process master quản lý các process worker, các worker cùng listen trên 1 port.
+# Toàn bộ multithread, multiprocess
+-> PM2 (thay thé fork có sẵn): chạy nhiều server instance, auto restart khi server crash, kiểm soát resource, live reload với --watch, xem log. PM2 tự phân bố mỗi process trên 1 CPU core để tối ưu, nếu máy chỉ có 1 cores, việc chạy nhiều instance với PM2 sẽ k có ích gì. Default dùng round robin để phân bố request vào các instances. 
+Dự án chạy với PM2 thì nên cài vào package.json, còn tự cài global để xem quản lý log các thứ nếu cần thôi. PM2 chỉ cần dùng cho BE, dù FE cũng dùng được.
+Cơ chế tạo ra 1 process master lắng nghe port, gửi task đến các process worker khi nhận request
 
-PM2 có 2 chế độ là forkmode và cluster mode:
+PM2 có 2 chế độ là fork mode và cluster mode:
 - Fork mode: "pm2 start app.js --name my-api" => lệnh chạy 1 instance duy nhất. Muốn chạy nhiều instance thì phải chạy nhiều lần script đó. Mỗi instance là độc lập và OS tự kiểm soát việc phân bổ vào CPU core nào, có thể là cùng cores.
-- Cluster mode: "pm2 start app.js -i 0" => PM2 sẽ tự phân bổ instance vào các cores khác nhau theo round robin => luôn dùng
+- Cluster mode: "pm2 start app.js -i 2" => PM2 sẽ tự phân bổ nhiều instance vào các cores khác nhau theo round robin => luôn dùng
+process.title = "node-cluster" => đặt tên cho process hiện trong hđh
 
 --> Tổng kết lệnh:
 pm2 start app.js => k tham số sẽ mặc định chạy 1 tiến trình duy nhất
-  -f => force chạy, khởi động lại tiến trình file đó nếu có đang chạy
+  -f => force chạy, khởi động lại tiến trình file đó nếu đang chạy
   --name appname
   --max-memory-restart 100M => 1 instance dùng max 100MB mem, nếu quá sẽ tự restart lại
   -i max => max là dùng max số process = số core trong máy, hoặc 1 số gì đó chỉ định số lượng instance.
-  --watch => restart các instance khi code change
+  --watch => live reload các instance khi code change
   --node-args='--env-file=.env' => thêm params cho lệnh chạy nodejs
   --no-daemon => k chạy trong background nữa. Khi dùng với docker thì nên có vì nếu chạy bth thì docker dừng luôn vì nó tưởng tiến trình đã kết thúc.
 pm2 start ecosystem.config.js => chạy theo config
@@ -132,34 +123,27 @@ module.exports = {
     }
   ]
 };
-=> set env var trực tiếp trong file config như vậy hoặc chỉ định dùng file env cụ thể với option --node-args='--env-file=.env.production'
+=> set env var trực tiếp trong file config như vậy k an toàn vì push lên git, vẫn có thể chỉ định dùng file env cụ thể với option --node-args='--env-file=.env.production'
 
---> Tự chạy server khi máy khởi động lại với "startup"
+--> Tự chạy server khi máy khởi động lại với "startup", tuỳ os phải cấu hình thêm
 pm2 startup => hiển thị câu lệnh sudo và chạy câu lệnh đó để setup pm2 với systemd
 pm2 save => lưu danh sách app hiện tại đang có 
 Từ giờ mỗi khi khởi động lại máy sẽ tự chạy pm2. Mỗi khi xoá hay thêm app cần chạy lại pm2 save để cập nhật list app chạy startup lại cùng hệ thống.
 pm2 unstartup => tắt tính năng
 
--> Dùng os: Chrome V8 là 1 js engine dùng libuv viết bằng C++ để tương tác với phần cứng và thực hiện các task nặng.
-Khi dùng hàm sync thì nodejs sẽ khoá event loop. Còn hàm async vẫn tự chuyển sang thread pool nhờ libuv để chạy nền cho nhanh. Khi dùng await, nó đợi nhưng thực tế main thread vẫn chạy event loop các task khác, khi libuv xử lý task nặng xong sẽ trả về callback vào event loop xử lý đoạn code dưới await.
-Biến môi trường process.env.UV_THREADPOOL_SIZE thiết lập kích thước threadpool mà libuv tự sử dụng cho các tác vụ async và I/O. Thường ta k cần sửa mà để default là 4, trừ khi server có nhiều task nặng chạy và máy có nhiều cores hơn bth.
+-> Dùng os: Khi dùng hàm async, nodejs tự chuyển sang thread pool nhờ libuv để chạy nền cho nhanh, event loop vẫn chạy bth. Biến môi trường UV_THREADPOOL_SIZE thiết lập kích thước threadpool mà libuv sử dụng cho các tác vụ async và I/O. Có thể keep default là 4.
+Phân biệt: PM2 chia ra nhiều process, mỗi process dùng 1 core do OS phân bổ. Còn UV_THREADPOOL_SIZE là số lượng thread, 1 core có thể chạy nhiều thread, vì số thread > số core nên các thread sẽ cạnh tranh để dùng CPU core.
 URL bản chất libuv và threadpool để nodejs single thread xử lý được task nặng: https://www.youtube.com/watch?v=Vej327jN8WI
-
-Phân biệt PM2 chia ra nhiều process, mỗi process là 1 cores do OS phân bổ. Còn UV_THREADPOOL_SIZE là số lượng thread, 1 core có thể chạy nhiều thread, tức số thread > số core thì các thread sẽ cạnh tranh để dùng CPU core.
-
---> Có 2 loại, 1 là các task I/O bound thực sự như đọc file, call api, query db. Hoặc các hàm là CPU bound nhưng nodejs đẩy vào threadpool của libuv để k chặn event loop thì nó giống như I/O bound. 
-VD logic hash nặng là CPU bound mà ta dùng như I/O bound bằng cách cho vào thread pool. Nếu tăng UV_THREADPOOL_SIZE thì ta sẽ cho phép nhiều tác vụ hash chạy song song hơn.
-
-=>*** Khi dùng kết hợp PM2 và UV_THREADPOOL_SIZE thì nên set tổng threads (PM2 process × UV_THREADPOOL_SIZE) nên ≤ (số core × 2) để tránh quá tải. 
-Nếu I/O bound nhiều thì PM2 để là 2 instance và UV_THREADPOOL_SIZE min là 4. Nếu CPU bound nhiều UV_THREADPOOL_SIZE min là 2, tuỳ vào CPU cores nhiều không.
-Cụ thể CPU bound nhiều thì PM2 instance nên cao, đó là khi xử lý logic trên dữ liệu lớn, tính toán số, xử lý json synchronouse, thuật toán nặng như xử lý ảnh. I/O bound nhiều như truy vấn DB, đọc file, mã hoá async thì nên set UV_THREADPOOL_SIZE cao. 
 Phải set UV_THREADPOOL_SIZE trước khi server chạy mới có tác dụng. VD set trong .env và dùng dotenv sẽ k được vì app chạy rồi mới load. Phải dùng inline hoặc --env-file.
 
-Việc dùng thread hay không không phụ thuộc vào dùng await hay then mà cái task chạy có nặng không sẽ được libuv tự động cho vào thread pool.
+--> Có 2 loại: 1 là các task I/O bound như đọc file, call api, query db; 2 là CPU bound dù thực tế chỉ nặng CPU chứ k bất đồng bộ nhưng vẫn hỗ trợ await và nodejs vẫn đẩy vào threadpool của libuv để k chặn event loop. VD logic hash nặng là CPU bound, và nếu tăng UV_THREADPOOL_SIZE thì ta sẽ cho phép nhiều tác vụ hash chạy song song hơn.
 
--> worker_threads là module có sẵn trong nodejs giúp custom dùng libuv.
-Mặc định libuv chỉ dùng cho các task như DNS lookup, đọc file, I/O, mã hoá. Các task nặng ta tự tạo, VD tính tổng từ 1 tới 1 tỷ, là hàm sync sẽ block mainthread. worker_threads giúp custom chạy hàm đó trên thread riêng bằng libuv.
-Libuv bth luôn an toàn và k sợ data race vì data trong các thread luôn độc lập, dùng worker_threads cũng vậy. Chỉ vài case hiếm dùng với SharedArrayBuffer có bị data race.
+=>*** Khi dùng kết hợp PM2 và UV_THREADPOOL_SIZE thì nên set tổng threads (PM2 process × UV_THREADPOOL_SIZE) nên ≤ (số core × 2) để tránh quá tải. \
+Nếu I/O bound nhiều như truy vấn DB, đọc file, mã hoá async thì nên set UV_THREADPOOL_SIZE cao, PM2 để là 2 instance và UV_THREADPOOL_SIZE min là 4.
+Nếu CPU bound nhiều thì PM2 instance nên cao, đó là khi xử lý logic trên dữ liệu lớn, tính toán số, xử lý json synchronouse, thuật toán nặng như xử lý ảnh. UV_THREADPOOL_SIZE min là 2, tuỳ vào CPU cores nhiều không.
+
+-> worker_threads: Mặc định libuv dùng cho các task await. Các task nặng ta tự tạo, VD tính tổng từ 1 tới 1 tỷ, là hàm sync sẽ block mainthread. worker_threads có sẵn của nodejs giúp custom chạy hàm đó trên thread riêng bằng libuv.
+Libuv bth luôn an toàn và k sợ data race vì data trong các thread luôn độc lập. Chỉ vài case hiếm dùng với SharedArrayBuffer có bị data race.
 Phía FE dùng web worker, phía BE dùng worker thread
 
 -> Nhanh: 
@@ -168,9 +152,9 @@ Dùng worker_threads nếu có task riêng thực sự nặng muốn chạy hoà
 
 
 
-# Server tránh xung đột biến global
+# Dùng async tránh conflict global
 Khi làm việc với C# ASP.NET, mỗi client là 1 thread riêng nên mỗi request sẽ dùng biến độc lập trong từng thread. Ta vẫn có thể tạo class singleton dùng chung được. Ta có thể custom các biến khi vào các async context chạy song song thì dùng chung giá trị hay độc lập.
-Trong nodejs là single thread thì các request sẽ chạy lần lượt theo kiểu asynchronous. Tức dù k bị conflict write biến đồng thời thì các request vẫn có thể dùng chung biến của nhau loạn xạ dẫn đến kết quả k mong muốn. Thông thường ta tạo biến local cho từng request nên k sợ bị xung đột, hiếm khi dùng biến global.
+Trong nodejs là single thread thì các request sẽ chạy lần lượt theo kiểu asynchronous. Tức dù k bị conflict write biến đồng thời thì các request vẫn có thể dùng chung biến của nhau dẫn đến kết quả k mong muốn. Thông thường ta tạo biến local cho từng request nên k sợ bị xung đột, hiếm khi dùng biến global.
 
 -> Module async có hàm queue tạo 1 hàng đợi đồng bộ hoá, hàm trong queue sẽ thực hiện song song với số lượng chỉ định. Nếu set là 1 thì hàm này luôn chạy tuần tự.
 VD: const async = require('async');
@@ -204,16 +188,54 @@ function yourApiEndpoint(req, res) { // VD hàm gọi ở API endpoint
     return res.status(200).json({ message: 'Yêu cầu đã được xử lý thành công.' });
   });
 }
-=> Nó khiến 1 hàm không thể chạy 2 lần, chứ không lock biến bên trong nên bên ngoài mà thay đổi biến song song bởi nhièu luồng vẫn được.
+=> Nó khiến 1 hàm không thể chạy 2 lần, chứ không lock biến bên trong nên thay đổi biến song song bởi nhièu luồng vẫn được.
+
+
+
+# Dùng ExpressJS
+-> Dùng middleware: 
+Khi có request thì các middleware chung kxđ url ưu tiên chạy trước rồi mới đến các middleware riêng của url đó
+1 middleware có thể truyền dữ liệu vào req cho middleware tiếp theo lấy. Các middleware có sẵn đều tự gọi next(), middleware tự tạo phải gọi next thủ công
+Luôn dùng middleware bắt lỗi với 4 tham số, kết hợp với app.all("*", (req,res,next) => {<>}) ở cuối cho route k tồn tại. 
+Express v5 k cần catch next(error) nữa mà tự bắt vô middleware 4 tham số luôn.
+
+-> Hỗ trợ view engine xây web ssr với pug, thay cho ejs khó dùng. Pug thay thế html nhưng có thêm biến và điều kiện.
+
+-> app.set("trust proxy", true); => giúp lấy ip user, vì khi server nằm sau 1 proxy và cần lấy ip của user thì bth chỉ lấy được ip của proxy.
+true là tin tưởng mọi proxy, false k tin tuỏng.
+VD app.set("trust proxy", 5); => tin tưởng 5 proxy gần nhất
+VD app.set("trust proxy", '127.0.0.1, 192.168.0.1, 192.168.0.2'); => tin 3 proxy có ip cụ thể
+=> Khi đó server có thể lấy ip thực từ header x-forwarded-for
+
+-> res.send("x"); gửi data và kết thúc response
+res.write("x"); res.write("y"); res.end(); kiểu gửi từng chunk và response k kết thúc ngay, dùng stream data liên tục kiểu gửi file lớn
+v5: res.status(200).send(body); thay thế res.send(status, body) và hàng loạt hàm tương tự
+
+
+
+# Bắt event global error
+Chạy node index.js có server listen và gọi throw thì ct sẽ tự kết thúc vì lỗi unexpected k được bắt. Phải bắt các event lỗi: 
+unhandledRejection => rejection nhưng k có handler xử lý 
+uncaughtException => phát ra khi uncaught JavaScript exception xảy ra trong event loop
+SIGTERM => khi có request program to terminate, VD ta chạy lệnh kill tiến trình này bằng phương tiện nào đó
+VD: process.on("uncaughtException", unexpectedErrorHandler); Trong unexpectedErrorHandler thg có process.exit(0); 
+Có thể override để tắt các connection tới db, socket, close server. Thực tế, nếu tắt process, nó cũng tự close các connection rồi, và các công nghệ hiện đại đủ để tự xử lý khi 1 bên tự bị close, phía bên kia cũng tự hiểu điều đó mà ta k cần làm gì thêm.
 
 
 
 # Built-in module trong nodejs
 URL tổng hợp: https://www.w3schools.com/nodejs/ref_modules.asp
 
--> Dùng crypto: dùng scrypt hash tốt hơn bcrypt. Dùng random salt để cùng password mà khác hash, lúc verify k cần truyền lại salt.
+-> Dùng crypto: Có thể hash data với hàm scrypt hash, tốt hơn hàm bcrypt. 
+Dùng thêm salt khi hash password để cùng password mà ra khác hash, lúc verify k cần truyền lại salt.
 
--> Dùng child_process: hỗ trợ thao tác đa luồng trong nodejs. Dùng process.send trong nodejs có thể gửi data từ process con sang process cha.
+--> Thuật toán hash FNV-1a 32-bit cực nhẹ, cực nhanh để băm chuỗi ngắn thành 1 số phạm vi 4 tỷ. K thể dịch ngược, chỉ có thể brute force. 
+Thuật toán này đảm bảo các tiêu chuẩn thông thường, chỉ có 1 vấn đề là cùng input luôn ra cùng output. 
+=> Dùng trong các case đơn giản như ẩn thông tin k quá nhạy cảm trong log, VD hash tên của user.
+
+--> Thường nếu cần log che giấu thông tin ta nên làm kiểu <3 ký tự đầu>...<3 ký tự cuối> chứ hash sẽ khó khăn cho việc debug
+
+-> Dùng child_process: hỗ trợ thao tác đa luồng trong nodejs. Dùng process.send trong nodejs có thể gửi data từ process con sang process cha => k dùng
 --> Dùng spawn: chạy 1 lệnh nào trên 1 tiến trình con và trả ra cho stdio
 --> Dùng exec: chạy lệnh nào trên 1 tiến trình con và bắt sự kiện
 --> Dùng execFile: chạy lệnh nào trên 1 tiến trình con và trả ra cho buffer
@@ -221,8 +243,8 @@ URL tổng hợp: https://www.w3schools.com/nodejs/ref_modules.asp
 
 
 
-# Các package backend NodeJS thường dùng
--> yargs: xử lý tham số từ dòng lệnh cmd. Kết hợp minimist để parse process.argv thoải mái
+# Package BE thường dùng
+-> yargs: xử lý tham số từ dòng lệnh cmd
 -> node-persist: giúp tạo 1 global store tạm, tắt là mất.
 -> cheerio: thư viện giúp parse DOM, tạo web crawler
 -> puppeteer: tự động thao tác trình duyệt bằng cách điều khiển các action trên Chrome
@@ -230,26 +252,20 @@ URL tổng hợp: https://www.w3schools.com/nodejs/ref_modules.asp
 -> Joi: thư viện validate type của object, email, password, not null => ref tới "Projects / BlogWeb"
 -> hcaptcha: tạo captcha
 -> KvJS: thư viện giống redis nhưng là dùng với biến JS bth
--> slugify: biến string thành chuỗi slug dùng trong url
-
--> node-cache*: cache trong nodejs bằng biến local. Cần chú ý api nào update data thì phải stale cache đó. 
-Nếu data update nhiều thì k cần dùng cache
-Nếu data update ít hoặc k yêu cầu realtime quá mà query nhiều thì nên dùng.
+-> Jest
 
 -> chalk: package giúp style text trên console
 figlet: package in chữ khổng lồ trên console
-marked + marked-terminal: vẽ ngôn ngữ markdown lên terminal, có thể dùng kết hợp với chalk để custom style => chả bh dùng
-=> Thường chỉ dùng khi cần tạo thư viện
+marked + marked-terminal: vẽ ngôn ngữ markdown lên terminal, có thể dùng kết hợp với chalk để custom style
+=> kbh dùng, thường chỉ dùng khi tạo lib
 
 -> helmet: tự thêm các header bảo mật cần thiết. Khi dùng thì 1s số lượng request có thể xử lý bị giảm đi vài nghìn, đánh đổi security và performance
 -> http-status: thao tác với các loại status http
 -> validator: giúp santinize string để chống XSS. Vd giúp check có phải email hay không chẳng hạn, tập hợp các type check có sẵn. Thay cho express-validator, DOMPurify
 -> concurrently*: khi cần chạy song song client và server trong 1 dự án cùng lúc chỉ bằng 1 lệnh
--> @apollo/server + graphql: để xây 1 graphql server. Kinh nghiệm tạo graphql server thì cái gì cần phân trang thì buộc phải là 1 entity riêng
--> telegraf / node-telegram-bot-api: giúp tương tác với telegram, tạo bot tự động nhắn tin vào channel thay thế email. Cần api key của tele.
--> bullmq*: giúp tạo queue, lập lịch chạy cron job, thay thế node-cron và node-schedule
--> @google-cloud/text-to-speech
--> commander: xây ứng dụng dòng lệnh, custom chạy lệnh nào thì thực hiện actions là gì
+-> @apollo/server v5 + graphql: để xây 1 graphql server. Kinh nghiệm tạo graphql server thì cái gì cần phân trang thì buộc phải là 1 entity riêng
+-> bullmq*: giúp tạo queue, lập lịch chạy cron job, thay thế node-cron
+-> commander: xây ứng dụng dòng lệnh, custom chạy lệnh nào thì thực hiện actions là gì => kbh dùng
 
 -> node-mocks-http: mock http api 
 -> supertest: test nhanh http. Hoạt động với mọi test framework or test 1 mình k cùng framework nào cũng đươc
@@ -261,18 +277,50 @@ VD: autocannon http://localhost:5000/ thì sẽ check 1 gói 10 user chạy cùn
 
 
 
+# Debug và log
+-> Debug nodejs:
+node --inspect index.js -> mở devtool của chrome lên sẽ thấy option nodejs (k thấy thì gõ chrome://inspect/#devices) -> click là thấy console của nodejs trong browser.
+Console của browser giúp nodejs nhìn rõ chi tiết mọi object. Có thể tương tác trực tiếp in ra biến trong browser khi chạy api dừng ở breakpoint.
+File js chạy phát tắt ngay thì k thể mở được devtool. Có thể cho server lắng nghe ở 1 cổng lâu để dùng. 
+Có thể click đúp vào dòng nào trong tab Source để đặt breakpoint, khi call api sẽ dừng ngay tại đó. Đặt "debugger;" trong code thì devtool browser cũng hiểu là dừng ở đó.
+
+-> Ghi log: trong hệ thống qtr về tốc độ, việc ghi log tốn thời gian thường push message vào buffer r chạy 1 thread riêng lấy ra ghi. 
+Log chạy thread riêng nhưng vẫn phải ghi đúng thứ tự. Nên có 1 traceid truy nhất cho 1 request giữ xuyên service và products nếu request tới nh service khác (distribute tracing)
+Dùng winston ghi log thay morgan, viết 1 middleware log request bằng winston chứ k tự động như morgan. Còn có winston-elasticsearch để kết hợp với elasticsearch (chatgpt)
+Có thể tạo log tự notify khi có error log, hỗ trợ filter theo các trường trong log.
+https://www.youtube.com/watch?v=ZwDpGJmGGb8 => Dùng winston v3
+
+Ghi log vào file thì kết hợp winston-daily-rotate-file để config như maxsize, tự động xóa sau bao nhiêu ngày, tên file chia theo thời gian, định dạng ngày tùy chỉnh, zipfile 
+URL: https://www.youtube.com/watch?v=6_DJEZ7285Q
+Cũng có cách để ghi log vào sentry or discord. 
+
+-> debug: package có sẵn trong nodejs giúp log ở môi trường debug
+VD const debug = require("debug")("myapp:server"); debug("Test"); => Dùng debug với namespace có tên là myapp:server, namespace để lọc và phân loại các dòng log debug
+Để dùng:
+Trong linux: "start": "DEBUG=app:* node app.js" or chạy terminal trực tiếp DEBUG=app:* node app.js
+Trong window: cd vào thư mục -> set DEBUG=appmyapp:* => để set env var trong phạm vi thư mục này, rồi chạy bth.
+
+
+
+# Nén data truyền qua API
+- Nhiều nền tảng như Cloudflare cũng hỗ trợ sẵn nén data khi dùng làm proxy: Client <---10KB--- Cloudflare <---100KB--- Origin server
+- compression: lib nén data qua api với gzip. Lưu ý tốc độ nhanh hơn nhưng tăng áp lực lên CPU => nên dùng mọi lúc trừ khi gặp vấn đề CPU server yếu
+- shrink-ray-current*: dùng thuật toán brotli mới của google còn giúp nén mạnh hơn nữa => best practice, éo được với v23 nhưng có thể để nginx dùng, chỉ nên nén 1 lần thôi.
+
+
+
 # Dựng server optimize image
--> Dùng ImageKit hoặc Cloudinary đều cho optimize image và video realtime. Nó tự dùng CDN và cung blur image chuẩn
+-> Dùng cloud sẵn như ImageKit, Cloudinary đều cho optimize image và video realtime. Nó tự dùng CDN và cung blur image chuẩn
 
--> Sharp: giúp dựng server optimize image cho nodejs. Input ảnh và lấy ra đủ loại kích thước muốn blur hay chất lượng giảm như nào tuỳ
+-> Sharp: package giúp dựng server optimize image cho nodejs. Input ảnh và lấy ra đủ loại kích thước muốn blur hay chất lượng giảm như nào tuỳ
 
--> Combo https://github.com/MobileTeleSystems/image-optimize hỗ trợ tận răng chỉ cần chạy với docker là được
-Có thể kết hợp với @mts-pjsc/image-optimize dùng ở FE 
+-> https://github.com/MobileTeleSystems/image-optimize hỗ trợ tận răng chỉ cần chạy với docker là có 1 server optimize image
+Kết hợp với @mts-pjsc/image-optimize dùng ở FE để hiện optimized image
 
 
 
-# Tạo timeout cho API
--> Dùng lib connect-timeout: cung middleware timeout. Cơ chế là setTimeout sau 1 ktg đó thì send error và bắt sự kiện request close thì clearTimeout thôi
+# Timeout API
+-> Lib connect-timeout: cung middleware timeout. Cơ chế là setTimeout sau 1 ktg đó thì send error và bắt sự kiện request close thì clearTimeout thôi
 
 -> Tự implement middleware timeout trong express:
 function withTimeout(ms) {
@@ -292,13 +340,7 @@ app.get('/only-this-route', withTimeout(5000), async (req, res) => {
   res.send('...');
 });
 
--> Timeout global mọi request của server express
-server = app.listen(...)
-server.setTimeout(10000, () => {
-  console.log("Server handling request over timeout");
-});
-
--> Timeout cụ thể trong 1 API:
+--> Hoặc viết cụ thể trong 1 API, phải clear timeout ở cuối:
 app.get("/slow", (req, res) => {
   res.setTimeout(5000, () => {
     console.log("Response timed out!");
@@ -306,15 +348,77 @@ app.get("/slow", (req, res) => {
   });
 });
 
+-> Timeout global mọi request của server express
+server = app.listen(...)
+server.setTimeout(10000, () => {
+  console.log("Server handling request over timeout");
+});
 
 
-# Thao tác với file
+
+# Dùng cors
+Same Origin Policy (SOP) có sẵn trên browser mặc định cản mọi truy vấn khác domain để bảo mật cho website.
+VD vào 1 web F12 và fetch API thì origin là web đó. Nếu gõ url vào browser, or dùng postman, or call từ server thì origin là undefined.
+
+-> Các cấp độ cấu hình cors:
+- Nếu k cấu hình cors thì mặc định dùng SOP, sẽ k thể truy vấn từ origin khác nhưng lại có thể truy vấn từ origin undefined và vào web của nó để tự call đến chính nó.
+Developer có thể disabled security mode trên browser để cản SOP, or dùng các extension cho phép browser tự động có các header Allow-Access-Origin trong request là được.
+VD: facebook dùng cors cho chính nó và cũng allow call từ origin undefined vì app messenger cũng call api được.
+- Có thể tuỳ ý cấu hình cors phía server cho phép custom origin, check by function.
+
+-> Cách để dùng cors:
+- Dùng package cors
+- Tự set 3 headers:
+Access-Control-Allow-Origin là url nào được gọi vào server
+Access-Control-Allow-Credentials để là true thì được phép dùng cookies trong các request cors
+Access-Control-Expose-Headers: Header1, Header2 => cross-origin khi client nhận về ngoài các header mặc định, còn lấy được các header nào thì truyền vào. Để * là tất cả.
+
+
+
+# Session và cookie
+Server k xác định được requests HTTP có phải từ cùng 1 người hay không vì HTTP là 1 giao thức k trạng thái, cookie ra đời giải quyết vấn đề đó. Cookie bộ nhớ nhỏ, lưu ở client và truyền data giữa client server. Browser tự động gửi cũng gây CSRF đó.
+Session là data trao đổi giữa client và server trong 1 phiên, tắt browser bật lại là mất.
+
+Session storage là khái niệm chỉ ở browser, có thể dùng lưu session data. 
+Session cookie là việc cố tính lưu session data vào cookie thôi, vẫn tùy biến tắt browser bật lại là mất với cookie mà.
+
+Khi login server lưu thông tin session lại và gửi lại client sessionid. Server có thể lưu in-memory hoặc redis. Các request sau client gửi lại sessionid trong cookie thì server phải check sessionid từng lưu ở server thì lấy ra. VD package express-session tự làm công đoạn check session hợp lệ, ta chỉ cần lấy ra thôi.
+Khi đó session có thể lưu thông tin nhạy cảm vì chỉ được lưu ở server. Nếu k có thông tin nhạy cảm, có thể chỉ lưu ở client cookie cũng được.
+
+-> Lưu session data:
+- Package express-session giúp lưu data trong cookie ở browser, nó cũng giúp ký data để đảm bảo k bị đổi bởi client => best practice
+- Có thể tùy biến session data lưu lâu dài hay ngắn hạn ở cả client và server với các cách khác:
+Client lưu trong localStorage, sessionStorage
+Server lưu trong redis, mongodb
+
+VD redis có store: new RedisStore(),
+VD connect-mongo hỗ trợ lưu session data:
+store: new MongoStore ({ 
+  url: "mongodb: // localhost: 27017 / test-app", // URL MONGODB CỦA BẠN 
+  ttl: 14 * 24 * 60 * 60, // thời gian hết hạn 1 session
+  autoRemove: "native" 
+}), => Đăng nhập vào mongo atlas sẽ thấy session được lưu ở đó
+
+--> Pb lib:
+cookie-parser: buộc phải có để parse và đọc cooke
+express-session: giúp dùng cookie lưu session data cho expressjs. Cứ dùng là có thêm req.session tùy ý get và set ở server, có hỗ trợ sign với secret và lưu vào cookie.
+Còn có cookie-session lưu session data trong cookie nhưng k bị giới hạn ở express server.
+=> Bth thì dùng express-session cho expressjs, k thì dùng cookie-parser tuỳ biến custom lưu session hoặc permanent được.
+
+-> Giải pháp sync session data trong hệ phân tán: VD client gửi request tới nhiều server khác nhau, server 1 lưu session data, server 2 k lưu sẽ invalid yêu cầu login lại
+- Lưu session data chỉ ở client thông qua cookies / localStorage
+- Lưu ở local server thì cấu hình nginx trung gian thuật toán chỉ gửi 1 user tới 1 server là được
+- Lưu ở 1 database or redis chung để nhiều server cùng lấy được, thường dùng cho SSO, nhược điểm là sập phát toang luôn.
+
+
+
+# File và stream
 Luôn dùng stream cho file
-Chỉ dùng buffer khi cần binary data từ file hay mạng, không phải chuỗi văn bản bth. NodeJS dùng 1 buffer pool chứa các buffer k còn được sử dụng. Khi cần buffer sẽ lấy từ pool ra, nếu k có mới tạo mới 1 biến buffer khác. VD Buffer.allocUnsafeSlow(<size>) để dùng 1 buffer lâu dài k cần quản lý bởi pool và gc
+Chỉ dùng buffer khi cần binary data từ file hay mạng, không phải văn bản bth. NodeJS dùng 1 buffer pool chứa các buffer k còn được sử dụng. VD Buffer.allocUnsafeSlow(<size>) để dùng 1 buffer lâu dài k cần quản lý bởi pool và gc
 
--> Dùng fs: Thao tác với file => ***Điều đặc biệt là nó có thể watch sự thay đổi của 1 file, điều mà database k làm được
+-> Dùng fs: Thao tác với file. Có hàm watch sự thay đổi của 1 file, điều mà database k làm được.
 Lib rimraf: thư viện hỗ trợ xóa file và thư mục tương thích mọi hđh
-Lib mv: move file tới bất cứ đâu. Mạnh hơn fs vì fs bị giới hạn bởi quyền, bản chất là nó xoá file vị trí cũ và create new file ở vị trí mới
+Lib mv: move file tới bất cứ đâu. Nhiều lúc fs bị lỗi quyền nhưng mv lại dùng được. Bản chất là nó xoá file vị trí cũ và create new file ở vị trí mới
 
 -> Upload file lên server
 - formidable: Xử lý files upload từ client. Phức tạp, tốc độ cao, chiếm ít bộ nhớ, bị hạn chế tính năng
@@ -327,86 +431,38 @@ FE nên gửi ảnh qua FormData, tương đương với <form action="/action_p
 - Dùng lib clamscan: scan virus trước khi upload
 - Dùng bên thứ 3 lưu trữ file như S3, cloudinary
 
+-> Dùng stream: Bản chất việc chia chunk stream cũng như chia batch list data, là để xử lý từng phần và giải phóng bộ nhớ trước khi xử lý phần sau, giúp tiết kiệm bộ nhớ hoặc đỡ nặng khi call api. Chứ nếu chia batch xong vẫn lấy tất cả r mới xử lý thì chả có ý nghĩa gì.
+Có thể xem memory của 1 process nodejs trong win: chạy server -> Task Manager tab Details -> tìm process tên là "node". Mỗi request sẽ thấy memory tiêu thụ tăng lên để xử lý 
 
-
-# Dùng stream
-Bản chất việc chia chunk stream cũng như chia batch list data, là để xử lý từng phần và giải phóng bộ nhớ trước khi xử lý phần sau, giúp tiết kiệm bộ nhớ hoặc đỡ nặng khi call api. Chứ nếu chia batch xong vẫn lấy tất cả thì chả có ý nghĩa gì.
-Với các file lớn, dùng stream giúp tối ưu bộ nhớ gấp trăm lần và tốc độ cũng nhanh hơn, k bị tràn buffer => nên dùng stream mọi lúc, trừ khi có nhu cầu xử lý toàn bộ file 1 lúc
-VD đọc 1 file và ghi vào 1 file khác, fs.readFile(..., (err,data) => { fs.writeFile(...) }) nên thay thế bằng: (fs.createReadStream(...)).pipe(fs.createWriteStream(...));
-VD xem memory của 1 process nodejs trong win: chạy server -> vào Task Manager tab Details -> tìm process tên là "node". Mỗi request sẽ thấy memory tiêu thụ tăng lên để xử lý 
-
--> Mỗi stream trong nodejs đều là 1 event emitter cho phép bắt sự kiện. 4 sự kiện có sẵn là data(đọc), end(hết dữ liệu để đọc), error, finish(khi hoàn thành)
+Mỗi stream trong NodeJS đều là 1 event emitter cho phép bắt sự kiện. 4 sự kiện có sẵn là data (đọc), end (hết dữ liệu để đọc), error, finish (khi hoàn thành)
 Các stream trong NodeJS đều là chuỗi or buffer. Chuyển sang chế độ object mode của stream giúp nó thao tác với các kiểu giá trị khác của JS k là dạng buffer hay chuỗi
 
-
-
-# Dùng ExpressJS
-Chỉ giúp tạo server dễ hơn chứ mọi lang đều có cách chạy server thuần.
-
--> Dùng middleware: khi có request thì các middleware chung k xđ url ưu tiên chạy trước rồi mới đến các middleware riêng của url đó
-1 middleware có thể truyền dữ liệu vào req cho middleware tiếp theo lấy. Các middleware có sẵn đều tự gọi next(), chỉ có middleware ta tự tạo mới phải gọi next thủ công
-Bắt lỗi kết hợp với middleware error handler 4 tham số và app.all("*", (req,res,next) => {<>}) khi gọi route k tồn tại
-Có express.Router giúp chia 1 route ra thành nhiều route con
-
--> Dùng view engine xây web ssr với pug, thay cho ejs cú pháp khó dùng
-
--> app.set("trust proxy", true); => khi server nằm sau 1 proxy và cần lấy ip của user thì bth chỉ lấy được ip của proxy, muốn lấy ip user phải báo cho express biết. 
-true là tin tưởng mọi proxy, false k tin tuỏng.
-app.set("trust proxy", 5); => tin tưởng 5 proxy gần nhất
-app.set("trust proxy", '127.0.0.1, 192.168.0.1, 192.168.0.2'); => tin 3 proxy có ip cụ thể
-=> Khi đó server có thể lấy ip thực từ header x-forwarded-for
-
-
-
-# Nén data truyền qua API
-Nhiều nền tảng như Cloudflare cũng hỗ trợ sẵn nén data: Client <---10KB--- Cloudflare <---100KB--- Origin server
-
-compression: lib nén giảm lượng dữ liệu cần truyền qua mạng với gzip. Lưu ý tốc độ nhanh hơn nhưng tăng áp lực lên CPU => nên dùng mọi lúc trừ khi CPU server yếu
-shrink-ray-current*: dùng thuật toán brotli mới của google còn giúp nén mạnh hơn nữa => best practice, éo được với v23 nhưng có thể để nginx dùng.
-
-
-
-# Dùng cors
-Same Origin Policy (SOP) tự có sẵn trên browser mặc địnhcản mọi truy vấn khác domain để tăng tính bảo mật cho website.
-
--> Bản chất cors: Vào 1 website, mở F12 và fetch API thì origin là website đó. Nếu gõ url vào browser, dùng postman, call từ server thì origin là undefined.
-
---> Các cấp độ để cấu hình cors:
-- Nếu ta k cấu hình cors thì mặc định nó dùng SOP, ta k thể truy vấn từ mọi origin website khác nhưng lại có thể truy vấn từ origin undefined or vào trang web của nó để tự call đến chính nó.
-Developer có thể disabled security mode trên trình duyệt or dùng các extension cho phép trình duyệt tự động có các header Allow-Access-Origin với các request là được.
-- Nếu ta cấu hình cors cho phía server có thể tùy biến cho phép origin xác định truy cập API, hoặc truyền 1 function check origin tùy biến. VD: facebook dùng cors cho chính nó và cũng allow call từ origin undefined vì app messenger cũng call api được.
-
--> Để dùng cors có thể dùng lib cors.
-Hoặc tự set 3 headers:
-Access-Control-Allow-Origin là url nào được gọi vào server
-Access-Control-Allow-Credentials để là true thì được phép dùng cookies trong các request cors
-Access-Control-Expose-Headers: Header1, Header2 => cross-origin khi client nhận về ngoài các header mặc định, còn lấy được các header nào thì truyền vào. Để * là tất cả.
+Với các file lớn, stream giúp tối ưu memory và speed và tránh bị tràn buffer => nên dùng stream mọi lúc, trừ khi có nhu cầu xử lý toàn bộ file 1 lúc
+VD đọc 1 file và ghi vào 1 file khác, fs.readFile(..., (err,data) => { fs.writeFile(...) }) nên thay thế bằng: (fs.createReadStream(...)).pipe(fs.createWriteStream(...));
 
 
 
 # Dùng socketio
-Cơ chế Socket.io xây dựa trên Engine.io. Đầu tiên chạy long-polling để tạo kết nối, rồi dùng websocket để truyền tin.
-Có thể bắt sự kiện giữa socket client và server, broadcast event, tạo kênh và phòng, tự động kết nối lại, phát hiện ngắn kết nối, tạo channel nén dữ liệu khi gửi.
-
+Socket.io xây dựa trên Engine.io, đầu tiên chạy long-polling để tạo kết nối, rồi dùng websocket để truyền tin.
+Có thể broadcast event, tạo kênh và phòng, tự động kết nối lại, phát hiện ngắn kết nối, tạo channel nén dữ liệu khi gửi.
 VD: socket.volatile.emit("event_name", data); => volatile thì socket sẽ không cần đảm bảo rằng tin nhắn đã được nhận, giúp giảm độ trễ, gửi là xong luôn. Nếu dùng nó thì đang gửi mà disconnect thì bỏ luôn, còn nếu k dùng thì message được lưu lại tạm thời và khi reconnect sẽ gửi lại.
+URL tut: https://socket.io/docs/v4/tutorial/step-7 => Điểm hay là nó dùng serverOffset để đánh dấu sẽ gửi message thiếu bù lại khi bị disconnect rồi reconnect.
 
-Socket đắt nên ta thường tối ưu kiểu tạo phòng như battle hand, thay vì connect luôn, nếu k vào phòng thì chưa cần kết nối socket. Nên cho options user enable chứ k luôn tạo socket mỗi khi vào web. Khi tắt client sẽ tự disconnect socket nên k cần handle gì thêm
-Cách tốt nhất là code theo luồng. VD tưởng tượng tạo phòng, rồi mn vào thì có data rồi làm gì thì có data gì, ta sẽ dễ dàng biết cái nào phát sự kiện và làm gì. VD lúc connect thì phát sự kiện nhận về data 
-Phía client hay server đều có thể tách file riêng cho export ra cái socket để thao tác, cô lập module. VD cần gửi data cho 1 list socket thoả mãn đk: tạo singleton lưu list socket export từ file riêng; trong hàm on cũng có thể lấy list socket với io.sockets.sockets => ref tới project "Battlehand"
 Phải setup cors cho socketio để cho phép client connect tới, tránh để người ngoài connect vào
+Socket đắt nên ta thường tối ưu kiểu tạo phòng như battle hand, thay vì vào tự connect luôn, nếu k vào phòng thì chưa cần kết nối socket, có thể cho options user enable.
+Cách tốt nhất là code theo luồng. VD tưởng tượng tạo phòng, rồi mn vào thì có data rồi làm gì thì có data gì, ta sẽ dễ dàng biết cái nào phát sự kiện và làm gì. VD lúc connect thì phát sự kiện nhận về data 
+Phía client và server nên tách file riêng cho export ra socket để thao tác, cô lập module. VD cần gửi data cho 1 list socket thoả mãn đk thì tạo singleton lưu list socket export từ file riêng => ref tới project "Battlehand"
 
--> Bản chất khi gọi io.connect():
-Client call tới server qua 1 dạng. VD: ?EIO=3&transport=polling&t=LqtOnHh
-Server trả lại với: "90:0{"sid":"pcJM_AEZirrJT-DuAAUy","upgrades[], "pingInterval":3600000,"pingTimeout":3600000}2:40" => tức server tạo ra 1 socket object cho từng client và trả lại id của socket object đó. 
-Sau đó client call tiếp tới server connect tới cái socket client có id đó: ?EIO=3&transport=polling&t=LqtR6Rn&sid=0JFGcEFNdrS-XBZeAAXM => đây là long poll call và là connect thực sự
+-> Bản chất gọi io.connect()
+VD: Client call tới server qua 1 dạng. VD: ?EIO=3&transport=polling&t=LqtOnHh; Server trả lại với: "90:0{"sid":"pcJM_AEZirrJT-DuAAUy","upgrades[], "pingInterval":3600000,"pingTimeout":3600000}2:40" => tức server tạo ra 1 socket object cho từng client và trả lại id của socket object đó. 
+Sau đó client call tiếp tới server connect tới cái socket client có id đó: ?EIO=3&transport=polling&t=LqtR6Rn&sid=0JFGcEFNdrS-XBZeAAXM => long-poll call và là connect thực sự
 
--> Polling: query liên tục xem có thay đổi không. Duration càng ngắn, càng tốn tài nguyên.
-Long-polling khắc phục nhược điểm của polling với ý tưởng: client gửi 1 request và server giữ lại request đó và sẽ response khi có 1 sự kiện tương ứng diễn ra. Nếu request client bị timeout, khi hết timeout nhưng vẫn chưa có sự kiện mong đợi nào thì server buộc trả về 1 response mà chả có dữ liệu nào, vẫn tốt hơn short-polling nhiều rồi.
-Để tránh việc client bị treo hay ảnh hưởng hiệu suất của tác vụ khác, khi sử dụng long polling, nên thực hiện long polling trên một thread riêng => ít dùng
+-> Cơ chế polling: query liên tục xem có thay đổi không. Duration càng ngắn thì càng tốn tài nguyên.
+Long-polling khắc phục nhược điểm của polling: client gửi 1 request và server giữ lại request đó và sẽ response khi có 1 sự kiện tương ứng diễn ra. Nếu request client bị timeout, khi hết timeout nhưng vẫn chưa có sự kiện mong đợi nào thì server buộc trả về 1 response mà chả có dữ liệu nào, vẫn tốt hơn short-polling nhiều rồi.
+Để tránh việc client bị treo hay ảnh hưởng hiệu suất của tác vụ khác, nên thực hiện long polling trên một thread riêng => ít dùng
 
--> URL: https://socket.io/docs/v4/tutorial/step-7 => Đb là nó dùng serverOffset để đánh dấu sẽ gửi message thiếu bù lại khi bị disconnect rồi reconnect.
-
--> Fix lỗi socket client để lâu tự bị disconnect, lúc bật lên sẽ lỗi. Phải thêm config để tránh lỗi:
+-> Fix lỗi socket client để lâu tự bị disconnect, lúc bật lên sẽ lỗi:
+- VD thêm config để tránh lỗi:
 const socket = io(BASE_URL, {
   path: "/socket.io", // default 
   transports: ["websocket"], // xđ transport mechanism dùng cho connection như websocket, polling. Ở đây dùng để "websocket" để duy trì socket lâu dài.
@@ -414,82 +470,15 @@ const socket = io(BASE_URL, {
   reconnection: true,
 });
 Nếu có authentication khi truyền sẽ phải thêm token để server check quyền với "query":"token="+Auth.getToken()
+- Các pp socket khác k hỗ trợ sẽ phải bắt sự kiện disconnect để connect lại thủ công, hoặc ping định kỳ để check.
 
 
 
-# Session và cookie
-Server k thể xác định được requests HTTP có phải từ cùng 1 người hay không vì HTTP là 1 giao thức k trạng thái, cookie ra đời đã giải quyết vấn đề đó. Cookie giới hạn bộ nhớ nhỏ, lưu và truyền data giữa client server. Tùy biến lưu lâu dài hay ngắn hạn.
-Session là data trao đổi giữa client và server, tắt browser bật lại là mất.
-
-Session storage là khái niệm chỉ ở browser, có thể dùng lưu session data. 
-Session cookie là việc cố tính lưu session data vào cookie thôi, vẫn tùy biến tắt browser bật lại là mất.
-
--> Lưu session data:
-- Có thể dùng express-session lưu data trong cookie ở browser, server ký data để đảm bảo k bị đổi bởi client chứ server k cần lưu => best practice
-- Có thể tùy biến session data lưu lâu dài hay ngắn hạn ở cả client và server:
-Client lưu trong localStorage, sessionStorage
-Server lưu trong redis, mongodb
-
-VD redis có store: new RedisStore(),
-VD connect-mongo hỗ trợ lưu session data:
-store: new MongoStore ({ 
-  url: 'mongodb: // localhost: 27017 / test-app', // URL MONGODB CỦA BẠN 
-  ttl: 14 * 24 * 60 * 60, // thời gian hết hạn 1 session
-  autoRemove: 'native' 
-}), => Đăng nhập vào mongo atlas sẽ thấy session được lưu ở đó
-
---> Pb lib:
-cookie-parser: giúp đọc và lưu cooke tùy ý
-express-session: dùng cookie lưu session data cho expressjs. Cứ set là có thêm req.session tùy ý get và set data ở server, bản chất nó lưu vào cookie và sign với secret, chỉ tồn tại trong 1 sessio.
-Còn có cookie-session lưu session data trong cookie nhưng k bị giới hạn ở express server.
-=> Nếu chỉ cần cookie lưu session thì dùng express-session, còn không thì cookie-parser tùy ý lưu được session hoặc permanent mà.
-
--> Giải pháp sync session data trong hệ phân tán: client gửi request tới nhiều server khác nhau, server 1 lưu session data, server 2 k lưu sẽ invalid yêu cầu login lại
-- Lưu session data chỉ ở client thông qua cookies / localStorage
-- Lưu ở local server thì cấu hình nginx trung gian thuật toán chỉ gửi 1 user tới 1 server là được
-- Lưu ở 1 database or redis chung để nhiều server cùng lấy được, thường dùng cho SSO, nhược điểm là sập phát toang luôn
-- Lưu ở local 1 server, rồi gọi đồng bộ copy session data vào các server khác => éo ổn
-
-
-
-# Dùng nodemailer
--> Gửi mail với gmail thì khi gửi đi sẽ bị chặn, nodemailer để chạy được thì: 
+# Gửi mail
+-> Dùng nodemailer
+Gửi mail với gmail thì khi gửi đi sẽ bị chặn, để nodemailer chạy được thì: 
 - Với tài khoản bth: ta phải bật quyền truy cập của ứng dụng kém an toàn của google account trong mục bảo mật
-- Với tài khoản xác minh 2 lớp (vd qua số đt nx): bảo mật -> App Password -> Sign in password -> SelectApp -> Other -> gõ tên mật khẩu -> sinh ra 1 password mới thay thế cho password hiện có để ứng dụng có tên đó truy cập vào đc gmail của ta 
+- Với tài khoản xác minh 2 lớp (vd qua số đt nx): bảo mật -> App Password -> Sign in password -> Select App -> Other -> gõ tên mật khẩu -> sinh ra 1 password mới thay thế cho password hiện có để ứng dụng có tên đó truy cập vào đc gmail của ta 
 URL: https://myaccount.google.com/security
 
-
-
-# Debug và log trong nodejs
--> Debug nodejs
-node --inspect index.js -> mở devtool của chrome lên sẽ thấy option nodejs (k thấy thì gõ chrome://inspect/#devices) -> click là thấy console của nodejs trong browser
-Console của browser sẽ giúp nodejs nhìn rõ chi tiết mọi object. Có thể tương tác trực tiếp in ra biến trong browser khi api chạy dừng ở breakpoint.
-File js chạy phát tắt ngay thì k thể mở được devtool. Có thể cho server lắng nghe ở 1 cổng lâu để dùng. 
-Click đúp vào dòng nào trong tab Source để đặt breakpoint, khi call api sẽ dừng ngay tại đó, F10 đi tiếp. Đặt "debugger;" trong code thì devtool browser cũng hiểu là dừng ở đó
-
--> Ghi log: Trong hệ thống qtr về tốc độ, việc ghi log tốn thời gian thì thường push message vào buffer r chạy 1 thread riêng lấy ra ghi.
-=> Dùng winston ghi log thay morgan, phải tự viết 1 middleware log request bằng winston chứ k tự động. Còn có winston-elasticsearch để kết hợp nó với tool elasticsearch (chatgpt)
-URL: https://www.youtube.com/watch?v=ZwDpGJmGGb8&t=150s
-
-Kết hợp với winston-daily-rotate-file để config như maxsize, tự động xóa sau bao nhiêu ngày, tên file chia theo thời gian, định dạng ngày tùy chỉnh, zipfile 
-URL: https://www.youtube.com/watch?v=6_DJEZ7285Q
-
--> Package debug có sẵn trong nodejs giúp log ở môi trường debug:
-VD: const debug = require("debug")("myapp:server"); debug("This is message"); => Dùng debug với namespace có tên là myapp:server, namespace có vai trò lọc và phân loại các dòng log debug
-Để dùng:
-Trong linux: "start": "DEBUG=app:* node app.js" or chạy terminal trực tiếp DEBUG=app:* node app.js
-Trong window: cd vào thư mục -> set DEBUG=appmyapp:* => để cho debug trong môi trường nào rồi chạy bth. Làm như này sẽ set biến môi trường của window trong phạm vi thư mục đó
-
--> Cũng có thể ghi log vào centry or discord.
-K nên in chi tiết lỗi quá mức để chỉ đường cho hacker biết thêm thông tin
-
-
-
-# Bắt global error
-Chạy node index.js có server listen và ta gọi throw thì ct sẽ tự kết thúc vì lỗi unexpected k được bắt. Phải bắt các event lỗi: 
-unhandledRejection: rejection nhưng k có handler xử lý 
-uncaughtException: phát ra khi uncaught JavaScript exception xảy ra trong event loop
-SIGTERM: khi có request program to terminate, VD ta chạy lệnh kill tiến trình này bằng phương tiện nào đó
-VD: process.on("uncaughtException", unexpectedErrorHandler); Trong unexpectedErrorHandler thg có process.exit(0); 
-Ta có thể override để tắt các connection tới database, socket, close server. Thực tế, nếu tắt process, nó cũng tự close các connection kia rồi, và các công nghệ hiện đại đủ để tự xử lý khi 1 bên tự bị close, phía bên kia cũng tự hiểu điều đó mà ta k cần làm gì thêm.
 

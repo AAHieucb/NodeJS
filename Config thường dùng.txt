@@ -8,7 +8,8 @@ new Redis({
 
 
 
--> var testSchema = new Schema({
+-> Mongoose v6:
+var testSchema = new Schema({
   level1: new Schema({
     level2: new Schema({
       test: String
@@ -32,10 +33,10 @@ new Redis({
       type: String, 
       lowercase: true, 
       uppercase: false, 
-      trim:true, 
+      trim:true, => tự xoá khoảng trắng đầu và cuối chuỗi
       minlength: 2, 
       match: "Hello", 
-      required: function() { this.age > 0 } 
+      required: function() { this.age > 0 }, => trường age > 0 mới thêm document mới vào khi lưu
     }
   },
   mapOfString: { type: Map, of: String },
@@ -52,7 +53,7 @@ new Redis({
     alias: "d"
     index: true,
     unique: true,
-    sparse: false,
+    sparse: false, // or, dùng 1 trong 2 unique hoặc sparse index thôi
     enum: [1, 2],
     validate: () => Promise.resolve("OK"); => là validate bất đồng bộ
   },
@@ -62,28 +63,53 @@ new Redis({
       validator: function(v) { return /\d{3}-\d{3}-\d{4}/.test(v); },
       message: props => "not a number"
     },
-    select: false
+    select: false, => Xác định default projection for queries. Khi mặc định thì bỏ qua trường này, phải xác định rõ mới lấy
     toJSON: { virtuals: true },
-    toObject: { virtuals: true }
+    toObject: { virtuals: true },
+    type: {
+      type: String, => trường là type ký tự đặc biệt phải lồng thêm như này
+    }
   },
   author: { 
     type: Schema.Types.ObjectId, 
     ref: "Person5", => ref đến model "Person5" cột _id
     autopopulate: true, => từ lib mongoose-autopopulate sẽ tự populate trường này
-  }, 
+  },
+  ofMixed: [Schema.Types.Mixed], => mảng chứa bất kỳ kiểu data nào mix nhau, vì Schema.Types.Mixed đại diện cho bất cứ thứ gì
   hahaTestRef: {type: ObjectId, required: true, refPath: "onModel"}, => là 1 ObjectId ref tới 1 docs khác, docs nào thì xem ở trường onModel
-  onModel: {type: String, enum: ["BlogPost", "Product"]}, => 1 enum báo trường hahaTestRef ref tới bảng BlogPost or Product thông qua cột _id
+  onModel: {type: String, enum: ["BlogPost", "Product"]}, => 1 enum báo trường hahaTestRef ref tới bảng BlogPost và Product thông qua cột _id, 1 bảng ref nh bảng
+  time: {
+    type: Date,
+    default: Date.now, // mặc định là thời điểm tạo document
+    index: {
+      expires: 20 // Mongodb hỗ trợ TTL index tự xoá document sau 1 ktg, ở đây nếu time + 20s < now sẽ bị xoá
+    }
+  }
 });
 
 --> hahaTestRef: { refPath: "onModel" } => Khi gọi .populate("on") sẽ chạy vào thấy refPath và nhảy vào trường onModel xem bảng nào, rồi check _id của bảng đó trùng với giá trị trường hahaTestRef thì lấy
+
+--> await Staff.find(
+  { name: /hello/i, age: { $gte: 18 } }, // conditions
+  { name: 1, age: 1, position: 1, _id: 0 }, // projection
+  { 
+    skip: 10,
+    limit: 5,
+    sort: { age: -1 }, // sắp xếp giảm dần theo age
+    lean: true, // trả về object JS thuần, không phải document mongoose
+    collation: { locale: "en", strength: 2 }, // so sánh không phân biệt hoa/thường
+    hint: { age: 1 }, // gợi ý index để tối ưu
+    readPreference: "secondaryPreferred", // ưu tiên đọc từ replica
+  }
+).exec();
 
 
 
 -> Middleware:
 app.use(express.json({ limit: "50mb" })); // parsing application/json vào req.body, max 50mb tránh ddos
-app.use(express.urlencoded({ // parsing application/xwww-form-urlencoded vào req.body
-  extended: true,
-  limit: "50mb"
+app.use(express.urlencoded({ // parsing application/xwww-form-urlencoded vào req.body, v5 default sẵn app.use(express.urlencoded({extended:false}))
+  extended: true, // cho phép phân tích dữ liệu phức tạp như array object lồng, false thì chỉ parse string key-value thôi
+  limit: "50mb" // kích thước body max, default 100kb
 }));
 app.use(express.static(path.join(__dirname, "public"))); // Static file serving
 
@@ -97,11 +123,11 @@ app.use((err, req, res, next) => { // Error handling
 --> multer v1:
 var multer = require("multer");
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, __dirname + "/uploads"); // Đường dẫn upload ảnh
+  destination: (req, file, cb) => { // req là request gửi tới, file là object có thông tin về file
+    cb(null, __dirname + "/uploads"); // 1 là error, 2 là url upload ảnh
   },
   filename: (req, file, cb) => {
-    cb(null, Date.now() + "_" +  file.originalname); // Tên file
+    cb(null, Date.now() + "_" +  file.originalname); // 1 là error, 2 là file name
   }
 });
 const upload = multer({ storage: storage });
@@ -220,3 +246,32 @@ module.exports = {
 Lần đầu vào thì dùng "pm2 deploy production/staging setup"
 Khi có version mới đổi code thì chạy "pm2 deploy production/staging", nó sẽ thao tác lại pull code và chạy post-deploy. Các instance cũ không tự xóa mà "pm2 reload" trong post-deploy sẽ reload các instance này đúng cách với code mới.
 
+
+
+-> const cookieParser = require("cookie-parser");
+app.use(cookieParser(
+  "secretKey", // Khoá ký cookie
+  {
+    decode: (val) => decodeURIComponent(val) // Cách giải mã cookie, default
+  }
+));
+
+--> res.cookie(
+  "key", "value",
+  {
+    domain: "example.com",
+    expires: new Date(Date.now() + 900000), // K set or bằng 0 sẽ tạo ra session cookie tạm thời trong bộ nhớ và tự xóa khi hết phiên
+    encode: String, // String là hàm giữ nguyên chuỗi, mặc định tự dùng encodeURIComponent
+    httpOnly: true,
+    maxAge: 1000 * 60 * 30, // Thời gian cookie hết hạn so với thời điểm đặt tính bằng ms
+    path: "/", // default là "/"
+    secure: true,
+    signed: true, // cookie sẽ được signed
+    sameSite: "lax",
+  }
+);
+
+--> res.clearCookie("key", {
+  domain: "example.com", // Phải điền trung domain cũ nếu set cookie có xác định domain
+  path: "/", // Bắt buộc nếu lúc set cookie có path khác "/", phải điền trùng path cũ
+});

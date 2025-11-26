@@ -1,0 +1,45 @@
+html  
+    head
+        title Using Pug 
+    body
+        header
+            h1 This is content of h1
+        section
+            p This is content of p 
+
+            h1.welcome
+            p#content
+            span.note#note_1
+
+            a(href='freetuts.net') Freetuts     
+            |
+            |
+            a(class='button' href='freetuts.net' style="color: red; background: yellow") Freetuts
+            //- Các thanh | khi xuống cùng hàng tượng trưng cho dấu cách giữa các thẻ inline
+            |
+            |
+            a(class='button', href='freetuts.net', class="btn", style={color: 'red', background: 'green'}) Freetuts
+
+            //- Khởi tạo biến và sử dụng bằng cách <tên thẻ>=<biến>
+            - var freetuts = 'Learn Nodejs'
+            h1=freetuts
+            
+            - var isLogin = true
+            if isLogin 
+                h1(style={color: 'green'}) Welcome to Freetuts
+            else
+                h1(style={color: 'red'}) Login please !!!
+
+            - var friends = 0
+            case friends
+                when 0
+                    p you have no friends
+                when 1
+                    p you have a friend
+                when 2
+                    - break //- K có break sẽ tự tràn xuống dưới và chỉ tràn khi trong 1 when k có gì cả
+                when 3: p you have no friends
+                default
+                    p you have #{friends} friends
+        footer
+            This is content of footer
