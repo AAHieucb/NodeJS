@@ -1,4 +1,5 @@
 # Redis
+Có thể dùng cho lock, lưu session.
 GPT for redis: https://redis.io/chat
 
 -> Cài đặt: 
@@ -52,7 +53,6 @@ const results = await redis.pipeline()
 
 
 
-//!!!!!!!!!
 # Tổng kết các kiểu dữ liệu redis-cli
 Có nhiều kiểu data: set, string, list, zset (sorted set), hash, bitmap, hyperloglog, GEO, stream
 
@@ -76,7 +76,7 @@ set foo bar ex px 20000 => px biến đổi thành milliseconds
 mset user:001:name myname user:001:age 18 => set multiple key-value
 mget key1 key2 => lấy multiple key
 strlen key1 => lấy length của 1 key
-incr/decr key1 => tăng giá trị key1 lên 1, chỉ được nếu value của key1 là 1 số int
+incr/decr key1 => tăng giá trị key1 lên 1, chỉ được nếu value của key1 là 1 số int, nếu k tồn tại sẽ add key mới và tăng giảm bth
 incrby/decrby blog::0001::readcount 10 
 SETEX <key> <timeout> "<value>" => lệnh version cũ hơn của set <key> <value> ex <timeout>
 SETNX <key> "<value>" => key k tồn tại thì set là value, nếu key tồn tại r thì thôi, tức là Set if Not eXist (tx)
@@ -144,6 +144,11 @@ HKEYS user:01 => lấy list key
 HVALS user:01 => lấy list value
 => Còn có redisJSON lưu data key value với value là kiểu json nhiều trường phức tạp. Ta cũng có thể stringify json lưu với kiểu hash bth
 
+SETBIT keybit 123456 1 => key là keybit, value là 1 chuỗi bit có bit thứ 123456 lật thành 1
+GETBIT keybit
+BITCOUNT keybit => trả bao nhiêu bit là 1, VD lưu số lượng user trong hệ thống.
+MEMORY USAGE keybit => check value của 1 key nào chiếm bao nhiêu bytes
+
 -> string có 3 kiểu encode dựa trên SDS (string dynamic symbol) của C: embedded khi length <= 44 bytes, raw khi length > 44 bytes, int khi là số nguyên
 Vd: SET str <44 ký tự> => "object encode str" sẽ ra embstr
 SET str <45 ký tự> => sẽ ra raw
@@ -162,7 +167,8 @@ WATCH có tác dụng khoá cho các lệnh sau WATCH và trước EXEC, nên n�
 CLIENT LIST => list connection
 INFO
 CONFIG GET maxclients => lấy max số lượng connection
-CONFIG SET maxclients 
+CONFIG SET maxclients 10000 => set max 10k client connection đồng thời. Klq số người dùng hay request mà 1 server có thể mở max 10k connection tới redis.
+INFO clients => xem lại setting
 CONFIG GET * => lấy mọi cấu hình
 SLOWLOG help 
 SLOWLOG GET [count] => xem [count] lệnh chạy chậm gần đây, dùng khi cần test hiệu năng
@@ -408,8 +414,8 @@ VD: const getData = async get(key) => {
 -> Cache penetration: hacker cố tình tạo hàng triệu request với key rác cố tình k có trong cache khiến server query vào db để tìm. 
 Giải pháp: 
 - Lọc trước các yêu cầu k hợp lệ ở server => luôn làm
-- Khi có query thì gán cache value là null, query db có thì update lên cache, k có thì thôi. Để expires time ngắn tầm 1p để tránh sau này có key đó thật. Nếu bị nhiều thì chặn IP address của hacker luôn
-- Bloom Filter là kiểu DS giúp check nhanh sự tồn tại của 1 phần tử trong tập hợp, implement ở server để check trước khi call db. Nếu check là có thì có thể có hoặc không có trong db, nếu check là k thì chắc chắn k có trong db => ít dùng
+- Khi có query thì gán cache value là null, query db có thì update lên cache, k có thì thôi. Để expires time ngắn tầm 30s để tránh sau này có key đó thật. Nếu bị nhiều thì chặn IP address của hacker luôn
+- Bloom Filter là kiểu DS giúp check nhanh sự tồn tại của 1 phần tử trong tập hợp, implement ở server để check trước khi call db. Nếu check là có thì có thể có hoặc không có trong db, nếu check là k thì chắc chắn k có trong db => ít dùng, khi update ít mà query nhiều thôi
 
 --> Cơ chế bloom filter là 1 dãy bit, mỗi ptu được hash qua k hàm băm lấy ra k bit bị lật. Nó cho ptu cần check qua k hàm băm lấy ra k bit rồi check với dãy bit gốc để biêt phần tử có thể xuất hiện trong db không.
 Bộ nhớ rẻ, check nhanh, xác suất càng chuẩn thì càng nhiều hàm băm. Nhược điểm là db có 1 triệu phần tử sẽ phải thêm cả triệu phần tử vào Bloom Filter khi chạy server, bị lâu nên phải làm ở task nền.
@@ -417,8 +423,23 @@ Khi thêm hay xoá phần tử cũng phải update bloom filter. Nhưng khi xoá
 
 
 
+# RediSearch
+Công cụ có sẵn của redis mạnh hơn cả Elastic Search trong việc tìm kiếm, autocomplete
+VD:
+hset user_player:1 name "messi" body "hello world"
+FT.CREATE player_index prefix 1 user_player: SCHEMA name TEXT body TEXT => tạo index có tên là player_index, đánh mọi key có prefix trong danh sách có 1 phần tử là user_player: 
+FT.SEARCH player_index "messi" => tìm phần tử có name or body chứa "messi", tìm chứa cả từ chứ kp 1 phần từ
+FT.SEARCH player_index "mes*" => tìm 1 phần của từ, ở đây là bắt đầu bằng "mes"
+FT.SEARCH player_index "@name:messi" => tìm mỗi trường name
+FT.SEARCH player_index "messi|ronaldo" => tìm name or body chứa messi or ronaldo
+FT.SEARCH player_index "-messi" => tìm name or body k chứa messi
+FT.SEARCH player_index "%mesi%" => tìm sai từ vẫn ra, default trong phạm vi lệch 1 ký tự
+FT.SEARCH player_index "%mesi%" LIMIT 0 2 => phân trang lấy từ 0 đến 2. 
+
+
+
 # Other
--> Còn có RedisStore được tối ưu chỉ cho lưu session data, cookies data phía server. 
+-> Còn có RedisStore được tối ưu chỉ cho lưu session data, cookies data phía server. URL: https://www.youtube.com/watch?v=d7hbNHy5ToM
 
 -> SS cache redis:
 --> Data bth chỉ cần dùng db. Với data query nhiều, tốc độ cao, hoặc mang tính chất nhất thời k lưu lâu dài như bảng xếp hạng game realtime thì dùng cache ok.
@@ -427,4 +448,17 @@ Redis lưu data trên RAM, tốc độ cao nhưng tốn RAM nên k thể thay th
 --> Redis cung cấp nhiều tính năng như pub/sub, sự kiện, hỗ trợ kiểu dữ liệu phức tạp, có chế độ cluster, lưu data bền bỉ trong đĩa cứng, đơn luồng (nên mỗi lệnh là atomic). VD: Redis hỗ trợ HyperLogLog là một cấu trúc dữ liệu xác định xấp xỉ số lượng phần tử duy nhất trong một tập hợp lớn mà không cần lưu trữ tất cả các phần tử đó
 Memcached giống Redis nhưng thiếu nhiều tính năng, chỉ dùng với string, chỉ lưu trong memory restart là mất. Do đó nó cũng có hiệu suất cao hơn và tải công việc lớn hơn.
 => Ứng dụng nhỏ dùng memcached là được. Còn cần linh hoạt hay tính năng nâng cao thì dùng redis.
+
+-> Implement lưu distribute cache trong micro-service: giả sử có lượng lớn request đồng thời chia vào 3 service nhận request lấy ra data, dùng chung cache và db.
+Trong 1 service: request lấy từ cache -> k có sẽ lock code lại -> lấy lại từ cache tiếp -> nếu cache k có thì lấy từ db -> update vào cache -> unlock code
+Check lại cache sau khi lock để khi request đầu lock, các request sau sẽ chờ lock mở rồi retry get lại từ cache thôi. Khi lock mở thì các request sẽ tuần tự vì có lock, nếu muốn xử lý song song thì thì xử lý thay vì chờ để lấy lock, có thể để retry vài lần sau vài giây.
+Max mỗi service call tới db 1 lần duy nhất.
+
+-> Check user tồn tại trong 100M users. VD: gõ email đăng ký 0.1s phát là hiện email đã từng được đăng ký trong 100M users.
+Việc dùng SELECT COUNT(email) FROM X WHERE email = "input" rất lâu với 100M users. Phải dùng redis với bitmap và hash.
+- Lưu trực tiếp trong redis: SET user@gmail.com 1 => để biết 1 user đã login
+Cách này bị tốn memory vì lưu toàn bộ gmail vào redis
+- Dùng thuật toán CRC32 chuyển đổi string sang 1 số int rồi lưu int là key trong redis. CRC32 cho phép input maxIntValue và sẽ trả hash là số int từ string.
+VD SET 11001 1 => tương đương SET user@gmail.com 1 nhưng bộ nhớ rẻ hơn.
+- Dùng bitmap rẻ nhất khi có số lượng lớn users.
 

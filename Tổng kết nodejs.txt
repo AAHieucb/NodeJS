@@ -386,12 +386,12 @@ Khi login server lưu thông tin session lại và gửi lại client sessionid.
 Khi đó session có thể lưu thông tin nhạy cảm vì chỉ được lưu ở server. Nếu k có thông tin nhạy cảm, có thể chỉ lưu ở client cookie cũng được.
 
 -> Lưu session data:
-- Package express-session giúp lưu data trong cookie ở browser, nó cũng giúp ký data để đảm bảo k bị đổi bởi client => best practice
-- Có thể tùy biến session data lưu lâu dài hay ngắn hạn ở cả client và server với các cách khác:
-Client lưu trong localStorage, sessionStorage
-Server lưu trong redis, mongodb
+- Package express-session giúp lưu cookie data trong memory của server, cũng hỗ trợ ký data để đảm bảo k bị đổi bởi client
+Package này gây memory leak và có thể mất data khi reload server, khi mất data thì mọi user sẽ bị logout. Nên họ gợi ý lưu trong MongoStore hoặc RedisStore.
+URL các session store có thể dùng để lưu: https://github.com/expressjs/session?tab=readme-ov-file#compatible-session-stores
+Client có thể lưu trong localStorage or sessionStorage
 
-VD redis có store: new RedisStore(),
+VD connect-redis hỗ trợ lưu session data: new RedisStore(),
 VD connect-mongo hỗ trợ lưu session data:
 store: new MongoStore ({ 
   url: "mongodb: // localhost: 27017 / test-app", // URL MONGODB CỦA BẠN 
@@ -401,9 +401,9 @@ store: new MongoStore ({
 
 --> Pb lib:
 cookie-parser: buộc phải có để parse và đọc cooke
-express-session: giúp dùng cookie lưu session data cho expressjs. Cứ dùng là có thêm req.session tùy ý get và set ở server, có hỗ trợ sign với secret và lưu vào cookie.
+express-session: giúp lưu cookie data ở memory cho expressjs. Cứ dùng là có thêm req.session tùy ý get và set ở server, có hỗ trợ sign với secret và lưu vào cookie.
 Còn có cookie-session lưu session data trong cookie nhưng k bị giới hạn ở express server.
-=> Bth thì dùng express-session cho expressjs, k thì dùng cookie-parser tuỳ biến custom lưu session hoặc permanent được.
+=> express-session và cookie-session thường dùng cho development thôi, best practice kết hợp với connect-redis để lưu lâu dài vào redis
 
 -> Giải pháp sync session data trong hệ phân tán: VD client gửi request tới nhiều server khác nhau, server 1 lưu session data, server 2 k lưu sẽ invalid yêu cầu login lại
 - Lưu session data chỉ ở client thông qua cookies / localStorage
@@ -481,4 +481,6 @@ Gửi mail với gmail thì khi gửi đi sẽ bị chặn, để nodemailer ch�
 - Với tài khoản xác minh 2 lớp (vd qua số đt nx): bảo mật -> App Password -> Sign in password -> Select App -> Other -> gõ tên mật khẩu -> sinh ra 1 password mới thay thế cho password hiện có để ứng dụng có tên đó truy cập vào đc gmail của ta 
 URL: https://myaccount.google.com/security
 
-
+-> Gửi mail hệ thống lớn phải có log và retry đầy đủ. Có mail báo mỗi khi số lượng retry của service trong 1 ngày là quá nhiều hay số lượng fail quá mức accept. Task gửi mail nên là bẩt đồng bộ đẩy vào queue xử lý tối đa bao nhiêu mail đồng thời.
+Nếu vẫn lỗi khi retry thì cần check CPU và memory của server và db thời điểm xảy ra lỗi để hiệu chỉnh phù hợp: tăng partition db, mở rộng chiều ngang, giảm tốc độ phát message của queue để k quá tải consumer, ngắt tạm dừng 1 vài producer để k quá tải consumer
+Bảng log: logid, emailcontent, kafa_status, smtp_status, status failed/pending/success/retry_failed, retry_count, kafa_topic => Có thể lọc status retry_failed phức tạp

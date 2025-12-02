@@ -160,7 +160,7 @@ db.myCollection.findAndModify({
 => Khi bị lock, query sẽ chờ lock, trong lúc đó sẽ thực hiện với các document khác bình thường. Tức các query cứ thực hiện song song bất đồng bộ thôi.
 => Nếu quá timeout mà vẫn k giải phóng lock, nó sẽ báo lỗi deadlock và rollback như bth, khi đó nên retry.
 
--> Khi tạo relation 2 bảng, k nên embedded trực tiếp vào mà nên ref
+-> Khi tạo relation 2 bảng 1:1 thì nên embed, 1:N thì nên ref
 one to many là cha ref tới 10 con; one to huge là cha ref tới 1 triệu con quá lớn nên khi đó thường dùng con ref tới cha thôi.
 
 -> Mongodb hỗ trợ update kiểu PATCH nested object, khi có 1 object và chỉ cần update 1 field trong object đó. SQL k hỗ trợ điều này mà phải tự stringify và update cả string.

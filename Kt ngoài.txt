@@ -171,7 +171,8 @@ Dùng package bên trong dự án luôn mà k cần publish lên npm: Vào trong
 
 
 # Chia file BE hệ thống lớn
-Best practice vẫn là chia theo chức năng, bên trong từng chức năng chia theo file từng module. Chứ nếu chia theo module lỡ cần common lại k có chỗ viết.
+Best practice vẫn là chia theo chức năng, bên trong từng chức năng chia theo file từng module => package-by-layer
+Chứ nếu chia theo module lỡ cần common lại k có chỗ viết => package-by-feature
 Tính năng
   Tính năng con
     Module
@@ -323,6 +324,9 @@ A nhắn cho B thì tin nhắn có các trạng thái khác nhau là đang gửi
 Tối ưu tránh duplicate data thì message lưu riêng duy nhất và từng box của user chỉ lưu id đến message thôi.
 Để tránh user mỗi khi vào sẽ query lại tất cả message, ta thường chỉ load 1 vài message gần đây, và lưu offline trên máy user, khi vào chỉ lấy các tin mới thôi.
 Dùng cache lưu user online hay offline để truy cập cho nhanh. VD user X online sẽ lưu vào cache là online, server check bạn bè của X mà online thì báo là X đang online. Để check X online thì có nhiều cách như ping 30s 1 lần api heartbeat, hoặc check đang có socket connection thì lưu online.
+
+--> Tối ưu kết hợp cả push và pull trong ecommerce:
+Với khách hàng thường xuyên online ta push thông báo tới, khách hàng ít online ta cho họ pull. Khách hàng online ít nhưng có đăng ký thông báo mã giảm giá thì push cho họ mã, còn các thông báo khác vẫn để họ pull.
 
 
 

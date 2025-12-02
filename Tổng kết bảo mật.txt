@@ -237,6 +237,7 @@ VD backdoor sử dụng với mục đích tốt: Các phần mềm tự thông 
 
 # Tấn công IDOR
 IDOR (Insecure Direct Object Reference): User query user detail dựa trên userid, server check token hợp lệ là chưa đủ, phải check tham số userid truyền vào đúng là user trong token mới được.
+Giống như RBAC, phải luôn check tài nguyên được dùng có trong quyền hạn của user hiện tại hay k. Tương tự params truyền vào url cũng phải check hợp lệ.
 
 
 
@@ -287,6 +288,10 @@ Trường hợp khác không chia theo độ nặng CPU mà chia theo tier khác
 Khi burst, rate vẫn gọi như cũ nhưng lượng thừa lưu hàng đợi, lượng quá burst mới bị huỷ bỏ.
 Global ratelimit đảm bảo server kbh quá tải. Endpoint ratelimit để tránh tranh giành nhau, VD endpoint A chiếm hết băng thông của endpoint B trong khi endpoint B là 1 endpoint quan trọng k nên để failed. Nếu các endpoint equal k có cái nào thực sự quan trọng hơn thì chỉ cần global ratelimit hoặc set ratelimit cho mọi endpoint trừ endpoint qtr.
 =>*** Cơ chế tự cải tiến, có thể code động để server tự đổi ratelimit. VD check log thấy endpoint A bị 429 (request hợp lệ kp ddos) mà global ratelimit vẫn chưa tới thì cân nhắc tăng ratelimit cho A.
+
+-> ratelimit cũng có thể implement bằng redis thủ công.
+Trong nodejs, req.headers["x-forwarded-for"] trả về list từ client tới server, req.connection.remoteAddress trả về ip của máy sát với server nhất, có thể là proxy.
+Nếu gọi ở local thì x-forwarded-for là undefined vì postman các thứ k tự add vào req.headers.
 
 -> Nhanh:
 Reset password, forgot password nên cho rate limit nhỏ, có thể gửi mail hoặc trực tiếp, cho request mới sẽ vô hiệu request cũ.

@@ -174,11 +174,16 @@ app.use("/", rateLimit({
 }));
 
 --> express-session:
-app.use(session({ 
-  cookies: { secure: true, maxAge: 6000 },
+app.use(session({
+  cookies: { 
+    secure: true, // Dùng session lưu cookie chỉ khi https
+    maxAge: 6000, 
+    httpOnly: true 
+  },
   secret: "test", // Dùng để encrypt information trong cookies
-  resave: true, // K resave khi k có sự thay đổi
-  saveUninitialized: true // Lưu cả các giá trị empty
+  resave: true, // Mỗi request sẽ ghi lại vào session store kể cả k có thay đổi gì
+  saveUninitialized: true, // Lưu cả các giá trị empty
+  store: new RedisStore({ client: redisClient }),
 }))
 
 --> compression:
