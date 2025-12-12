@@ -40,26 +40,6 @@ NodeJS tốn ít memory hơn C# khi có 100 ngàn task đồng thời, nhưng kh
 
 
 
-# Event loop của nodejs
-Event liên tục được bắt để add vào queue theo thứ tự: Timer event (timeout, interval) -> IO callback (read file) -> Idle (nội bộ) -> Poll (Tìm kiếm sự kiện IO mới đang polling) -> Check (xử lý callback của setImmediate) -> Close Callbacks (xử lý các callback ngắt kết nối) -> quay lại Timer
-Khi có event sẽ gửi cho C++ xử lý, xong thì sẽ gửi callback cần thực hiện vào event queue của JS. 
-
-VD gọi setImmediate và setTimeout 0s cạnh nhau cùng lúc, thì thứ tự sẽ phụ thuộc vào cái loop thêm event vào queue kia đang ở giai đoạn Check hay Timer. Nếu là IO callback thì setImmediate thực hiện trước vì nó sang giai đoạn Check trước giai đoạn Timer.
-VD khi loop hiện tại kết thúc, trước khi vòng sau bắt đầu sẽ thực hiện theo thứ tự: callback của process.nextTick (callback) -> promise -> callback của setImmediate
-
--> Mã nguồn core của nodejs gồm 2 thành phần là JS và C++, và C++ bao gồm các xử lý tới các thư viện bên ngoài như V8, libuv.
-stack: nơi chứa các lệnh nó chạy theo thứ tự LIFO từ code của ta, thực hiện hàm lần lượt gọi là call stack
-heap: nơi chứa các kết quả tạm phục vụ cho việc thực thi các hàm trong stack. Heap càng lớn thì tính toán càng nhanh. Trong C++ thì dùng nó là cấp phát động 
-js engine: là nền tảng thông dịch mã JS bao gồm heap và stack. NodeJS xây dựng trên JS engine là V8 Chorme
-event: là thứ chứa các thông tin về sự kiện chờ xử lý
-callback function và listener: là cái bind cùng với event, là cái sẽ được thực hiện khi event đó được gọi. 
-eventLoop: event loop tồn tại trong chương trình vĩnh viễn miễn chưa bị tắt. 
-
--> Cơ chế: Mã nguồn thực hiện tuần tự trong V8, gặp hàm thì đưa vào stack và thực hiện, dữ liệu hàm trả ra lưu vào heap. Nếu k có hàm bất đồng bộ thì sẽ thực hiện tuần tự r kết thúc. Nếu có hàm bất động bộ thì request đó sẽ bị đẩy ra ngoài độc lập nhờ WebAPIs (libuv quản lý). Request này sẽ được core của CPU thực hiện, cái này do C++ dùng thread pool xử lý nên các tác vụ ở đây được xử lý đồng thời rồi mới đưa vào event queue (VD nếu ta dùng setTimeout 5s thì WebAPIs sẽ k gửi ngay mà 5s sau mới gửi hàm cho queue, nếu ta fetch API thì multithread của CPU sẽ xử lý). Việc tốn thời gian đó sẽ được xử lý trên C++ Thread Pool, tức là xử lý multithread và còn cho phép ta tương tác với database, file system,.. Cái nào xong trước thì callback của nó sẽ được đưa vào event queue. Event loop kiểm tra nếu stack trống thì kiểm tra callback queue để xử lý, đưa hàm callback của yêu cầu đó vào callstack để xử lý. Nếu callstack vẫn có dữ liệu thì eventqueue sẽ k làm gì cả, chờ stack thực hiện callback event đó xong trống mới vô đc, do đó nếu đưa vào event queue mà k đc thực hiện ngay vì trong queue đó có các thứ khác thì thời gian thực hiện có thể lâu hơn, dẫn đến setTimeout chỉ là thời gian tối thiểu công việc chạy chứ kp thời gian chính xác.
-VD cụ thể: ấn nút gọi setTimeout gọi hàm fetch API xong callback in ra màn hình. Compile đến sự kiện -> web APIs lưu nó -> emitter phát sự kiện -> web APIs bắt sự kiện -> đưa cho C++ thread pool xử lý, lúc này nó chả làm gì mà gửi luôn call back của sự kiện cho event queue. Trong lúc này Ct vẫn chạy đồng thời các sự kiện khác và bất đồng bộ thì vẫn đưa vào C++ thread pool xử lý, cái này với cái kia, cái nào xong trước thì gửi vào event queue trước. Event loop lấy nó gửi sang stack. Stack thực hiện nó lại thấy 1 hàm bất đồng bộ là setTimeout lại gửi sang cho WebAPIs. Còn các hàm đồng bộ khác bên trong nó thì vẫn thực hiện tiếp. WebAPIs gửi nó cho thread pool xử lý. Sau ktg setTimeout, pool đó sẽ đưa hàm callback của setTimeout vào queue r vào stack nếu stack trống r thực hiện -> thực hiện thì lại bắt gặp hàm fetch API -> lại đưa sang WebAPIs, nó lại đưa vào pool xử lý bất đồng bộ. Lúc này stack trống và có thể thực hiện tiếp các hàm khác. Pool thực hiện xong sẽ lại đưa callback của hàm đó vào event queue -> event loop lại lấy ra đưa vào stack để thực hiện nếu stack trống, r sẽ chạy in kết quả ra màn hình.
-
-
-
 # CRUD
 -> Method OPTIONS 
 Khi client gửi OPTIONS tới server, server phản hồi với thông tin chứa các HTTP Method mà server support với url đó. 
@@ -95,6 +75,26 @@ const initAppBootstrap = async () => {
 }
 module.exports = initAppBootstrap;
 => Nên setup chạy trên Docker cho an toàn
+
+
+
+# Event loop của nodejs
+Event liên tục được bắt để add vào queue theo thứ tự: Timer event (timeout, interval) -> IO callback (read file) -> Idle (nội bộ) -> Poll (Tìm kiếm sự kiện IO mới đang polling) -> Check (xử lý callback của setImmediate) -> Close Callbacks (xử lý các callback ngắt kết nối) -> quay lại Timer
+Khi có event sẽ gửi cho C++ xử lý, xong thì sẽ gửi callback cần thực hiện vào event queue của JS. 
+
+VD gọi setImmediate và setTimeout 0s cạnh nhau cùng lúc, thì thứ tự sẽ phụ thuộc vào cái loop thêm event vào queue kia đang ở giai đoạn Check hay Timer. Nếu là IO callback thì setImmediate thực hiện trước vì nó sang giai đoạn Check trước giai đoạn Timer.
+VD khi loop hiện tại kết thúc, trước khi vòng sau bắt đầu sẽ thực hiện theo thứ tự: callback của process.nextTick (callback) -> promise -> callback của setImmediate
+
+-> Mã nguồn core của nodejs gồm 2 thành phần là JS và C++, và C++ bao gồm các xử lý tới các thư viện bên ngoài như V8, libuv.
+stack: nơi chứa các lệnh nó chạy theo thứ tự LIFO từ code của ta, thực hiện hàm lần lượt gọi là call stack
+heap: nơi chứa các kết quả tạm phục vụ cho việc thực thi các hàm trong stack. Heap càng lớn thì tính toán càng nhanh. Trong C++ thì dùng nó là cấp phát động 
+js engine: là nền tảng thông dịch mã JS bao gồm heap và stack. NodeJS xây dựng trên JS engine là V8 Chorme
+event: là thứ chứa các thông tin về sự kiện chờ xử lý
+callback function và listener: là cái bind cùng với event, là cái sẽ được thực hiện khi event đó được gọi. 
+eventLoop: event loop tồn tại trong chương trình vĩnh viễn miễn chưa bị tắt. 
+
+-> Cơ chế: Mã nguồn thực hiện tuần tự trong V8, gặp hàm thì đưa vào stack và thực hiện, dữ liệu hàm trả ra lưu vào heap. Nếu k có hàm bất đồng bộ thì sẽ thực hiện tuần tự r kết thúc. Nếu có hàm bất động bộ thì request đó sẽ bị đẩy ra ngoài độc lập nhờ WebAPIs (libuv quản lý). Request này sẽ được core của CPU thực hiện, cái này do C++ dùng thread pool xử lý nên các tác vụ ở đây được xử lý đồng thời rồi mới đưa vào event queue (VD nếu ta dùng setTimeout 5s thì WebAPIs sẽ k gửi ngay mà 5s sau mới gửi hàm cho queue, nếu ta fetch API thì multithread của CPU sẽ xử lý). Việc tốn thời gian đó sẽ được xử lý trên C++ Thread Pool, tức là xử lý multithread và còn cho phép ta tương tác với database, file system,.. Cái nào xong trước thì callback của nó sẽ được đưa vào event queue. Event loop kiểm tra nếu stack trống thì kiểm tra callback queue để xử lý, đưa hàm callback của yêu cầu đó vào callstack để xử lý. Nếu callstack vẫn có dữ liệu thì eventqueue sẽ k làm gì cả, chờ stack thực hiện callback event đó xong trống mới vô đc, do đó nếu đưa vào event queue mà k đc thực hiện ngay vì trong queue đó có các thứ khác thì thời gian thực hiện có thể lâu hơn, dẫn đến setTimeout chỉ là thời gian tối thiểu công việc chạy chứ kp thời gian chính xác.
+VD cụ thể: ấn nút gọi setTimeout gọi hàm fetch API xong callback in ra màn hình. Compile đến sự kiện -> web APIs lưu nó -> emitter phát sự kiện -> web APIs bắt sự kiện -> đưa cho C++ thread pool xử lý, lúc này nó chả làm gì mà gửi luôn call back của sự kiện cho event queue. Trong lúc này Ct vẫn chạy đồng thời các sự kiện khác và bất đồng bộ thì vẫn đưa vào C++ thread pool xử lý, cái này với cái kia, cái nào xong trước thì gửi vào event queue trước. Event loop lấy nó gửi sang stack. Stack thực hiện nó lại thấy 1 hàm bất đồng bộ là setTimeout lại gửi sang cho WebAPIs. Còn các hàm đồng bộ khác bên trong nó thì vẫn thực hiện tiếp. WebAPIs gửi nó cho thread pool xử lý. Sau ktg setTimeout, pool đó sẽ đưa hàm callback của setTimeout vào queue r vào stack nếu stack trống r thực hiện -> thực hiện thì lại bắt gặp hàm fetch API -> lại đưa sang WebAPIs, nó lại đưa vào pool xử lý bất đồng bộ. Lúc này stack trống và có thể thực hiện tiếp các hàm khác. Pool thực hiện xong sẽ lại đưa callback của hàm đó vào event queue -> event loop lại lấy ra đưa vào stack để thực hiện nếu stack trống, r sẽ chạy in kết quả ra màn hình.
 
 
 

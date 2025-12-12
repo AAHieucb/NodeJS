@@ -226,6 +226,11 @@ Do qtr update cache và db k là 1 tx nên có thể bị xung đột khi nhiề
 - Cách duy nhất xử lý mà k biến nó thành tx là update db rồi xoá cache. Nhưng để tránh bước xoá cache lỗi, có thể xoá cache -> nếu success thì update db -> lại xoá cache
 => Cách này vẫn lỗi ở 1 số TH hiếm hoi nên vẫn ok dự án nhó. VD user 1 update db và xoá cache, user 2 đọc từ db xong và cbi add vào cache, user 3 ngay lúc đó update db và xoá cache, user 2 bh mới add được vào cache, db và cache sẽ khác data.
 
+-> Implement lưu distribute cache trong micro-service: giả sử có lượng lớn request đồng thời chia vào 3 service nhận request lấy ra data, dùng chung cache và db.
+Trong 1 service: request lấy từ cache -> k có sẽ lock code lại -> lấy lại từ cache tiếp -> nếu cache k có thì lấy từ db -> update vào cache -> unlock code
+Check lại cache sau khi lock để khi request đầu lock, các request sau sẽ chờ lock mở rồi retry get lại từ cache thôi. Khi lock mở thì các request sẽ tuần tự vì có lock, nếu muốn xử lý song song thì thì xử lý thay vì chờ để lấy lock, có thể để retry vài lần sau vài giây.
+Max mỗi service call tới db 1 lần duy nhất.
+
 
 
 # Client side cache
@@ -379,6 +384,14 @@ hash-max-ziplist-value 64 # Kích thước entry tối đa (tính bằng byte) �
 Instagram tính toán để set config hash-max-ziplist-entries con số tối ưu là 1000, lớn hơn sẽ gây áp lực lên CPU quá tải. Tận dụng lợi thế hash bằng cách chia 1000 bucket.
 VD: HSET "mediabucket:1155" "1155315" "939" "123" ... => Scale lên 300M key thì bộ nhớ chỉ tốn 5GB, tận dụng tối đa ziplist
 
+-> Check user tồn tại trong 100M users. VD: gõ email đăng ký 0.1s phát là hiện email đã từng được đăng ký trong 100M users.
+Việc dùng SELECT COUNT(email) FROM X WHERE email = "input" rất lâu với 100M users. Phải dùng redis với bitmap và hash.
+- Lưu trực tiếp trong redis: SET user@gmail.com 1 => để biết 1 user đã login
+Cách này bị tốn memory vì lưu toàn bộ gmail vào redis
+- Dùng thuật toán CRC32 chuyển đổi string sang 1 số int rồi lưu int là key trong redis. CRC32 cho phép input maxIntValue và sẽ trả hash là số int từ string.
+VD SET 11001 1 => tương đương SET user@gmail.com 1 nhưng bộ nhớ rẻ hơn.
+- Dùng bitmap rẻ nhất khi có số lượng lớn users.
+
 
 
 # 3 sự số cache
@@ -448,17 +461,3 @@ Redis lưu data trên RAM, tốc độ cao nhưng tốn RAM nên k thể thay th
 --> Redis cung cấp nhiều tính năng như pub/sub, sự kiện, hỗ trợ kiểu dữ liệu phức tạp, có chế độ cluster, lưu data bền bỉ trong đĩa cứng, đơn luồng (nên mỗi lệnh là atomic). VD: Redis hỗ trợ HyperLogLog là một cấu trúc dữ liệu xác định xấp xỉ số lượng phần tử duy nhất trong một tập hợp lớn mà không cần lưu trữ tất cả các phần tử đó
 Memcached giống Redis nhưng thiếu nhiều tính năng, chỉ dùng với string, chỉ lưu trong memory restart là mất. Do đó nó cũng có hiệu suất cao hơn và tải công việc lớn hơn.
 => Ứng dụng nhỏ dùng memcached là được. Còn cần linh hoạt hay tính năng nâng cao thì dùng redis.
-
--> Implement lưu distribute cache trong micro-service: giả sử có lượng lớn request đồng thời chia vào 3 service nhận request lấy ra data, dùng chung cache và db.
-Trong 1 service: request lấy từ cache -> k có sẽ lock code lại -> lấy lại từ cache tiếp -> nếu cache k có thì lấy từ db -> update vào cache -> unlock code
-Check lại cache sau khi lock để khi request đầu lock, các request sau sẽ chờ lock mở rồi retry get lại từ cache thôi. Khi lock mở thì các request sẽ tuần tự vì có lock, nếu muốn xử lý song song thì thì xử lý thay vì chờ để lấy lock, có thể để retry vài lần sau vài giây.
-Max mỗi service call tới db 1 lần duy nhất.
-
--> Check user tồn tại trong 100M users. VD: gõ email đăng ký 0.1s phát là hiện email đã từng được đăng ký trong 100M users.
-Việc dùng SELECT COUNT(email) FROM X WHERE email = "input" rất lâu với 100M users. Phải dùng redis với bitmap và hash.
-- Lưu trực tiếp trong redis: SET user@gmail.com 1 => để biết 1 user đã login
-Cách này bị tốn memory vì lưu toàn bộ gmail vào redis
-- Dùng thuật toán CRC32 chuyển đổi string sang 1 số int rồi lưu int là key trong redis. CRC32 cho phép input maxIntValue và sẽ trả hash là số int từ string.
-VD SET 11001 1 => tương đương SET user@gmail.com 1 nhưng bộ nhớ rẻ hơn.
-- Dùng bitmap rẻ nhất khi có số lượng lớn users.
-
