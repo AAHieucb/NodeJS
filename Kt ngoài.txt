@@ -12,7 +12,7 @@ Write through: update cache với main mem đồng thời, sẽ bị chậm => t
 Write back: chỉ update cache, khi data trong cache bị replaced mới update vào mainmem => chỉ dùng khi cache size lớn, cần tốc độ cao k chấp nhận việc update main mem bị chậm
 
 -> 3 loại cache: direct map, fullly associative, n way set associative
-- Direct map dùng 1 bảng hash hash và lưu theo hash để tìm tốc độ O(1)
+- Direct map dùng 1 bảng hash và lưu theo hash để tìm tốc độ O(1)
 - Fully associative lưu mỗi cục block data là 1 cục block cache luôn, khi cần tìm sẽ search tuyến tính, lưu vị trí nào cũng được. VD cache có 8 entry thì 1 block có thể lưu vào bất cứ entry nào trong cache đó => Khi search sẽ ngốn O(n) với n là số entry trong cache, chậm hơn direct map O(1) nhưng ít miss hơn, cache size nên nhỏ thôi
 - n way set associative thì cache lưu nhiều set theo hash search O(1), rồi search tuyến tính từng entry trong set.
 VD: one way tức là số lượng set bằng số lượng entry và giống Direct map
@@ -49,6 +49,8 @@ Trình duyệt tự động gửi preflight request như vậy khi FE và server
 -> POST dùng body, GET dùng params nhưng params bị giới hạn bởi url length.
 VD api cần truyền list id thì buộc phải dùng POST vì có thể list vô hạn, chỉ dùng GET khi biết request nhỏ.
 API response và request nên trả về tối thiểu data tối ưu băng thông và tốc độ.
+
+DELETE /posts/456?force=true => DELETE k nên dùng với request body vì nhiều framework bỏ qua request body
 
 -> Dùng redirect trong expressjs tự động gửi phản hồi 302, browser nhận sẽ luôn GET đến url mới.
 Chủ động dùng phản hồi 307 hoặc 308 thì browser sẽ giữ nguyên method và body để gửi tới URL mới.

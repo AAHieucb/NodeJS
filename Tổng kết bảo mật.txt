@@ -144,14 +144,18 @@ Nếu set là Strict, thì request từ web khác sẽ k thể gửi kèm cookie
 Nếu set là Lax cũng tương tự nhưng request GET vẫn gửi kèm cookie => khi đó phải đảm bảo mọi request GET ở server phải code đúng, k update data gì cả là được.
 => Nó cản mọi CSRF từ website khác, nhưng vẫn bị CSRF từ chính website của ta, VD blogweb chứa url call tới API xoá data. Vẫn bị CSRF nếu popup website và lừa ngừoi dùng call api. Do đó vẫn phải bảo mật cẩn thận trong chính site của ta, validate XSS input người dùng thật chuẩn.
 3) Double Submit Cookie: nếu buộc dùng cookie mà buộc phải set None hoặc option LAX nhưng có API GET update data.
-Khi login trong 1 phiên sẽ có 1 random value lưu vào cookie -> FE setup để các form trong web có hidden field gắn giá trị random đó (k fix cứng), hoặc mọi chỗ call api sẽ gán giá trị random đó -> thực hiện request thì server check random val trong cookie với trong hidden field giống nhau là được. 
-Mỗi khi vào web, FE có thể lấy CSRF token từ cookie (nếu k set http only) hoặc từ 1 api riêng (nên dùng), rồi setup để gắn CSRF token vào header X-CSRF-Token (nên dùng), hoặc trong hidden form field đều được.
-
+- Client gửi request lấy CSRF token từ server
+Thường lấy token này khi login, khi request GET đầu tiên (nếu app k có login), ít khi dùng hẳn 1 api riêng chỉ để lấy token này
+Server tạo token bằng Random String hoặc HMAC(secret + session-id) cũng đảm bảo duy nhất với secret lưu ở server
+Server thường gửi token xuống client qua cookie, k set HttpOnly vì client cần JS để lấy ra. SSR cổ điển thì server embed vào html gửi lại client được.
+- Mọi request update sau, client phải gửi kèm token này. 
+Nhét token vào header X-CSRF-Token. SSR cổ điển, PHP, submit form html thuần như ngày xưa thường cho vào request body hoặc hidden form field.
 VD: <form action="http://bank.com/transfer.do" method="post">
   <input name="amount" value="100000"/>
   <input type="hidden" name="csrf_token" value="{{csrf_token}}">
   <button type="submit">Submit</button>
 </form>
+- Server lấy token từ cookie và header ra rồi ss bằng nhau là ok.
 
 VD: dùng package csurf nodejs sẽ tạo middleware chống crsf attack. Token csrf đảm bảo reset sau mỗi phiên dùng của user. Nếu là react phải cung 1 API lấy token về trước.
 Cơ chế nó gắn 1 token gửi tới client để client gửi lại trong header r check thôi. Thêm vào header ấy, r cản iframe, lọc XSS chuẩn là được.
@@ -167,7 +171,7 @@ JWT token không có tác dụng gì ở đây. User có thể bị cài malware
 Nhược điểm là vẫn replicate được trong phạm vi 1p đó.
 2) Nonce: Client gửi request tới server thêm nonce cho server lưu và nếu 1 nonce từng được sử dụng sẽ lỗi luôn. Server nên lưu redis => nên dùng
 
-Để tránh redis phải lưu nonce quá tải thì dùng kèm cả 2 cách là tốt nhất. Vd: signature = md5(uid=1001&stime=19h00&nonce=sessionId-123456 + key)
+Để tránh redis phải lưu nonce quá tải thì dùng kèm cả 2 cách là tốt nhất.
 Phía server lấy lại từng trường: 
 - Check timestamp chưa quá 1p
 - Check nonce chưa có trong redis ok
@@ -177,9 +181,10 @@ Phía server lấy lại từng trường:
 -> Signature Generation: VD MITM bắt request chuyển tiền và sửa payload người nhận thành hacker => khó xảy ra vì các app quan trọng như ngân hàng, github thường gửi thẳng OTP về điện thoại, google authen, hoặc mã hoá rất kỹ. 
 
 Luồng ký payload:
-Dùng diffle-hellman trao đổi 1 khoá chung giữa client server để trao đổi 1 secret.
-Client tạo ra signature từ: timestamp, random nonce, simplified request content, version, secret. Hash tất cả thành 1 string là signature.
-Server nhận sẽ check timestamp k quá xa. Sinh lại signature so khớp với client là được. Các trường kia đều gửi qua url hoặc trao đổi với server có hết r
+- Client gửi request luôn kèm signature tạo từ nhiều thành phần.
+Client server dùng diffle-hellman để trao đổi 1 khoá chung là secret. 
+Tạo signature. VD: signature=HMAC_SHA256(uid=1001&stime=19h00&nonce=sessionId-randomNum&version&<simplified version của field mà k muốn bị đổi>)
+- Server nhận các trường sẽ tạo lại signature và so sánh, kèm check timestamp k quá xa là đươc.
 
 -> OTP:
 Gọi API đăng ký user thì server sinh ra 1 mã OTP random 6 số chẳng hạn. Có lib otp-generator hỗ trợ sinh số này.
