@@ -43,3 +43,5 @@ Nếu data update ít hoặc k yêu cầu realtime quá mà query nhiều thì n
 -> node-schedule: giúp lập lịch => thay bằng bullmq
 
 -> @google-cloud/text-to-speech
+
+-> shrink-ray-current: nén data api bằng thuật toán brotli, mạnh hơn gzip => thay thế bằng zlib có sẵn

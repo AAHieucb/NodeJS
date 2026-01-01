@@ -18,7 +18,7 @@ Trong production, cài package "typescript" cung lệnh tsc. Viết file tsconfi
 
 
 
-# Master require, import, module.export và export, dynamic import
+# Master require, import, module.export và export, dynamic import => luôn ưu tiên dùng import export
 -> Cơ chế là object được module.exports sẽ chỉ chạy qua 1 lần rồi lưu cache, tức object dùng như 1 singleton.
 Khi dùng async để khởi tạo biến, logic chạy như bth, require như bth, hàm chạy xong sẽ dùng được biến thôi.
 
@@ -303,9 +303,17 @@ Trong window: cd vào thư mục -> set DEBUG=appmyapp:* => để set env var tr
 
 
 # Nén data truyền qua API
-- Nhiều nền tảng như Cloudflare cũng hỗ trợ sẵn nén data khi dùng làm proxy: Client <---10KB--- Cloudflare <---100KB--- Origin server
-- compression: lib nén data qua api với gzip. Lưu ý tốc độ nhanh hơn nhưng tăng áp lực lên CPU => nên dùng mọi lúc trừ khi gặp vấn đề CPU server yếu
-- shrink-ray-current*: dùng thuật toán brotli mới của google còn giúp nén mạnh hơn nữa => best practice, éo được với v23 nhưng có thể để nginx dùng, chỉ nên nén 1 lần thôi.
+Dùng tích hợp các nền tảng như Cloudflare hỗ trợ sẵn nén data khi dùng làm proxy: Client <---10KB--- Cloudflare <---100KB--- Origin server
+Có thể nén trực tiếp từ server nodejs hoặc nén ở proxy nginx.
+
+Lib zlib của nodejs có sẵn hỗ trợ nén với brotli, fallback gzip => luôn dùng, lib compression cũng làm được tương tự nhưng phải tải thêm về.
+Lưu ý tốc độ nhanh hơn nhưng tăng áp lực lên CPU => nên dùng mọi lúc trừ khi gặp vấn đề CPU server yếu.
+Chỉ nén khi kích thước lớn, vì kích thước nhỏ mà nén còn khiến size lớn hơn.
+Yêu cầu phía client gửi phải có Header Accept-Encoding: br thì server gửi chứa Content-Encoding: br cho biết cách decode.
+VD: curl -H "Accept-Encoding: br, gzip" -I http://localhost:3000
+
+Còn có brotli cli là tool nén data với alg brotli ngay trên CLI. 
+Server nodejs nén api brotli nên dùng zlib có sẵn, nhưng cũng có thể cài brotli cli trên máy và dùng execSync của child_process để nén.
 
 
 

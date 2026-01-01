@@ -43,7 +43,7 @@ NodeJS tốn ít memory hơn C# khi có 100 ngàn task đồng thời, nhưng kh
 # CRUD
 -> Method OPTIONS 
 Khi client gửi OPTIONS tới server, server phản hồi với thông tin chứa các HTTP Method mà server support với url đó. 
-Trình duyệt tự động gửi preflight request như vậy khi FE và server ở 2 domain khác nhau để kiểm tra xem server có cho phép yêu cầu từ origin đó k, hoặc khi dùng method k an toàn như PATCH để update data. Cùng origin sẽ k gửi preflight request.
+Trình duyệt tự gửi preflight request như vậy khi FE và server 2 domain khác nhau để kiểm tra xem server có cho phép yêu cầu từ origin đó k. Cùng origin sẽ k gửi preflight request
 Đây là cơ chế bảo mật mặc định của trình duyệt để chặn các request không mong muốn mà server k chấp nhận, k cần code gì thêm. Server tự xử lý và trả về các header cors như Access-Control-Allow-Origin, Access-Control-Allow-Methods, Access-Control-Allow-Headers. 
 
 -> POST dùng body, GET dùng params nhưng params bị giới hạn bởi url length.
@@ -52,10 +52,11 @@ API response và request nên trả về tối thiểu data tối ưu băng thô
 
 DELETE /posts/456?force=true => DELETE k nên dùng với request body vì nhiều framework bỏ qua request body
 
--> Dùng redirect trong expressjs tự động gửi phản hồi 302, browser nhận sẽ luôn GET đến url mới.
-Chủ động dùng phản hồi 307 hoặc 308 thì browser sẽ giữ nguyên method và body để gửi tới URL mới.
+-> Dùng redirect trong expressjs tự động gửi phản hồi 302 (Found), browser nhận sẽ luôn GET đến url mới.
+Chủ động dùng phản hồi 307 (Temporary Redirect) hoặc 308 (Permanent Redirect) thì browser sẽ giữ nguyên method và body để gửi tới URL mới.
 
-VD người dùng call api tạo 1 user với POST: chú ý nút F5 gửi lại request gần nhất. Nếu server gửi lại html hoặc data bth thì khi ấn F5 đồng thời, nó sẽ call lại API POST khiến 2 user được tạo ra. Đó là lý do thường dùng redirect trong case này để lỡ reload page gửi lại method GET của redirect thay vì POST 2 lần.
+VĐ web cổ điển khi user call api tạo user mới qua <form> với POST, server trả về HTML hoặc JSON (200). Browser ghi nhớ request POST cuối cùng và ấn F5 sẽ hỏi resubmit form không, nếu đồng ý sẽ POST lại tạo user lần 2. Khi đó phải fix response redirect sang trang user details để F5 chỉ GET lại thôi.
+VĐ chỉ xảy ra khi web submit form PHP chứ SPA như react thì call bằng JS sẽ k bị vấn đề này khi F5.
 
 
 
@@ -92,11 +93,11 @@ stack: nơi chứa các lệnh nó chạy theo thứ tự LIFO từ code của t
 heap: nơi chứa các kết quả tạm phục vụ cho việc thực thi các hàm trong stack. Heap càng lớn thì tính toán càng nhanh. Trong C++ thì dùng nó là cấp phát động 
 js engine: là nền tảng thông dịch mã JS bao gồm heap và stack. NodeJS xây dựng trên JS engine là V8 Chorme
 event: là thứ chứa các thông tin về sự kiện chờ xử lý
-callback function và listener: là cái bind cùng với event, là cái sẽ được thực hiện khi event đó được gọi. 
+callback function và listener: là cái bind cùng với event, là cái sẽ được thực  hiện khi event đó được gọi. 
 eventLoop: event loop tồn tại trong chương trình vĩnh viễn miễn chưa bị tắt. 
 
 -> Cơ chế: Mã nguồn thực hiện tuần tự trong V8, gặp hàm thì đưa vào stack và thực hiện, dữ liệu hàm trả ra lưu vào heap. Nếu k có hàm bất đồng bộ thì sẽ thực hiện tuần tự r kết thúc. Nếu có hàm bất động bộ thì request đó sẽ bị đẩy ra ngoài độc lập nhờ WebAPIs (libuv quản lý). Request này sẽ được core của CPU thực hiện, cái này do C++ dùng thread pool xử lý nên các tác vụ ở đây được xử lý đồng thời rồi mới đưa vào event queue (VD nếu ta dùng setTimeout 5s thì WebAPIs sẽ k gửi ngay mà 5s sau mới gửi hàm cho queue, nếu ta fetch API thì multithread của CPU sẽ xử lý). Việc tốn thời gian đó sẽ được xử lý trên C++ Thread Pool, tức là xử lý multithread và còn cho phép ta tương tác với database, file system,.. Cái nào xong trước thì callback của nó sẽ được đưa vào event queue. Event loop kiểm tra nếu stack trống thì kiểm tra callback queue để xử lý, đưa hàm callback của yêu cầu đó vào callstack để xử lý. Nếu callstack vẫn có dữ liệu thì eventqueue sẽ k làm gì cả, chờ stack thực hiện callback event đó xong trống mới vô đc, do đó nếu đưa vào event queue mà k đc thực hiện ngay vì trong queue đó có các thứ khác thì thời gian thực hiện có thể lâu hơn, dẫn đến setTimeout chỉ là thời gian tối thiểu công việc chạy chứ kp thời gian chính xác.
-VD cụ thể: ấn nút gọi setTimeout gọi hàm fetch API xong callback in ra màn hình. Compile đến sự kiện -> web APIs lưu nó -> emitter phát sự kiện -> web APIs bắt sự kiện -> đưa cho C++ thread pool xử lý, lúc này nó chả làm gì mà gửi luôn call back của sự kiện cho event queue. Trong lúc này Ct vẫn chạy đồng thời các sự kiện khác và bất đồng bộ thì vẫn đưa vào C++ thread pool xử lý, cái này với cái kia, cái nào xong trước thì gửi vào event queue trước. Event loop lấy nó gửi sang stack. Stack thực hiện nó lại thấy 1 hàm bất đồng bộ là setTimeout lại gửi sang cho WebAPIs. Còn các hàm đồng bộ khác bên trong nó thì vẫn thực hiện tiếp. WebAPIs gửi nó cho thread pool xử lý. Sau ktg setTimeout, pool đó sẽ đưa hàm callback của setTimeout vào queue r vào stack nếu stack trống r thực hiện -> thực hiện thì lại bắt gặp hàm fetch API -> lại đưa sang WebAPIs, nó lại đưa vào pool xử lý bất đồng bộ. Lúc này stack trống và có thể thực hiện tiếp các hàm khác. Pool thực hiện xong sẽ lại đưa callback của hàm đó vào event queue -> event loop lại lấy ra đưa vào stack để thực hiện nếu stack trống, r sẽ chạy in kết quả ra màn hình.
+VD cụ thể: ấn nút gọi setTimeout gọi hàm fetch API xong callback in ra màn hình. Compile đến sự kiện -> web APIs lưu nó -> emitter phát sự kiện -> web APIs bắt sự kiện -> đưa cho C++ thread pool xử lý, lúc này nó chả làm gì mà gửi luôn call back của sự kiện cho event queue. Trong lúc này Ct vẫn chạy đồng thời các sự kiện khác và bất đồng bộ thì vẫn đưa vào C++ thread pool xử lý, cái nào xong trước thì gửi vào event queue trước. Event loop lấy nó gửi sang stack. Stack thực hiện nó lại thấy 1 hàm bất đồng bộ là setTimeout lại gửi sang cho WebAPIs. Còn các hàm đồng bộ khác bên trong nó thì vẫn thực hiện tiếp. WebAPIs gửi nó cho thread pool xử lý. Sau ktg setTimeout, pool đó sẽ đưa hàm callback của setTimeout vào queue r vào stack nếu stack trống r thực hiện -> thực hiện thì lại bắt gặp hàm fetch API -> lại đưa sang WebAPIs, nó lại đưa vào pool xử lý bất đồng bộ. Lúc này stack trống và có thể thực hiện tiếp các hàm khác. Pool thực hiện xong sẽ lại đưa callback của hàm đó vào event queue -> event loop lại lấy ra đưa vào stack để thực hiện nếu stack trống, r sẽ chạy in kết quả ra màn hình.
 
 
 
@@ -121,7 +122,7 @@ Phát hiện bots và spam với IP tracking 1 máy xem lại nhiều lần 1 đ
 Video mới mà có lượt view tăng bất thường sẽ bị đóng băng view vài giờ đầu để đội ngũ vào xác minh thủ công.
 
 VD các nghệ sĩ nổi tiếng có lượt view tăng quá nhanh sẽ k sử dụng MySQL hay MongoDB mà phải dùng cache như redis. 
-VD 1 giải pháp chống spam view là lưu IP user vào cache tự hết hạn và bị xóa sau khoảng 5p. Mỗi khi định tăng view bởi 1 ip sẽ check ip vẫn có trong database thì k cộng view lên. Giúp đảm bảo 1 người trong 5p chỉ được 1 view, video length > 5p.
+VD 1 giải pháp chống spam view là lưu IP user vào cache tự hết hạn và bị xóa sau khoảng 5p. Mỗi khi định tăng view bởi 1 ip sẽ check ip vẫn có trong cache thì k cộng view lên. Giúp đảm bảo 1 người trong 5p chỉ được 1 view, video length > 5p.
 Lưu id chưa ổn vì nhiều người cùng bắt VPN hoặc cùng 1 mạng LAN sẽ k chuẩn. Giải pháp là giới hạn 1 ip chỉ được max 5 người chẳng hạn. Cách khác là check dựa vào userid, nếu user chưa login thì tạo userid ảo lưu vào cookie gửi kèm lên server thôi. Từ đó check account thay vì check ip.
 Thêm rate limit và blacklist chặn ip bất thường. Dùng nginx làm reserve proxy có thể lấy được ip của user trong header trường X-Forwarded-For
 
@@ -151,14 +152,14 @@ Client -> Nginx -> Express server: có thẻ dùng chung 1 ssl cert cho http2 �
 
 
 # Publish package npm
-Tạo file readme
-package.json cần có các thông tin như: license, git repo, name, version, bugs, homepage có thể hiển thị trên các nền tảng như npm, github, document, 1 số loại IDE
-Phải push code lên github
-Package phải có file export tính năng cho ứng dụng dùng.
-Nếu tạo package cho FE, phải build thành ESModule bằng bundler hoặc code luôn type module, nên dùng typescript.
+Tạo file readme sẽ hiện trên trang npm
+package.json cần các thông tin tối thiểu license, repository, name, version, bugs, homepage có thể hiển thị trên các nền tảng như npm, github, document
+Phải push code lên github, nên dùng typescript.
+Package phải có 1 file export tính năng cho ứng dụng dùng.
+Nếu tạo package cho FE, phải build thành ESModule bằng bundler hoặc code luôn type module.
 
 Tạo 1 folder ngoài cùng để test package
-Vào folder test "npm link <tên package>" => Lệnh này sẽ import package vào trong node_modules của folder test. Mọi lệnh sửa ở 1 trong 2 folder test hay folder package sẽ tự sync vào folder còn lại. Cũng có thể dùng để chạy package local cho dự án mà k cần publish lên npm
+Vào folder test, "npm link <tên package>" => lệnh này sẽ import package vào trong node_modules của folder test. Mọi lệnh sửa ở 1 trong 2 folder test hay folder package sẽ tự sync vào folder còn lại. Cũng có thể dùng để chạy package local cho dự án mà k cần publish lên npm
 
 Tạo tk trên npmjs.com và chạy "npm login"
 Check xem trên trang chủ phải chưa có package nào trùng tên
@@ -166,9 +167,18 @@ Vào folder package "npm publish"
 Khi sửa package, nhớ push lại lên git, sửa version, "npm login", "npm publish" lại
 
 -> yalc giúp dùng local package trong project, thay cho npm link
-Dùng package bên trong dự án luôn mà k cần publish lên npm: Vào trong thư mục chứa package: "yalc publish" -> quay lại thư mục chứa package.json của dự án: "yalc add <tên package>" -> yalc sẽ tự thêm vào package.json đường dẫn local đến package và ta import dùng như bth
+Vào trong thư mục chứa package: "yalc publish" -> quay lại thư mục chứa package.json của dự án: "yalc add <tên package>" -> yalc sẽ tự thêm vào package.json đường dẫn local đến package và ta import dùng như bth
 Để remove package: cd vào folder chứa package.json của project -> yalc remove my-package
-Đẻ upgrade package: sửa code package như bth -> lặp lại: cd ../my-package -> yalc publish -> cd ../my-project -> yalc update my-package
+Để upgrade package: sửa code package như bth -> lặp lại: cd ../my-package -> yalc publish -> cd ../my-project -> yalc update my-package
+
+
+
+# API versioning
+Tương tự chia version cho API, có thể chia api khác nhau cho từng thiết bị mobile, desktop.
+- Dùng v1 và v2 trong url là pp cũ rồi
+- Cách tốt hơn là client gửi kèm trong header VD X-Github-API-Version
+Version header thường dùng date như 2022-01-12 thay vì chỉ dùng v1, v2. Nếu k truyền version thì báo lỗi.
+Server dùng 1 middleware check header này và redirect về controller tương ứng. 
 
 
 
@@ -296,15 +306,6 @@ URL: https://www.youtube.com/watch?v=_74_z2-uOys
 Cơ chế khi chạy sẽ tạo 1 instance isMaster, fork ra hàng loạt instance isWorker chạy dự án lại từ trên xuống. Master có thể dùng quản lý các instance worker. 
 Nó tự tận dụng mỗi core CPU là 1 process, mỗi process vẫn đơn luồng trong nodejs, sẽ chịu tải đồng thời tốt hơn. 
 Số instance k nên set là max số CPU cores mà nên trải qua thực nghiệm để tối ưu. VD máy 10 cores chạy được 20 instances thì chỉ nên chạy tầm 10 intances, còn lại dành cho task khác để tránh quá tải. Các instance chạy chung 1 cổng và dùng cơ chế load balancing tối ưu của hđh để xử lý, thường là round robin.
-
-
-
-# API versioning
-Tương tự có thể chia api khác nhau cho các thiết bị mobile, desktop.
-- Dùng v1 và v2 trong url là pp cũ rồi
-- Cách tốt hơn là client gửi kèm trong header VD X-Github-API-Version
-Version header thường dùng date như 2022-01-12 thay vì chỉ dùng v1, v2. Nếu k truyền version thì báo lỗi.
-Server dùng 1 middleware check header này và redirect về controller tương ứng. 
 
 
 

@@ -188,6 +188,16 @@ app.use(session({
 
 --> compression:
 app.use(compression({
+  brotli: {
+    enabled: true,
+    zlib: {
+      params: {
+        [zlib.constants.BROTLI_PARAM_QUALITY]: 4, // chất lượng nén 0-11, mặc định là 11
+        [require('zlib').constants.BROTLI_PARAM_MODE]: require('zlib').constants.BROTLI_MODE_TEXT // mode nén
+        [zlib.constants.BROTLI_PARAM_LGWIN]: 22 // kích thước window (10-24)
+      }
+    }
+  },
   level: 6, // Level càng lớn thì compress càng mạnh nhưng nếu lớn quá thì server sẽ phải xử lý nhiều và chậm hơn. Khuyến nghị để mức 6. 
   threshold: 100 *1000, // Đơn vị là byte. tức phải lớn hơn 100kB thì mới thực hiện nén
   filter: (req, res) => { // Filter là điều kiện khi nào thì nén, để mặc định sẽ nén mọi url
@@ -195,7 +205,7 @@ app.use(compression({
       return false;
     }
     return compression.filter(req, res);
-  }
+  },
 }));
 
 
